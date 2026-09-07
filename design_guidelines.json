@@ -1,0 +1,210 @@
+{
+  "project_identity": {
+    "name": "Dotindot Internal Operations & Growth Platform",
+    "phase": "Phase 1 - Core Foundation & Ops",
+    "app_type": "saas_app",
+    "design_archetype": "Notion x Lightweight ERP",
+    "aesthetic_tone": "Clean, spacious, modern internal SaaS. Crisp white surfaces, deep orange gradients, generous whitespace, high visual density where needed, chart-first analytics. Anti-dark generic admin panel."
+  },
+  "brand_system": {
+    "logo_spec": {
+      "icon": "Bold orange letter 'D' SVG with a pristine white circular dot cutout at the exact center.",
+      "gradient_from": "#F26B21",
+      "gradient_to": "#FBA834",
+      "wordmark": "lowercase 'dotindot.' rendered in Plus Jakarta Sans / Outfit bold, text-transparent bg-clip-text with orange gradient fill.",
+      "implementation_note": "Recreated in pure React SVG/Tailwind component (DotindotLogo.js) to avoid external image asset dependency."
+    },
+    "colors": {
+      "page_background": "#F9FAFB",
+      "card_background": "#FFFFFF",
+      "border_color": "#E5E7EB",
+      "border_subtle": "#F3F4F6",
+      "text_primary": "#111827",
+      "text_secondary": "#4B5563",
+      "text_muted": "#9CA3AF",
+      "primary_orange": "#F26B21",
+      "primary_orange_light": "#FBA834",
+      "primary_orange_subtle": "#FFF7ED",
+      "primary_orange_hover": "#E05A10",
+      "status_healthy": "#10B981",
+      "status_healthy_bg": "#ECFDF5",
+      "status_watch": "#F59E0B",
+      "status_watch_bg": "#FFFBEB",
+      "status_at_risk": "#EF4444",
+      "status_at_risk_bg": "#FEF2F2",
+      "accent_indigo": "#6366F1",
+      "accent_slate": "#64748B"
+    },
+    "typography": {
+      "heading_font": "Plus Jakarta Sans, sans-serif",
+      "body_font": "Plus Jakarta Sans, Inter, system-ui, sans-serif",
+      "mono_font": "JetBrains Mono, ui-monospace, monospace",
+      "scales": {
+        "h1": "text-3xl sm:text-4xl font-bold tracking-tight text-gray-900",
+        "h2": "text-xl sm:text-2xl font-semibold tracking-tight text-gray-900",
+        "h3": "text-lg font-semibold text-gray-900",
+        "h4": "text-base font-medium text-gray-800",
+        "body": "text-sm text-gray-600 leading-relaxed",
+        "small": "text-xs font-medium text-gray-500",
+        "currency": "font-mono font-semibold text-gray-900"
+      }
+    },
+    "currency_format": "INR (₹) formatted as Indian numbering standard (e.g., ₹12,50,000)"
+  },
+  "layout_architecture": {
+    "app_shell": {
+      "sidebar": {
+        "width": "w-64",
+        "background": "bg-white border-r border-gray-200/80",
+        "header": "Logo block with 'dotindot.' brand mark and 'Ops v1.0' badge",
+        "navigation_sections": [
+          {
+            "title": "CORE MODULES",
+            "items": [
+              { "name": "Dashboard", "path": "/dashboard", "icon": "LayoutDashboard" },
+              { "name": "Clients", "path": "/clients", "icon": "Users", "badge": "Live" },
+              { "name": "Projects", "path": "/projects", "icon": "FolderKanban", "badge": "Live" }
+            ]
+          },
+          {
+            "title": "GROWTH & OPERATIONS",
+            "items": [
+              { "name": "Finance", "path": "/finance", "icon": "BadgeIndianRupee", "badge": "Phase 2" },
+              { "name": "Sales", "path": "/sales", "icon": "TrendingUp", "badge": "Phase 2" },
+              { "name": "Employees", "path": "/employees", "icon": "UserCheck", "badge": "Phase 2" },
+              { "name": "Partnerships", "path": "/partnerships", "icon": "Handshake", "badge": "Phase 2" },
+              { "name": "Reports", "path": "/reports", "icon": "BarChart3", "badge": "Phase 2" },
+              { "name": "Logs", "path": "/logs", "icon": "ScrollText", "badge": "Phase 2" }
+            ]
+          },
+          {
+            "title": "ADMINISTRATION",
+            "items": [
+              { "name": "User Management", "path": "/admin/users", "icon": "ShieldCheck" },
+              { "name": "Settings", "path": "/settings", "icon": "Settings", "badge": "Phase 2" }
+            ]
+          }
+        ],
+        "footer": "Active logged-in user card with role badge, quick status indicator, and quick logout button"
+      },
+      "topbar": {
+        "height": "h-16",
+        "background": "bg-white/95 backdrop-blur-md border-b border-gray-200 z-30 sticky top-0",
+        "components": {
+          "left": "Breadcrumb trail + page title indicator",
+          "center": "Central search input (data-testid='global-search-input') with auto-complete modal overlay searching clients, projects, users, and tasks",
+          "right": "Role badge chip (Admin / Ops Lead / Developer), quick action '+ New Project' trigger button, notification drawer bell, user avatar menu dropdown"
+        }
+      }
+    }
+  },
+  "modules_guidelines": {
+    "auth": {
+      "path": "/login",
+      "features": [
+        "Split landing view: Left brand promo container with orange gradient background mesh, right crisp white login form card.",
+        "Quick Role Selector Demo Buttons: 'Login as Super Admin', 'Login as Ops Manager', 'Login as Project Lead' for effortless reviewer testing.",
+        "Form fields: Email input (data-testid='login-email-input'), Password input (data-testid='login-password-input'), Submit button (data-testid='login-submit-button').",
+        "Remember me checkbox & demo credentials tooltip."
+      ]
+    },
+    "dashboard": {
+      "path": "/dashboard",
+      "features": [
+        "Welcome Card: Personal greeting based on active user role (e.g., 'Welcome back, Alex (Super Admin)').",
+        "Count Stats Grid (4 key metrics cards): Total Active Clients, Active Projects, Total Pipeline Value (₹), Expiring Contracts (<30d).",
+        "Chart-first Grid: Monthly Revenue Trends (Area Chart), Client Distribution by Health (Donut), Project Deliverable Completion (Bar Chart).",
+        "Actionable Exception Queue: List of contracts expiring within 30 days and projects needing attention."
+      ]
+    },
+    "clients": {
+      "list_path": "/clients",
+      "detail_path": "/clients/:id",
+      "features": [
+        "Chart Header: Interactive Recharts Donut ('Clients by Status') and Bar Chart ('Clients by Industry').",
+        "Filters Toolbar: Search input (data-testid='client-search-input'), Status filter pills (All, Active, Onboarding, At-Risk, Past), Industry select filter.",
+        "Clients Table & Grid Switcher: Health status badge ('Healthy' green pulse, 'Watch' yellow pulse, 'At-Risk' red pulse), MRR in INR (₹), project count, action drawer.",
+        "Per-Client Detail Tabs:",
+        "  1. Overview: Key metrics, health score meter, recent project activity timeline.",
+        "  2. Projects: Active & past projects assigned to this client with progress bars.",
+        "  3. Contacts: Key client stakeholders (Name, Role, Email, Phone, Primary tag).",
+        "  4. Contracts: Active agreements list, end date, value in ₹, explicit 30-day expiry warning flag tag.",
+        "  5. Credentials: Masked credentials vault (Staging URL, DB, API keys) with eye icon toggle (data-testid='reveal-credential-btn') & click-to-copy.",
+        "  6. Details & Notes: Rich text client notes editor, tags, industry metadata."
+      ]
+    },
+    "projects": {
+      "list_path": "/projects",
+      "wizard_path": "/projects/new",
+      "detail_path": "/projects/:id",
+      "features": [
+        "Projects List Header: Status summary chart (In Progress, Review, Completed, On Hold) + total budget in ₹ metric.",
+        "Multi-Step New Project Wizard (4 Steps + Review Modal):",
+        "  - Step 1: General Info (Name, Client, Service Category, Priority)",
+        "  - Step 2: Timeline & Milestones (Start date, Target launch date, Milestones builder)",
+        "  - Step 3: Team & Deliverables (Assign lead, team members, deliverables checklist generator)",
+        "  - Step 4: Budget & Financials (Total Budget ₹, Billing terms, Margin estimation)",
+        "  - Step 5: Review & Submit (Summary overview card + Submit button data-testid='create-project-submit-btn')",
+        "Project Detail View:",
+        "  - Interactive Milestones Timeline (Visual horizontal/vertical node chain with status icons)",
+        "  - Deliverables Checklist with interactive completion checkboxes (data-testid='deliverable-checkbox')",
+        "  - Team Members list with avatar images and roles",
+        "  - Budget Gauge: Total vs Spent (₹) progress tracker with margin indicator"
+      ]
+    },
+    "admin_users": {
+      "path": "/admin/users",
+      "features": [
+        "User Management Table: User avatars, names, emails, assigned roles (Admin, Ops Manager, Project Lead, Finance, Client Viewer).",
+        "Role Assignment Selector & Quick Add User modal with permissions matrix indicator."
+      ]
+    },
+    "placeholders": {
+      "paths": ["/finance", "/sales", "/employees", "/partnerships", "/reports", "/logs", "/settings"],
+      "features": [
+        "Clean, inspiring 'Coming in Phase 2' canvas with animated SVG graphic, module roadmap summary, and 'Notify Me / Join Beta' interaction."
+      ]
+    }
+  },
+  "testing_and_accessibility": {
+    "data_testid_rules": "All interactive elements (buttons, inputs, dropdowns, table rows, tabs, search) MUST carry explicit data-testid attributes in kebab-case (e.g. data-testid='client-tab-credentials', data-testid='global-search-input').",
+    "contrast": "Minimum 4.5:1 text contrast ratio against white/gray surfaces. High visibility focus rings (focus:ring-2 focus:ring-[#F26B21])."
+  },
+  "image_urls": {
+    "avatars": [
+      {
+        "name": "Sarah Jenkins (Super Admin)",
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjBwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBhdmF0YXIlMjBwb3J0cmFpdCUyMGhlYWRzaG90fGVufDB8fHx8MTc4ODc3ODkzM3ww&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "name": "David Chen (Ops Lead)",
+        "url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwzfHxtb2Rlcm4lMjBwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBhdmF0YXIlMjBwb3J0cmFpdCUyMGhlYWRzaG90fGVufDB8fHx8MTc4ODc3ODkzM3ww&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "name": "Marcus Vance (Senior PM)",
+        "url": "https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBhdmF0YXIlMjBwb3J0cmFpdCUyMGhlYWRzaG90fGVufDB8fHx8MTc4ODc3ODkzM3ww&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "name": "Alex Rivera (Lead Engineer)",
+        "url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBhdmF0YXIlMjBwb3J0cmFpdCUyMGhlYWRzaG90fGVufDB8fHx8MTc4ODc3ODkzM3ww&ixlib=rb-4.1.0&q=85"
+      }
+    ],
+    "client_logos": [
+      {
+        "company": "Apex Technologies",
+        "url": "https://images.unsplash.com/photo-1761044591996-7a05341a3e12?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwdGVjaCUyMGNvbXBhbnklMjBsb2dvJTIwYnJhbmRpbmclMjBpY29ufGVufDB8fHx8MTc4ODc3ODkzM3ww&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "company": "Cognitive AI Lab",
+        "url": "https://images.unsplash.com/photo-1770210217380-d78a69acdc77?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwyfHxtaW5pbWFsaXN0JTIwdGVjaCUyMGNvbXBhbnklMjBsb2dvJTIwYnJhbmRpbmclMjBpY29ufGVufDB8fHx8MTc4ODc3ODkzM3ww&ixlib=rb-4.1.0&q=85"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Follow the exact component guidelines for React .js files.",
+    "Ensure the custom SVG logo Dotindot is used in sidebar and auth screens.",
+    "All monetary figures MUST be displayed in INR (₹) using Indian numbering format.",
+    "Ensure every search input, filter tab, modal button, and tab trigger has explicit data-testid attributes.",
+    "Ensure Recharts components are styled with smooth curves and orange (#F26B21) & status accent colors."
+  ]
+}

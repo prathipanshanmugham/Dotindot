@@ -1,0 +1,58 @@
+.animate-fadein {
+  animation: fadein 0.35s ease-out;
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+::selection {
+  background: #fed7aa;
+  color: #7c2d12;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
+}
+
+/* Prevent Recharts width(-1)/height(-1) warnings on first paint */
+.recharts-responsive-container {
+  min-width: 80px;
+  min-height: 80px;
+}
+
+/* Print-friendly quote view */
+@media print {
+  aside,
+  header,
+  .print-hide {
+    display: none !important;
+  }
+  .ml-64 {
+    margin-left: 0 !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  body {
+    background: white !important;
+  }
+}
