@@ -3,15 +3,22 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from models import UserCreate, UserUpdate
-from auth import hash_password, require_roles, log_activity
+from auth import hash_password, get_current_user, require_roles, log_activity
+from permissions import VALID_ROLES
 
 router = APIRouter()
 
-VALID_ROLES = {"admin", "finance", "sales", "pm", "employee"}
+ELEVATED = ("admin", "super_admin")
+
+
+def _can_manage(actor: dict, target_role: str):
+    """Only a super_admin may create/edit admin or super_admin accounts."""
+    if target_role in ELEVATED and actor["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only a super admin can manage admin accounts")
 
 
 @router.get("/users/team")
-async def team_members(user: dict = Depends(require_roles("admin", "pm", "sales", "finance"))):
+async def team_members(user: dict = Depends(get_current_user)):
     users = await db.users.find(
         {"is_active": True}, {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1}
     ).to_list(200)
@@ -27,6 +34,7 @@ async def list_users(user: dict = Depends(require_roles("admin"))):
 async def create_user(body: UserCreate, user: dict = Depends(require_roles("admin"))):
     if body.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail="Invalid role")
+    _can_manage(user, body.role)
     email = body.email.strip().lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="A user with this email already exists")
@@ -49,12 +57,14 @@ async def update_user(user_id: str, body: UserUpdate, user: dict = Depends(requi
     target = await db.users.find_one({"id": user_id})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
+    _can_manage(user, target["role"])
     updates = {}
     if body.name is not None:
         updates["name"] = body.name
     if body.role is not None:
         if body.role not in VALID_ROLES:
             raise HTTPException(status_code=400, detail="Invalid role")
+        _can_manage(user, body.role)
         updates["role"] = body.role
     if body.is_active is not None:
         updates["is_active"] = body.is_active

@@ -14,8 +14,10 @@ from seed import seed_database
 from seed_finance import seed_finance
 from seed_sales import seed_sales
 from seed_phase4 import seed_phase4
+from seed_v2 import seed_v2
 from storage import init_storage
 from scheduler import start_scheduler, stop_scheduler
+from permissions import permission_middleware
 from routes_auth import router as auth_router
 from routes_users import router as users_router
 from routes_clients import router as clients_router
@@ -30,6 +32,12 @@ from routes_partnerships import router as partnerships_router
 from routes_locations import router as locations_router
 from routes_exports import router as exports_router
 from routes_reports import router as reports_router
+from routes_access import router as access_router
+from routes_assets import router as assets_router
+from routes_ads import router as ads_router
+from routes_social import router as social_router
+from routes_influencers import router as influencers_router
+from routes_hud import router as hud_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -38,8 +46,12 @@ app = FastAPI(
 )
 
 for r in (auth_router, users_router, clients_router, projects_router, misc_router, finance_router, sales_router, ceo_router,
-          employees_router, logs_router, partnerships_router, locations_router, exports_router, reports_router):
+          employees_router, logs_router, partnerships_router, locations_router, exports_router, reports_router,
+          access_router, assets_router, ads_router, social_router, influencers_router, hud_router):
     app.include_router(r, prefix="/api")
+
+# Granular permission enforcement (registered before CORS so CORS stays outermost)
+app.middleware("http")(permission_middleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,6 +91,11 @@ async def startup():
     await db.training_assignments.create_index("user_id")
     await db.partnerships.create_index("id", unique=True)
     await db.branches.create_index("id", unique=True)
+    await db.assets.create_index("id", unique=True)
+    await db.ad_campaigns.create_index("id", unique=True)
+    await db.social_posts.create_index("id", unique=True)
+    await db.social_posts.create_index("scheduled_at")
+    await db.influencers.create_index("id", unique=True)
     await db.purge_runs.create_index("run_at")
     # Ignore-proof cleanup: remove any stale test users (test_*@dotindot.test) on every startup
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
@@ -88,6 +105,7 @@ async def startup():
     await seed_finance()
     await seed_sales()
     await seed_phase4()
+    await seed_v2()
     start_scheduler()
     try:
         init_storage()

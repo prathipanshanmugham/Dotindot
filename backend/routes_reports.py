@@ -46,6 +46,16 @@ TEMPLATES = {
         "description": "Per employee: attributed revenue, projects, training completion and platform activity in period.",
         "roles": ("admin",),
     },
+    "ads-performance": {
+        "name": "Ads Performance Report",
+        "description": "Spend, revenue, ROAS and platform breakdown across ad campaigns — with a client-ready variant for sharing.",
+        "roles": ("admin", "finance", "sales"),
+    },
+    "location-comparison": {
+        "name": "Location Comparison Report",
+        "description": "Branch-by-branch revenue, clients, projects, pipeline, headcount and asset base.",
+        "roles": ("admin", "finance"),
+    },
 }
 
 
@@ -81,6 +91,13 @@ async def tpl_monthly_financial(date_from, date_to):
             {"label": "Net", "value": round(income - expense, 2), "money": True},
             {"label": "Subscription burn /mo", "value": burn, "money": True},
             {"label": "AI spend", "value": round(ai_spend, 2), "money": True},
+        ],
+        "charts": [
+            {"type": "donut", "title": "Expenses by category",
+             "data": [{"name": r["category"], "value": r["amount"]} for r in cat_rows]},
+            {"type": "bar", "title": "Budget vs actual",
+             "data": [{"name": r["category"], "budget": r["budget"], "actual": r["actual"]} for r in bud_rows],
+             "keys": ["budget", "actual"]},
         ],
         "sections": [
             {"title": "Expenses by category", "columns": [("category", "Category", "text"), ("amount", "Amount", "money")], "rows": cat_rows},
@@ -126,6 +143,14 @@ async def tpl_client_status(date_from, date_to):
             {"label": "Contracts expiring ≤30d", "value": expiring},
             {"label": "At risk", "value": sum(1 for r in rows if r["health"] == "at_risk")},
         ],
+        "charts": [
+            {"type": "donut", "title": "Clients by health",
+             "data": [{"name": h, "value": sum(1 for r in rows if r["health"] == h)}
+                      for h in ("healthy", "watch", "at_risk") if any(r["health"] == h for r in rows)]},
+            {"type": "bar", "title": "Revenue billed by client (top 8)",
+             "data": sorted([{"name": r["name"], "value": r["revenue"]} for r in rows if r["revenue"]],
+                            key=lambda x: -x["value"])[:8]},
+        ],
         "sections": [{"title": "Clients", "columns": [
             ("name", "Client", "text"), ("status", "Status", "text"), ("active_projects", "Active projects", "num"),
             ("revenue", "Revenue billed", "money"), ("next_contract_expiry", "Next contract expiry", "text"),
@@ -158,6 +183,12 @@ async def tpl_sales_pipeline(date_from, date_to):
             {"label": "Win rate", "value": f"{win_rate}%"},
             {"label": "Won in period", "value": len(won_in)},
             {"label": "Won value in period", "value": sum(l.get("estimated_value", 0) for l in won_in), "money": True},
+        ],
+        "charts": [
+            {"type": "bar", "title": "Pipeline value by stage",
+             "data": [{"name": f["stage"], "value": f["value"]} for f in funnel]},
+            {"type": "donut", "title": "Leads by stage",
+             "data": [{"name": f["stage"], "value": f["count"]} for f in funnel if f["count"]]},
         ],
         "sections": [
             {"title": "Funnel by stage", "columns": [("stage", "Stage", "text"), ("count", "Leads", "num"), ("value", "Value", "money")], "rows": funnel},
@@ -205,10 +236,109 @@ async def tpl_employee_activity(date_from, date_to):
             {"label": "Attributed revenue", "value": sum(r["revenue"] for r in rows), "money": True},
             {"label": "Platform actions in period", "value": sum(r["actions"] for r in rows)},
         ],
+        "charts": [
+            {"type": "bar", "title": "Attributed revenue by employee (top 8)",
+             "data": [{"name": r["name"], "value": r["revenue"]} for r in rows[:8] if r["revenue"]]},
+            {"type": "bar", "title": "Platform actions by employee (top 8)",
+             "data": sorted([{"name": r["name"], "value": r["actions"]} for r in rows if r["actions"]],
+                            key=lambda x: -x["value"])[:8]},
+        ],
         "sections": [{"title": "Per employee", "columns": [
             ("name", "Employee", "text"), ("role", "Role", "text"), ("designation", "Designation", "text"),
             ("revenue", "Revenue in period", "money"), ("projects", "Projects", "num"),
             ("training", "Training done", "text"), ("actions", "Actions", "num")], "rows": rows}],
+    }
+
+
+async def tpl_ads_performance(date_from, date_to, client_id=None, variant=None):
+    from routes_ads import compute_metrics
+    q = {"client_id": client_id} if client_id else {}
+    campaigns = await db.ad_campaigns.find(q, {"_id": 0}).to_list(500)
+    cmap = {c["id"]: c["name"] for c in await db.clients.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(1000)}
+    client_ready = variant == "client"
+    rows, by_platform = [], {}
+    for c in campaigns:
+        c["metrics_history"] = [m for m in c.get("metrics_history", []) if date_from <= m["date"] <= date_to]
+        compute_metrics(c)
+        m = c["metrics"]
+        row = {"name": c["name"], "platform": c["platform"], "status": c["status"],
+               "spend": m["spend"], "revenue": m["revenue"], "roas": m["roas"],
+               "conversions": m["conversions"], "ctr": m["ctr"]}
+        if not client_ready:
+            row["client"] = cmap.get(c.get("client_id"), "")
+            row["budget"] = c.get("budget", 0)
+        rows.append(row)
+        b = by_platform.setdefault(c["platform"], {"name": c["platform"], "spend": 0, "revenue": 0})
+        b["spend"] = round(b["spend"] + m["spend"], 2)
+        b["revenue"] = round(b["revenue"] + m["revenue"], 2)
+    spend = round(sum(r["spend"] for r in rows), 2)
+    revenue = round(sum(r["revenue"] for r in rows), 2)
+    title = "Ads Performance Report"
+    if client_id:
+        title += f" — {cmap.get(client_id, 'Client')}"
+    if client_ready:
+        title += " (Client copy)"
+    cols = [("name", "Campaign", "text"), ("platform", "Platform", "text"), ("status", "Status", "text")]
+    if not client_ready:
+        cols.insert(1, ("client", "Client", "text"))
+        cols.append(("budget", "Budget", "money"))
+    cols += [("spend", "Spend", "money"), ("revenue", "Revenue", "money"),
+             ("roas", "ROAS", "num"), ("conversions", "Conversions", "num"), ("ctr", "CTR %", "num")]
+    return {
+        "title": title,
+        "summary": [
+            {"label": "Campaigns", "value": len(rows)},
+            {"label": "Total spend", "value": spend, "money": True},
+            {"label": "Attributed revenue", "value": revenue, "money": True},
+            {"label": "Blended ROAS", "value": round(revenue / spend, 2) if spend else 0},
+            {"label": "Conversions", "value": sum(r["conversions"] for r in rows)},
+        ],
+        "charts": [
+            {"type": "bar", "title": "Spend vs revenue by platform", "data": list(by_platform.values()), "keys": ["spend", "revenue"]},
+            {"type": "bar", "title": "ROAS by campaign",
+             "data": sorted([{"name": r["name"], "value": r["roas"]} for r in rows], key=lambda x: -x["value"])[:8]},
+        ],
+        "sections": [{"title": "Campaigns", "columns": cols, "rows": rows}],
+    }
+
+
+async def tpl_location_comparison(date_from, date_to):
+    from routes_locations import compare_branches
+    rows = await compare_branches(user=None)
+    clients = await db.clients.find({}, {"_id": 0, "id": 1, "branch_id": 1}).to_list(2000)
+    cb = {c["id"]: c.get("branch_id") for c in clients}
+    tx = await db.transactions.find(
+        {"type": "income", "date": {"$gte": date_from, "$lte": date_to}, "client_id": {"$nin": [None, ""]}},
+        {"_id": 0, "client_id": 1, "amount": 1}).to_list(20000)
+    period_rev = {}
+    for x in tx:
+        bid = cb.get(x["client_id"])
+        if bid:
+            period_rev[bid] = period_rev.get(bid, 0) + x["amount"]
+    for r in rows:
+        r["period_revenue"] = round(period_rev.get(r["id"], 0), 2)
+    return {
+        "title": "Location Comparison Report",
+        "summary": [
+            {"label": "Branches", "value": len(rows)},
+            {"label": "Revenue in period", "value": round(sum(r["period_revenue"] for r in rows), 2), "money": True},
+            {"label": "Active clients", "value": sum(r["clients_active"] for r in rows)},
+            {"label": "Active projects", "value": sum(r["projects_active"] for r in rows)},
+            {"label": "Headcount", "value": sum(r["headcount"] for r in rows)},
+        ],
+        "charts": [
+            {"type": "bar", "title": "Revenue in period by branch",
+             "data": [{"name": r["name"], "value": r["period_revenue"]} for r in rows]},
+            {"type": "bar", "title": "Clients & headcount by branch",
+             "data": [{"name": r["name"], "clients": r["clients_total"], "headcount": r["headcount"]} for r in rows],
+             "keys": ["clients", "headcount"]},
+        ],
+        "sections": [{"title": "Branches", "columns": [
+            ("name", "Branch", "text"), ("city", "City", "text"), ("status", "Status", "text"),
+            ("period_revenue", "Revenue (period)", "money"), ("revenue", "Revenue (all-time)", "money"),
+            ("clients_active", "Active clients", "num"), ("projects_active", "Active projects", "num"),
+            ("pipeline_value", "Pipeline", "money"), ("headcount", "Headcount", "num"),
+            ("assets", "Assets", "num"), ("asset_value", "Asset value", "money")], "rows": rows}],
     }
 
 
@@ -217,6 +347,8 @@ BUILDERS = {
     "client-status": tpl_client_status,
     "sales-pipeline": tpl_sales_pipeline,
     "employee-activity": tpl_employee_activity,
+    "ads-performance": tpl_ads_performance,
+    "location-comparison": tpl_location_comparison,
 }
 
 
@@ -224,7 +356,7 @@ def _check_template(key: str, user: dict):
     tpl = TEMPLATES.get(key)
     if not tpl:
         raise HTTPException(status_code=404, detail="Unknown report template")
-    if user["role"] not in tpl["roles"]:
+    if user["role"] != "super_admin" and user["role"] not in tpl["roles"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions for this report")
     return tpl
 
@@ -232,15 +364,17 @@ def _check_template(key: str, user: dict):
 @router.get("/reports/templates")
 async def list_templates(user: dict = Depends(require_roles(*REPORT_ROLES))):
     return [{"key": k, "name": t["name"], "description": t["description"]}
-            for k, t in TEMPLATES.items() if user["role"] in t["roles"]]
+            for k, t in TEMPLATES.items() if user["role"] == "super_admin" or user["role"] in t["roles"]]
 
 
 @router.get("/reports/template/{key}")
 async def generate_template(key: str, date_from: Optional[str] = None, date_to: Optional[str] = None,
+                            client_id: Optional[str] = None, variant: Optional[str] = None,
                             user: dict = Depends(require_roles(*REPORT_ROLES))):
     _check_template(key, user)
     df, dt = date_from or _default_range()[0], date_to or _default_range()[1]
-    data = await BUILDERS[key](df, dt)
+    kwargs = {"client_id": client_id, "variant": variant} if key == "ads-performance" else {}
+    data = await BUILDERS[key](df, dt, **kwargs)
     data["period"] = f"{df} → {dt}"
     data["sections"] = [{"title": s["title"],
                          "columns": [{"key": c[0], "label": c[1], "fmt": c[2]} for c in s["columns"]],
@@ -250,12 +384,14 @@ async def generate_template(key: str, date_from: Optional[str] = None, date_to: 
 
 @router.get("/reports/template/{key}/export")
 async def export_template(key: str, format: str = "pdf", date_from: Optional[str] = None, date_to: Optional[str] = None,
+                          client_id: Optional[str] = None, variant: Optional[str] = None,
                           user: dict = Depends(require_roles(*REPORT_ROLES))):
     tpl = _check_template(key, user)
     if format not in ("pdf", "xlsx"):
         raise HTTPException(status_code=400, detail="format must be pdf or xlsx")
     df, dt = date_from or _default_range()[0], date_to or _default_range()[1]
-    data = await BUILDERS[key](df, dt)
+    kwargs = {"client_id": client_id, "variant": variant} if key == "ads-performance" else {}
+    data = await BUILDERS[key](df, dt, **kwargs)
     subtitle = f"Period: {df} → {dt}"
     if format == "pdf":
         blob = build_pdf(data["title"], subtitle, data["sections"], summary=data["summary"], generated_by=user.get("name", ""))
@@ -333,7 +469,7 @@ async def _run_custom(body: CustomReportRequest, user: dict):
     mod = CUSTOM_MODULES.get(body.module)
     if not mod:
         raise HTTPException(status_code=404, detail="Unknown module")
-    if user["role"] not in mod["roles"]:
+    if user["role"] != "super_admin" and user["role"] not in mod["roles"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions for this module")
     q = {}
     valid_filter_keys = {f["key"] for f in mod["filters"]}
@@ -382,7 +518,7 @@ async def custom_meta(user: dict = Depends(require_roles(*REPORT_ROLES))):
     return [{"key": k, "name": m["name"], "date_field": m["date_field"],
              "columns": [{"key": c[0], "label": c[1]} for c in m["columns"]],
              "filters": m["filters"]}
-            for k, m in CUSTOM_MODULES.items() if user["role"] in m["roles"]]
+            for k, m in CUSTOM_MODULES.items() if user["role"] == "super_admin" or user["role"] in m["roles"]]
 
 
 @router.post("/reports/custom/preview")

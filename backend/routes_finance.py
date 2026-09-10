@@ -130,6 +130,10 @@ async def list_transactions(
         q["client_id"] = client_id
     if project_id:
         q["project_id"] = project_id
+    from permissions import scoped_client_ids
+    ids = await scoped_client_ids(user)
+    if ids is not None:
+        q["$or"] = [{"client_id": {"$in": ids}}, {"client_id": {"$in": [None, ""]}}]
     rows = await db.transactions.find(q, {"_id": 0}).sort("date", -1).to_list(5000)
     cmap, pmap = await name_maps()
     enrich(rows, cmap, pmap)

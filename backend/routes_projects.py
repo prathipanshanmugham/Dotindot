@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from models import ProjectCreate, ProjectUpdate, ToggleRequest
 from auth import get_current_user, require_roles, log_activity
+from permissions import scoped_client_ids
 
 router = APIRouter()
 
@@ -35,6 +36,9 @@ async def list_projects(
         q["name"] = {"$regex": search, "$options": "i"}
     if user["role"] == "employee":
         q["team_member_ids"] = user["id"]
+    ids = await scoped_client_ids(user)
+    if ids is not None:
+        q["client_id"] = {"$in": ids} if not client_id else client_id
     projects = await db.projects.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
     names = await client_name_map()
     for p in projects:

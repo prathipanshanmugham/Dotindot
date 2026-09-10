@@ -66,6 +66,8 @@ async def get_current_user(request: Request) -> dict:
 
 def require_roles(*roles):
     async def dependency(user: dict = Depends(get_current_user)) -> dict:
+        if user["role"] == "super_admin":
+            return user
         if user["role"] not in roles:
             raise HTTPException(status_code=403, detail="Insufficient permissions for this action")
         return user

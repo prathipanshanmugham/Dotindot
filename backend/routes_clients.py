@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from models import ClientCreate, ClientUpdate, CredentialIn
 from auth import require_roles, encrypt_secret, decrypt_secret, log_activity
+from permissions import branch_scope
 
 router = APIRouter()
 
@@ -83,6 +84,9 @@ async def list_clients(
             {"name": {"$regex": search, "$options": "i"}},
             {"company": {"$regex": search, "$options": "i"}},
         ]
+    branches = branch_scope(user)
+    if branches is not None:
+        q["branch_id"] = {"$in": branches}
     clients = await db.clients.find(q, {"_id": 0, "credentials": 0}).sort("name", 1).to_list(500)
     counts = await project_counts_map()
     for c in clients:
@@ -98,6 +102,9 @@ async def get_client(client_id: str, user: dict = Depends(require_roles(*READ_RO
     c = await db.clients.find_one({"id": client_id}, {"_id": 0})
     if not c:
         raise HTTPException(status_code=404, detail="Client not found")
+    branches = branch_scope(user)
+    if branches is not None and c.get("branch_id") not in branches:
+        raise HTTPException(status_code=403, detail="This client belongs to a branch outside your access")
     # mask credentials — never return secrets here
     c["credentials"] = [
         {"id": cr["id"], "label": cr["label"], "username": cr["username"]}

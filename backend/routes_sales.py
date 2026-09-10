@@ -64,6 +64,10 @@ async def list_leads(
             q["created_at"]["$gte"] = start
         if end:
             q["created_at"]["$lte"] = end + "T23:59:59"
+    from permissions import branch_scope
+    branches = branch_scope(user)
+    if branches is not None:
+        q["branch_id"] = {"$in": branches}
     leads = await db.leads.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
     umap = await user_map()
     for l in leads:

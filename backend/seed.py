@@ -14,11 +14,11 @@ U = {
 }
 
 USERS = [
-    {"id": U["admin"], "name": "Arjun Mehta", "email": "admin@dotindot.com", "role": "admin"},
-    {"id": U["finance"], "name": "Priya Sharma", "email": "finance@dotindot.com", "role": "finance"},
-    {"id": U["sales"], "name": "Rohan Kapoor", "email": "sales@dotindot.com", "role": "sales"},
-    {"id": U["pm"], "name": "Sneha Iyer", "email": "pm@dotindot.com", "role": "pm"},
-    {"id": U["employee"], "name": "Karan Patel", "email": "employee@dotindot.com", "role": "employee"},
+    {"id": U["admin"], "name": "Arjun Mehta", "email": "admin@dotindot.in", "role": "super_admin"},
+    {"id": U["finance"], "name": "Priya Sharma", "email": "finance@dotindot.in", "role": "finance"},
+    {"id": U["sales"], "name": "Rohan Kapoor", "email": "sales@dotindot.in", "role": "sales"},
+    {"id": U["pm"], "name": "Sneha Iyer", "email": "pm@dotindot.in", "role": "pm"},
+    {"id": U["employee"], "name": "Karan Patel", "email": "employee@dotindot.in", "role": "employee"},
 ]
 
 
@@ -248,8 +248,9 @@ def get_projects():
 async def seed_database():
     pw_hash = hash_password(PASSWORD)
     for u in USERS:
+        # Match on stable id (emails migrated to @dotindot.in in v2) so re-runs never duplicate users
         await db.users.update_one(
-            {"email": u["email"]},
+            {"id": u["id"]},
             {"$setOnInsert": {**u, "is_active": True, "password_hash": pw_hash, "created_at": _now()}},
             upsert=True,
         )

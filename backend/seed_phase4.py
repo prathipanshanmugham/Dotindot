@@ -11,42 +11,42 @@ NEW_U = {
 }
 
 NEW_USERS = [
-    {"id": NEW_U["designer"], "name": "Ananya Verma", "email": "designer@dotindot.com", "role": "employee"},
-    {"id": NEW_U["dev"], "name": "Dev Malhotra", "email": "dev@dotindot.com", "role": "employee"},
-    {"id": NEW_U["marketing"], "name": "Fatima Khan", "email": "marketing@dotindot.com", "role": "employee"},
+    {"id": NEW_U["designer"], "name": "Ananya Verma", "email": "designer@dotindot.in", "role": "employee"},
+    {"id": NEW_U["dev"], "name": "Dev Malhotra", "email": "dev@dotindot.in", "role": "employee"},
+    {"id": NEW_U["marketing"], "name": "Fatima Khan", "email": "marketing@dotindot.in", "role": "employee"},
 ]
 
 # Profile enrichment keyed by email — applied only if profile not yet set (designation absent)
 PROFILES = {
-    "admin@dotindot.com": {"designation": "Founder & CEO", "department": "Leadership", "city": "Mumbai",
+    "admin@dotindot.in": {"designation": "Founder & CEO", "department": "Leadership", "city": "Mumbai",
                            "phone": "+91 98200 00001", "join_date": "2021-04-01",
                            "skills": ["Strategy", "AI Consulting", "Growth"],
                            "bio": "Founded dotindot to build AI-first digital experiences for ambitious brands."},
-    "finance@dotindot.com": {"designation": "Finance Manager", "department": "Finance", "city": "Mumbai",
+    "finance@dotindot.in": {"designation": "Finance Manager", "department": "Finance", "city": "Mumbai",
                              "phone": "+91 98200 00002", "join_date": "2022-06-15",
                              "skills": ["Accounting", "Budgeting", "GST Compliance"],
                              "bio": "Keeps the books clean and the margins healthy."},
-    "sales@dotindot.com": {"designation": "Sales Lead", "department": "Sales", "city": "New Delhi",
+    "sales@dotindot.in": {"designation": "Sales Lead", "department": "Sales", "city": "New Delhi",
                            "phone": "+91 98110 00003", "join_date": "2022-01-10",
                            "skills": ["B2B Sales", "Negotiation", "CRM"],
                            "bio": "Owns the pipeline from first call to signed contract."},
-    "pm@dotindot.com": {"designation": "Senior Project Manager", "department": "Delivery", "city": "Bengaluru",
+    "pm@dotindot.in": {"designation": "Senior Project Manager", "department": "Delivery", "city": "Bengaluru",
                         "phone": "+91 99450 00004", "join_date": "2021-11-01",
                         "skills": ["Agile Delivery", "Client Management", "Scoping"],
                         "bio": "Ships projects on time across web, marketing and AI engagements."},
-    "employee@dotindot.com": {"designation": "Full-stack Developer", "department": "Engineering", "city": "Pune",
+    "employee@dotindot.in": {"designation": "Full-stack Developer", "department": "Engineering", "city": "Pune",
                               "phone": "+91 98220 00005", "join_date": "2023-03-20",
                               "skills": ["React", "FastAPI", "MongoDB"],
                               "bio": "Builds portals, dashboards and everything in between."},
-    "designer@dotindot.com": {"designation": "UI/UX Designer", "department": "Design", "city": "Pune",
+    "designer@dotindot.in": {"designation": "UI/UX Designer", "department": "Design", "city": "Pune",
                               "phone": "+91 98220 00006", "join_date": "2023-08-01",
                               "skills": ["Figma", "Design Systems", "Motion"],
                               "bio": "Designs interfaces people actually enjoy using."},
-    "dev@dotindot.com": {"designation": "AI Engineer", "department": "Engineering", "city": "Bengaluru",
+    "dev@dotindot.in": {"designation": "AI Engineer", "department": "Engineering", "city": "Bengaluru",
                          "phone": "+91 99450 00007", "join_date": "2024-02-12",
                          "skills": ["LLMs", "RAG Pipelines", "Python"],
                          "bio": "Turns LLMs into production-grade client solutions."},
-    "marketing@dotindot.com": {"designation": "Performance Marketer", "department": "Marketing", "city": "Dubai",
+    "marketing@dotindot.in": {"designation": "Performance Marketer", "department": "Marketing", "city": "Dubai",
                                "phone": "+971 50 000 0008", "join_date": "2024-06-01",
                                "skills": ["Meta Ads", "Google Ads", "Analytics"],
                                "bio": "Runs paid growth for our retainer clients across GCC and India."},
@@ -190,10 +190,10 @@ def old_log(i, days_ago, user_key, action, entity_type, entity_name, name, email
 
 
 def get_old_logs():
-    adm = ("Arjun Mehta", "admin@dotindot.com", "admin")
-    pm = ("Sneha Iyer", "pm@dotindot.com", "pm")
-    sal = ("Rohan Kapoor", "sales@dotindot.com", "sales")
-    fin = ("Priya Sharma", "finance@dotindot.com", "finance")
+    adm = ("Arjun Mehta", "admin@dotindot.in", "admin")
+    pm = ("Sneha Iyer", "pm@dotindot.in", "pm")
+    sal = ("Rohan Kapoor", "sales@dotindot.in", "sales")
+    fin = ("Priya Sharma", "finance@dotindot.in", "finance")
     return [
         old_log(1, 185, U["admin"], "login", None, None, *adm),
         old_log(2, 170, U["pm"], "client_created", "client", "GreenLeaf Organics", *pm),
@@ -216,7 +216,7 @@ async def seed_phase4():
     pw_hash = hash_password(PASSWORD)
     for u in NEW_USERS:
         await db.users.update_one(
-            {"email": u["email"]},
+            {"id": u["id"]},
             {"$setOnInsert": {**u, "is_active": True, "password_hash": pw_hash, "created_at": _now()}},
             upsert=True,
         )
