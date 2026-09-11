@@ -73,11 +73,21 @@ async def employee_profile(user_id: str, user: dict = Depends(get_current_user))
         a["course"] = course_map.get(a["course_id"])
     completed = sum(1 for a in assignments if a.get("status") == "completed")
 
+    assets = await db.assets.find(
+        {"assigned_to": user_id, "status": {"$ne": "retired"}},
+        {"_id": 0, "id": 1, "code": 1, "name": 1, "asset_type": 1, "status": 1, "serial_no": 1, "assignment_history": 1},
+    ).sort("code", 1).to_list(100)
+    for a in assets:
+        hist = a.pop("assignment_history", []) or []
+        cur = next((h for h in reversed(hist) if h.get("assigned_to") == user_id and h.get("to_date") is None), None)
+        a["since"] = cur.get("from_date") if cur else None
+
     active = sum(1 for p in projects if p["status"] in ("kickoff", "in_progress", "review"))
     return {
         "user": target,
         "projects": projects,
         "training": assignments,
+        "assets": assets,
         "performance": {
             "projects_total": len(projects),
             "projects_active": active,

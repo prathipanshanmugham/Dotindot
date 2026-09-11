@@ -22,7 +22,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
 
   const isEmployee = user.role === "employee";
-  const canCreate = ["admin", "pm", "sales"].includes(user.role);
+  const canCreate = ["super_admin", "admin", "pm", "sales"].includes(user.role);
 
   useEffect(() => {
     if (!isEmployee) {

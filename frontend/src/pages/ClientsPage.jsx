@@ -33,7 +33,7 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
 
-  const canWrite = ["admin", "pm", "sales"].includes(user.role);
+  const canWrite = ["super_admin", "admin", "pm", "sales"].includes(user.role);
 
   const load = useCallback(async () => {
     const params = {};

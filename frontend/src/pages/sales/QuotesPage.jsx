@@ -20,7 +20,7 @@ export default function QuotesPage() {
   const [quotes, setQuotes] = useState([]);
   const [status, setStatus] = useState("all");
 
-  const canWrite = ["admin", "sales"].includes(user.role);
+  const canWrite = ["super_admin", "admin", "sales"].includes(user.role);
 
   const load = useCallback(async () => {
     const params = status === "all" ? {} : { status };

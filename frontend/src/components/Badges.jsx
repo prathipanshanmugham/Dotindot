@@ -1,11 +1,14 @@
 import { Badge } from "@/components/ui/badge";
 
 export const ROLE_LABELS = {
+  super_admin: "Super Admin",
   admin: "Admin / CEO",
   finance: "Finance",
   sales: "Sales",
   pm: "Project Manager",
   employee: "Employee",
+  ads_manager: "Ads Manager",
+  social_manager: "Social Manager",
 };
 
 export const PROJECT_STATUSES = ["kickoff", "in_progress", "review", "completed", "on_hold"];

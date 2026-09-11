@@ -17,7 +17,7 @@ export default function QuoteViewPage() {
   const { user } = useAuth();
   const [quote, setQuote] = useState(null);
 
-  const canWrite = ["admin", "sales"].includes(user.role);
+  const canWrite = ["super_admin", "admin", "sales"].includes(user.role);
 
   const load = useCallback(() => {
     api.get(`/sales/quotes/${id}`).then((r) => setQuote(r.data)).catch((e) => toast.error(apiError(e)));

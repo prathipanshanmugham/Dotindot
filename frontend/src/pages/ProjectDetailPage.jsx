@@ -22,8 +22,8 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState(null);
   const [profit, setProfit] = useState(null);
 
-  const canWrite = ["admin", "pm", "sales"].includes(user.role);
-  const canDelete = ["admin", "pm"].includes(user.role);
+  const canWrite = ["super_admin", "admin", "pm", "sales"].includes(user.role);
+  const canDelete = ["super_admin", "admin", "pm"].includes(user.role);
   const isAssigned = project?.team_member_ids?.includes(user.id);
   const canToggle = canWrite || isAssigned;
 
@@ -34,7 +34,7 @@ export default function ProjectDetailPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (["admin", "finance", "pm"].includes(user.role)) {
+    if (["super_admin", "admin", "finance", "pm"].includes(user.role)) {
       api.get(`/finance/project-profit/${id}`).then((r) => setProfit(r.data)).catch(() => {});
     }
   }, [id, user.role]);

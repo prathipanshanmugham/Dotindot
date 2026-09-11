@@ -6,7 +6,7 @@ import { labelize, CHART_COLORS } from "@/components/Badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowUpRight, ArrowDownRight, Info, ArrowRight, Globe2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Info, ArrowRight, Globe2, Building2 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line, ComposedChart, Cell,
@@ -55,11 +55,16 @@ export default function CeoDashboard() {
   const { user } = useAuth();
   const [period, setPeriod] = useState("this_month");
   const [d, setD] = useState(null);
+  const [branches, setBranches] = useState([]);
 
   useEffect(() => {
     setD(null);
     api.get("/ceo/dashboard", { params: { period } }).then((r) => setD(r.data)).catch(() => {});
   }, [period]);
+
+  useEffect(() => {
+    api.get("/locations/compare").then((r) => setBranches(r.data)).catch(() => {});
+  }, []);
 
   if (!d)
     return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
@@ -191,6 +196,39 @@ export default function CeoDashboard() {
               </div>
             ))}
             <Badge variant="outline" className="bg-[#FFF7ED] text-[#F26B21] border-orange-200 mt-1">Expansion readiness view — multi-currency arrives in a later phase</Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Performance by branch */}
+      <Card className="border-gray-200/80" data-testid="ceo-branch-panel">
+        <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base font-semibold flex items-center gap-2"><Building2 className="h-4 w-4 text-[#F26B21]" /> Performance by branch</CardTitle>
+          <Link to="/locations" className="text-[11px] font-semibold text-[#F26B21] hover:underline inline-flex items-center gap-0.5">Locations <ArrowRight className="h-3 w-3" /></Link>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="h-56" data-testid="ceo-branch-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={branches}>
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`} />
+                <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: "#FFF7ED" }} />
+                <Bar dataKey="revenue" name="Revenue" fill="#F26B21" radius={[6, 6, 0, 0]} maxBarSize={48} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Branch roll-up</div>
+            {branches.length === 0 && <p className="text-sm text-gray-400">No branches configured yet.</p>}
+            {branches.map((b) => (
+              <div key={b.id} className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3" data-testid={`ceo-branch-row-${b.id}`}>
+                <div>
+                  <div className="text-sm font-semibold text-gray-800">{b.name} <span className="text-xs font-normal text-gray-400">· {b.city}</span></div>
+                  <div className="text-[11px] text-gray-400">{b.clients_active} active clients · {b.projects_active} active projects · {b.headcount} staff · pipeline {formatINR(b.pipeline_value)}</div>
+                </div>
+                <span className="font-mono text-sm font-bold">{formatINR(b.revenue)}</span>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

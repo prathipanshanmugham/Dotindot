@@ -33,7 +33,7 @@ export default function LeadDetailPage() {
   const [newClient, setNewClient] = useState({});
   const [busy, setBusy] = useState(false);
 
-  const canWrite = ["admin", "sales"].includes(user.role);
+  const canWrite = ["super_admin", "admin", "sales"].includes(user.role);
 
   const load = useCallback(() => {
     api.get(`/sales/leads/${id}`).then((r) => {

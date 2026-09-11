@@ -28,7 +28,7 @@ export default function PipelinePage() {
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
 
-  const canWrite = ["admin", "sales"].includes(user.role);
+  const canWrite = ["super_admin", "admin", "sales"].includes(user.role);
 
   useEffect(() => {
     api.get("/users/team").then((r) => setTeam(r.data)).catch(() => {});

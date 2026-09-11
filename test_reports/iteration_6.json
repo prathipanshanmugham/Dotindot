@@ -1,0 +1,36 @@
+{
+  "summary": "V2 backend + frontend testing. 40 backend tests (test_v2.py) executed: 39 pass, 1 real bug (ads_manager/social_manager get 403 on /api/clients due to routes_clients.py READ_ROLES not including them). Frontend: login page clean (no demo/quick buttons, correct @dotindot.in placeholder), all sidebars perm-driven and correct (admin has all 4 groups incl. Sales HUD/Ads/Social/Influencers/Assets/Access Control; employee sees only Dashboard/Projects/My Expenses/Employees/Settings; ads_manager sees Dashboard/Clients/Ads/My Expenses/Settings). CEO branch panel renders. HUD fullscreen dark mode works (no sidebar/topbar, targets hero + pipeline visible, Exit ESC button present). Access Control /access loads. Client Growth tab renders. Locations branch-manager visible. Ads/Social/Influencers/Assets pages all have export menus. Reports 'Ads Performance' generates with report-charts + summary cards + recharts SVGs (Spend vs Revenue by Platform, ROAS by Campaign). Auth migration verified: old @dotindot.com emails return 401, new @dotindot.in with Dotindot@2026 all authenticate.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/clients", "issue": "ads_manager and social_manager receive 403 even though permission registry grants 'clients' key. Root cause: /app/backend/routes_clients.py READ_ROLES = ('admin','pm','sales','finance') — missing 'ads_manager' and 'social_manager'. Middleware passes but require_roles dependency inside route rejects. Add ads_manager/social_manager to READ_ROLES (and consider WRITE_ROLES per product intent).", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v2.py",
+    "/app/test_reports/pytest/v2_results.xml"
+  ],
+  "action_items": [
+    "FIX (backend): Add 'ads_manager' and 'social_manager' to READ_ROLES tuple in /app/backend/routes_clients.py so /api/clients GET returns 200 for those roles (needed for Ads and Social manager UIs which show client selectors and Growth rollups). Verify no other role-guarded routes suffer same divergence between permission registry and require_roles list (spot-check routes_ads/social/influencers/assets)."
+  ],
+  "critical_code_review_comments": [
+    "routes_clients.py hard-codes READ_ROLES/WRITE_ROLES tuples that diverge from permissions.ROLE_DEFAULTS — the registry says ads_manager/social_manager have 'clients' but the route rejects them. Consolidate to a single source of truth: either drop require_roles(READ_ROLES) at read endpoints (rely on middleware) or derive role list from permissions registry.",
+    "Assets maintenance and Influencer collabs endpoints require both 'date' and 'description' (assets) or 'date' (collabs); Pydantic 422s are correct but consider making non-critical fields optional or documenting via OpenAPI examples.",
+    "Middleware permission_middleware executes an extra DB roundtrip on every gated request to fetch the user document — for hot paths consider caching effective perms in the JWT payload with a short TTL to reduce load."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_v2.py"
+  ],
+  "success_rate": {"backend": "97.5% (39/40)", "frontend": "100% of tested flows"},
+  "test_credentials": "See /app/memory/test_credentials.md — all @dotindot.in accounts with password Dotindot@2026",
+  "seed_data_creation": "Tests create then delete: TEST_Asset_Laptop, TEST_Branch, TEST_collab influencer collab, and ad-campaign metric snapshot on seeded campaign. Branch assignment on user-pm was set to seed-branch-02 and reset to [] after test.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_v2.py covers full v2 scope (auth migration, permissions, RBAC middleware, access control grant/reset, branch scoping, assets, ads incl. growth rollup, social, influencers, HUD, locations incl. branch CRUD + linked-delete blocking, reports templates + ads-performance charts, exports for 4 v2 datasets, notifications). Only outstanding issue is READ_ROLES mismatch in routes_clients.py. Reset semantics for permissions/branches are handled inside tests. Frontend verified via playwright against public preview URL — no splash-screen issue was observed.",
+  "rca of the issue": "ads_manager/social_manager 403 on /api/clients: permissions.py registry + middleware correctly grants 'clients' key to these roles, but routes_clients.py additionally applies `require_roles('admin','pm','sales','finance')` dependency at the read endpoints. Two overlapping enforcement layers with different truth sources → the stricter (route decorator) wins. Reproduction: `curl -H 'Authorization: Bearer <ads_manager_token>' $BASE/api/clients` → 403. Mitigation: extend READ_ROLES = ('admin','pm','sales','finance','ads_manager','social_manager') OR remove the require_roles dependency on GET endpoints (list + detail + growth-rollup) and rely on middleware."
+}

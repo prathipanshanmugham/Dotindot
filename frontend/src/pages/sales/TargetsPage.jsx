@@ -28,7 +28,7 @@ export default function TargetsPage() {
   const [form, setForm] = useState({ scope: "user", user_id: "", period: currentMonth(), amount: "" });
   const [busy, setBusy] = useState(false);
 
-  const canWrite = ["admin", "sales"].includes(user.role);
+  const canWrite = ["super_admin", "admin", "sales"].includes(user.role);
 
   const load = useCallback(async () => {
     const params = period === "all" ? {} : { period };

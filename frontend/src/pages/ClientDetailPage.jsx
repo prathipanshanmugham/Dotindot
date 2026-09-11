@@ -72,16 +72,21 @@ export default function ClientDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [newCred, setNewCred] = useState({ label: "", username: "", secret: "" });
   const [showCredForm, setShowCredForm] = useState(false);
+  const [rollup, setRollup] = useState(null);
 
-  const canWrite = ["admin", "pm", "sales"].includes(user.role);
-  const canReveal = ["admin", "pm"].includes(user.role);
-  const canDelete = ["admin", "pm"].includes(user.role);
+  const canWrite = ["super_admin", "admin", "pm", "sales"].includes(user.role);
+  const canReveal = ["super_admin", "admin", "pm"].includes(user.role);
+  const canDelete = ["super_admin", "admin", "pm"].includes(user.role);
 
   const load = useCallback(() => {
     api.get(`/clients/${id}`).then((res) => setClient(res.data)).catch((e) => toast.error(apiError(e)));
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    api.get(`/clients/${id}/growth-rollup`).then((r) => setRollup(r.data)).catch(() => {});
+  }, [id]);
 
   const projectsByStatus = useMemo(() => {
     if (!client) return [];
@@ -187,7 +192,7 @@ export default function ClientDetailPage() {
 
       <Tabs defaultValue="overview">
         <TabsList className="bg-white border border-gray-200">
-          {["overview", "projects", "contacts", "contracts", "credentials", "details", "notes"].map((t) => (
+          {["overview", "projects", "growth", "contacts", "contracts", "credentials", "details", "notes"].map((t) => (
             <TabsTrigger key={t} value={t} data-testid={`client-tab-${t}`} className="data-[state=active]:bg-[#FFF7ED] data-[state=active]:text-[#F26B21]">
               {labelize(t)}
             </TabsTrigger>
@@ -256,6 +261,71 @@ export default function ClientDetailPage() {
               </TableBody>
             </Table>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="growth" className="mt-4 space-y-4" data-testid="client-growth-tab">
+          {!rollup ? (
+            <p className="text-sm text-gray-400">Loading growth data…</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-xl font-bold font-mono">{formatINR(rollup.ads.total_spend)}</div><div className="text-xs text-gray-500">Ad spend (all campaigns)</div></CardContent></Card>
+                <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-xl font-bold font-mono">{formatINR(rollup.ads.total_revenue)}</div><div className="text-xs text-gray-500">Ad revenue attributed</div></CardContent></Card>
+                <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-xl font-bold font-mono">{rollup.ads.roas}x</div><div className="text-xs text-gray-500">Blended ROAS</div></CardContent></Card>
+                <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-xl font-bold font-mono">{rollup.social.total_this_month}</div><div className="text-xs text-gray-500">Social posts this month</div></CardContent></Card>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card className="border-gray-200/80">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-700">Ad campaigns</CardTitle></CardHeader>
+                  <CardContent className="space-y-2">
+                    {rollup.ads.campaigns.length === 0 && <p className="text-sm text-gray-400">No ad campaigns for this client.</p>}
+                    {rollup.ads.campaigns.map((c) => (
+                      <Link key={c.id} to={`/ads/${c.id}`} className="flex items-center justify-between rounded-lg border border-gray-200 px-3.5 py-2.5 hover:bg-orange-50/50 transition-colors" data-testid={`growth-campaign-${c.id}`}>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-800">{c.name}</div>
+                          <div className="text-[11px] text-gray-400">{labelize(c.platform)} · {labelize(c.status)}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono text-sm font-semibold">{formatINR(c.spend)}</div>
+                          <div className="text-[11px] text-gray-400">ROAS {c.roas}x</div>
+                        </div>
+                      </Link>
+                    ))}
+                  </CardContent>
+                </Card>
+                <div className="space-y-4">
+                  <Card className="border-gray-200/80">
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-700">Social — {rollup.social.month}</CardTitle></CardHeader>
+                    <CardContent>
+                      {rollup.social.by_status.length === 0 ? <p className="text-sm text-gray-400">No posts scheduled this month.</p> : (
+                        <div className="flex flex-wrap gap-2">
+                          {rollup.social.by_status.map((s) => (
+                            <Badge key={s.name} variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">{labelize(s.name)}: {s.value}</Badge>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-[11px] text-gray-400 mt-3">{rollup.social.total_all_time} posts all-time for this client.</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-gray-200/80">
+                    <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-700">Influencer collaborations</CardTitle></CardHeader>
+                    <CardContent className="space-y-2">
+                      {rollup.influencer_collabs.length === 0 && <p className="text-sm text-gray-400">No influencer collaborations yet.</p>}
+                      {rollup.influencer_collabs.map((c, i) => (
+                        <Link key={i} to={`/influencers/${c.influencer_id}`} className="flex items-center justify-between rounded-lg border border-gray-200 px-3.5 py-2.5 hover:bg-orange-50/50 transition-colors" data-testid={`growth-collab-${i}`}>
+                          <div>
+                            <div className="text-sm font-semibold text-gray-800">{c.campaign_name}</div>
+                            <div className="text-[11px] text-gray-400">{c.influencer_name}{c.handle ? ` · ${c.handle}` : ""} · {c.date}</div>
+                          </div>
+                          <span className="font-mono text-sm font-semibold">{formatINR(c.amount || 0)}</span>
+                        </Link>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="contacts" className="mt-4 space-y-2">

@@ -7,15 +7,15 @@ export const CHANNELS = ["meta", "google", "linkedin", "other"];
 export const PAYMENT_METHODS = ["bank_transfer", "upi", "credit_card", "cash", "pending"];
 
 const TABS = [
-  { name: "Overview", path: "/finance", exact: true, roles: ["admin", "finance"] },
-  { name: "Ledger", path: "/finance/ledger", roles: ["admin", "finance"] },
-  { name: "Expenses", path: "/finance/expenses", roles: ["admin", "finance"] },
-  { name: "Subscriptions", path: "/finance/subscriptions", roles: ["admin", "finance"] },
-  { name: "Budgets", path: "/finance/budgets", roles: ["admin", "finance"] },
-  { name: "AI Spend", path: "/finance/ai", roles: ["admin", "finance"] },
-  { name: "Marketing", path: "/finance/marketing", roles: ["admin", "finance"] },
-  { name: "Project Profit", path: "/finance/profit", roles: ["admin", "finance", "pm"] },
-  { name: "Employee Revenue", path: "/finance/employees", roles: ["admin", "finance"] },
+  { name: "Overview", path: "/finance", exact: true, roles: ["super_admin", "admin", "finance"] },
+  { name: "Ledger", path: "/finance/ledger", roles: ["super_admin", "admin", "finance"] },
+  { name: "Expenses", path: "/finance/expenses", roles: ["super_admin", "admin", "finance"] },
+  { name: "Subscriptions", path: "/finance/subscriptions", roles: ["super_admin", "admin", "finance"] },
+  { name: "Budgets", path: "/finance/budgets", roles: ["super_admin", "admin", "finance"] },
+  { name: "AI Spend", path: "/finance/ai", roles: ["super_admin", "admin", "finance"] },
+  { name: "Marketing", path: "/finance/marketing", roles: ["super_admin", "admin", "finance"] },
+  { name: "Project Profit", path: "/finance/profit", roles: ["super_admin", "admin", "finance", "pm"] },
+  { name: "Employee Revenue", path: "/finance/employees", roles: ["super_admin", "admin", "finance"] },
 ];
 
 export default function FinanceLayout({ title, subtitle, children, actions }) {

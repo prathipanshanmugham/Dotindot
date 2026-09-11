@@ -9,7 +9,7 @@ from permissions import branch_scope
 
 router = APIRouter()
 
-READ_ROLES = ("admin", "pm", "sales", "finance")
+READ_ROLES = ("admin", "pm", "sales", "finance", "ads_manager", "social_manager")
 WRITE_ROLES = ("admin", "pm", "sales")
 REVEAL_ROLES = ("admin", "pm")
 

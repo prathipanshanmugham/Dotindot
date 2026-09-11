@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
-const ROLES = ["admin", "finance", "sales", "pm", "employee"];
+const ROLES = ["super_admin", "admin", "finance", "sales", "pm", "employee", "ads_manager", "social_manager"];
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);

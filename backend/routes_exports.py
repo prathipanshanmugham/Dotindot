@@ -304,6 +304,95 @@ async def fetch_logs(p, user):
     return "Activity Logs", cols, rows, [{"label": "Log entries in export", "value": len(rows)}]
 
 
+async def fetch_assets(p, user):
+    q = {}
+    for k in ("asset_type", "status", "branch_id"):
+        if p.get(k):
+            q[k] = p[k]
+    rows = await db.assets.find(q, {"_id": 0}).sort("code", 1).to_list(1000)
+    umap = await _umap()
+    for r in rows:
+        r["assigned"] = umap.get(r.get("assigned_to")) or r.get("assigned_location") or "—"
+    cols = [("code", "Code", "text"), ("name", "Asset", "text"), ("asset_type", "Type", "text"),
+            ("serial_no", "Serial", "text"), ("status", "Status", "text"), ("assigned", "Assigned to", "text"),
+            ("purchase_value", "Value", "money"), ("purchase_date", "Purchased", "text"),
+            ("next_maintenance_date", "Next maintenance", "text")]
+    return "Assets Register", cols, rows, [
+        {"label": "Assets", "value": len(rows)},
+        {"label": "Total value", "value": sum(r.get("purchase_value", 0) for r in rows), "money": True},
+        {"label": "In use", "value": sum(1 for r in rows if r.get("status") == "in_use")}]
+
+
+async def fetch_ad_campaigns(p, user):
+    from routes_ads import compute_metrics
+    q = {}
+    for k in ("platform", "status", "client_id"):
+        if p.get(k):
+            q[k] = p[k]
+    rows = [compute_metrics(c) for c in await db.ad_campaigns.find(q, {"_id": 0}).sort("name", 1).to_list(500)]
+    cmap, _ = await name_maps()
+    out = []
+    for c in rows:
+        m = c["metrics"]
+        out.append({"name": c["name"], "client_name": cmap.get(c.get("client_id"), ""), "platform": c["platform"],
+                    "status": c["status"], "budget": c.get("budget", 0), "spend": m["spend"],
+                    "revenue": m["revenue"], "roas": m["roas"], "conversions": m["conversions"], "ctr": m["ctr"]})
+    spend = sum(r["spend"] for r in out)
+    revenue = sum(r["revenue"] for r in out)
+    cols = [("name", "Campaign", "text"), ("client_name", "Client", "text"), ("platform", "Platform", "text"),
+            ("status", "Status", "text"), ("budget", "Budget", "money"), ("spend", "Spend", "money"),
+            ("revenue", "Revenue", "money"), ("roas", "ROAS", "num"), ("conversions", "Conversions", "num"), ("ctr", "CTR %", "num")]
+    return "Ad Campaigns", cols, out, [
+        {"label": "Campaigns", "value": len(out)}, {"label": "Spend", "value": spend, "money": True},
+        {"label": "Revenue", "value": revenue, "money": True},
+        {"label": "Blended ROAS", "value": round(revenue / spend, 2) if spend else 0}]
+
+
+async def fetch_social_posts(p, user):
+    q = {}
+    if p.get("month"):
+        q["scheduled_at"] = {"$gte": p["month"] + "-01", "$lt": p["month"] + "-32"}
+    for k in ("platform", "status", "client_id"):
+        if p.get(k):
+            q[k] = p[k]
+    rows = await db.social_posts.find(q, {"_id": 0}).sort("scheduled_at", 1).to_list(2000)
+    umap = await _umap()
+    cmap, _ = await name_maps()
+    for r in rows:
+        r["client_name"] = cmap.get(r.get("client_id"), "")
+        r["assigned_to_name"] = umap.get(r.get("assigned_to"), "")
+        r["when"] = (r.get("scheduled_at") or "").replace("T", " ")[:16]
+    cols = [("when", "Scheduled", "text"), ("client_name", "Client", "text"), ("platform", "Platform", "text"),
+            ("content_type", "Type", "text"), ("caption", "Caption", "text"), ("status", "Status", "text"),
+            ("assigned_to_name", "Assigned to", "text")]
+    return "Social Media Calendar", cols, rows, [
+        {"label": "Posts", "value": len(rows)},
+        {"label": "Posted", "value": sum(1 for r in rows if r.get("status") == "posted")},
+        {"label": "Awaiting approval", "value": sum(1 for r in rows if r.get("status") in ("planned", "in_review"))}]
+
+
+async def fetch_influencers(p, user):
+    q = {}
+    for k in ("niche", "booking_status"):
+        if p.get(k):
+            q[k] = p[k]
+    rows = await db.influencers.find(q, {"_id": 0}).sort("name", 1).to_list(500)
+    for r in rows:
+        r["total_followers"] = sum(pl.get("followers", 0) for pl in r.get("platforms", []))
+        r["platform_list"] = ", ".join(pl["platform"] for pl in r.get("platforms", []))
+        r["reel_rate"] = (r.get("rate_card") or {}).get("reel", 0)
+        r["collab_count"] = len(r.get("collaborations", []))
+        r["collab_value"] = sum(c.get("amount", 0) for c in r.get("collaborations", []))
+    cols = [("name", "Influencer", "text"), ("handle", "Handle", "text"), ("niche", "Niche", "text"),
+            ("platform_list", "Platforms", "text"), ("total_followers", "Followers", "num"),
+            ("reel_rate", "Reel rate", "money"), ("booking_status", "Status", "text"),
+            ("collab_count", "Collabs", "num"), ("collab_value", "Collab value", "money")]
+    return "Influencer Directory", cols, rows, [
+        {"label": "Influencers", "value": len(rows)},
+        {"label": "Booked", "value": sum(1 for r in rows if r.get("booking_status") == "booked")},
+        {"label": "Total collab value", "value": sum(r["collab_value"] for r in rows), "money": True}]
+
+
 DATASETS = {
     "clients": {"roles": STAFF, "fetch": fetch_clients},
     "projects": {"roles": ALL, "fetch": fetch_projects},
@@ -321,6 +410,10 @@ DATASETS = {
     "employees": {"roles": ALL, "fetch": fetch_employees},
     "partnerships": {"roles": STAFF, "fetch": fetch_partnerships},
     "logs": {"roles": ("admin",), "fetch": fetch_logs},
+    "assets": {"roles": FIN, "fetch": fetch_assets},
+    "ad-campaigns": {"roles": ("admin", "finance", "sales", "ads_manager"), "fetch": fetch_ad_campaigns},
+    "social-posts": {"roles": ("admin", "social_manager"), "fetch": fetch_social_posts},
+    "influencers": {"roles": ("admin", "sales", "social_manager"), "fetch": fetch_influencers},
 }
 
 MEDIA = {
@@ -337,7 +430,7 @@ def file_response(data: bytes, base: str, fmt: str):
 
 @router.get("/exports/quote/{quote_id}")
 async def export_quote_pdf(quote_id: str, user: dict = Depends(get_current_user)):
-    if user["role"] not in SALES_READ:
+    if user["role"] != "super_admin" and user["role"] not in SALES_READ:
         raise HTTPException(status_code=403, detail="Insufficient permissions for this action")
     q = await db.quotes.find_one({"id": quote_id}, {"_id": 0})
     if not q:
@@ -366,7 +459,7 @@ async def export_dataset(dataset: str, request: Request, format: str = "xlsx", u
     spec = DATASETS.get(dataset)
     if not spec:
         raise HTTPException(status_code=404, detail="Unknown export dataset")
-    if user["role"] not in spec["roles"]:
+    if user["role"] != "super_admin" and user["role"] not in spec["roles"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions for this action")
     if format not in MEDIA:
         raise HTTPException(status_code=400, detail="format must be pdf or xlsx")

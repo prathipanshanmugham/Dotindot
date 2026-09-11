@@ -60,6 +60,14 @@ Internal web app (FARM: FastAPI + React + MongoDB) for Dotindot Creative, an AI-
 - UI: Export ▾ (PDF|Excel) on all 16 list pages passing live filters; Download PDF on quote view; ReportsPage + SettingsPage live; ALL placeholders and "Soon" badges removed — platform is feature-complete
 - Cleanup: stale @dotindot.test users deleted on every startup (ignore-proof)
 
+### Phase v2 — Major Upgrade: Granular Access, Growth & Ops Modules — DONE (Sept 2026)
+- Branding/Auth: favicon D-mark + title "dotindot | Internal Platform", gradient wordmark, demo-login buttons REMOVED (real auth only), accounts migrated to @dotindot.in, new `super_admin` role (admin@dotindot.in), new admin Midhun (midhun@dotindot.in), new roles ads_manager (ads@dotindot.in) + social_manager (social@dotindot.in)
+- Granular permissions (permissions.py): registry of keys grouped Core/Finance/Sales/Growth/Operations/System; role defaults ± per-user overrides; HTTP middleware enforces path-prefix → permission key (403); `GET /api/me/permissions`; Access Control screen `/access` (matrix + overrides + branch assignment + reset) for super_admin/admin
+- Branch/location scoping: users with `assigned_branches` see only records tied to those branches across clients/projects/leads/search
+- New modules: Assets (laptops/equipment, assign/return history, maintenance logs + due alerts, stats), Ads (manual campaigns w/ platform, spend, metric snapshots, ROAS; campaign detail page), Social (post scheduling calendar view + status workflow), Influencers (directory, per-platform rate cards, collaborations linking clients), Sales HUD (`/hud` fullscreen dark TV mode: targets vs actuals hero, pipeline, leaderboard, 45s auto-refresh, ESC exit)
+- Cross-cutting UI: permission-driven sidebar (Core/Growth/Operations/System groups from /api/me/permissions), client detail Growth tab (ads/social/influencer rollup via /api/clients/{id}/growth-rollup), CEO dashboard "Performance by branch" panel (/api/locations/compare), employee profile Assets tab, notifications bell + asset maintenance + social post alerts, Reports upgraded visual-first (all 6 templates return `charts` rendered as recharts donut/bar + summary cards + tables; 2 new templates: ads-performance, location-comparison), Locations page Branch CRUD (admin), Users page new role options, Export menus on all new list views (19 datasets)
+- Seed (seed_v2.py, idempotent): email migration, London branch (seed-branch-03), branch assignments, assets, ad campaigns, social posts, influencers
+
 ## Prioritized Backlog (post-launch ideas)
 - P2: multi-currency, email alert digests, scheduled auto-generated monthly reports, quote e-signature
 

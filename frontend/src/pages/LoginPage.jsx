@@ -8,14 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-const QUICK_LOGINS = [
-  { label: "Admin / CEO", email: "admin@dotindot.com" },
-  { label: "Finance", email: "finance@dotindot.com" },
-  { label: "Sales", email: "sales@dotindot.com" },
-  { label: "Project Manager", email: "pm@dotindot.com" },
-  { label: "Employee", email: "employee@dotindot.com" },
-];
-
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -56,7 +48,7 @@ export default function LoginPage() {
             Internal Operations & Growth Platform for Dotindot Creative — clients, projects, finance and growth, unified.
           </p>
         </div>
-        <div className="text-white/60 text-xs relative">Phase 1 · Clients & Projects Foundation</div>
+        <div className="text-white/60 text-xs relative">v2 · Ops, Growth & Granular Access</div>
       </div>
 
       {/* Form panel */}
@@ -83,7 +75,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@dotindot.com"
+                placeholder="you@dotindot.in"
                 required
               />
             </div>
@@ -113,30 +105,6 @@ export default function LoginPage() {
               {busy ? "Signing in..." : "Sign in"}
             </Button>
           </form>
-
-          <div className="mt-8">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-px flex-1 bg-gray-200" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Quick demo login</span>
-              <div className="h-px flex-1 bg-gray-200" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {QUICK_LOGINS.map((q) => (
-                <Button
-                  key={q.email}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  data-testid={`quick-login-${q.email.split("@")[0]}`}
-                  onClick={() => doLogin(q.email, "Dotindot@2026")}
-                  className="text-xs border-gray-200 hover:border-orange-300 hover:bg-orange-50 hover:text-[#F26B21]"
-                >
-                  {q.label}
-                </Button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

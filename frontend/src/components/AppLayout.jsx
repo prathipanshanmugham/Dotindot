@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
-  PieChart, ReceiptText, MapPin,
+  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -17,37 +17,48 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const ALL = ["admin", "finance", "sales", "pm", "employee"];
-const STAFF = ["admin", "finance", "sales", "pm"];
-
 const NAV = [
   {
-    section: "Core Modules",
+    section: "Core",
     items: [
-      { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ALL },
-      { name: "Clients", path: "/clients", icon: Users, roles: STAFF },
-      { name: "Projects", path: "/projects", icon: FolderKanban, roles: ALL },
+      { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+      { name: "Clients", path: "/clients", icon: Users, perm: ["clients"] },
+      { name: "Projects", path: "/projects", icon: FolderKanban, perm: ["projects"] },
     ],
   },
   {
-    section: "Growth & Operations",
+    section: "Growth",
     items: [
-      { name: "Finance", path: "/finance", icon: IndianRupee, roles: ["admin", "finance"] },
-      { name: "Project Profit", path: "/finance/profit", icon: PieChart, roles: ["pm"] },
-      { name: "My Expenses", path: "/my-expenses", icon: ReceiptText, roles: ["sales", "pm", "employee"] },
-      { name: "Sales", path: "/sales", icon: TrendingUp, roles: STAFF },
-      { name: "Employees", path: "/employees", icon: UserCheck, roles: ALL },
-      { name: "Partnerships", path: "/partnerships", icon: Handshake, roles: STAFF },
-      { name: "Locations", path: "/locations", icon: MapPin, roles: STAFF },
-      { name: "Reports", path: "/reports", icon: BarChart3, roles: STAFF },
-      { name: "Logs", path: "/logs", icon: ScrollText, roles: ["admin"] },
+      { name: "Sales", path: "/sales", icon: TrendingUp, perm: ["sales.pipeline", "sales.quotes", "sales.targets"] },
+      { name: "Sales HUD", path: "/hud", icon: MonitorPlay, perm: ["sales.hud"] },
+      { name: "Ads", path: "/ads", icon: Megaphone, perm: ["ads"] },
+      { name: "Social Media", path: "/social", icon: CalendarDays, perm: ["social"] },
+      { name: "Influencers", path: "/influencers", icon: Sparkles, perm: ["influencers"] },
     ],
   },
   {
-    section: "Administration",
+    section: "Operations",
     items: [
-      { name: "User Management", path: "/admin/users", icon: ShieldCheck, roles: ["admin"] },
-      { name: "Settings", path: "/settings", icon: Settings, roles: ALL },
+      {
+        name: "Finance", path: "/finance", icon: IndianRupee,
+        perm: ["finance.ledger", "finance.subscriptions", "finance.budgets", "finance.ai_spend", "finance.marketing", "finance.employee_revenue"],
+      },
+      { name: "Project Profit", path: "/finance/profit", icon: PieChart, perm: ["finance.project_profit"], when: (u, hasPerm) => !hasPerm("finance.ledger") },
+      { name: "My Expenses", path: "/my-expenses", icon: ReceiptText, when: (u) => !["super_admin", "admin", "finance"].includes(u?.role) },
+      { name: "Employees", path: "/employees", icon: UserCheck, perm: ["employees"] },
+      { name: "Assets", path: "/assets", icon: Boxes, perm: ["assets"] },
+      { name: "Partnerships", path: "/partnerships", icon: Handshake, perm: ["partnerships"] },
+      { name: "Locations", path: "/locations", icon: MapPin, perm: ["locations"] },
+    ],
+  },
+  {
+    section: "System",
+    items: [
+      { name: "Reports", path: "/reports", icon: BarChart3, perm: ["reports"] },
+      { name: "Logs", path: "/logs", icon: ScrollText, perm: ["logs"] },
+      { name: "Access Control", path: "/access", icon: KeyRound, perm: ["access_control"] },
+      { name: "User Management", path: "/admin/users", icon: ShieldCheck, perm: ["user_management"] },
+      { name: "Settings", path: "/settings", icon: Settings },
     ],
   },
 ];
@@ -149,7 +160,7 @@ const GlobalSearch = () => {
 };
 
 export default function AppLayout({ children }) {
-  const { user, logout } = useAuth();
+  const { user, hasPerm, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -171,11 +182,13 @@ export default function AppLayout({ children }) {
       <aside className="w-64 shrink-0 bg-white border-r border-gray-200/80 flex flex-col fixed inset-y-0 left-0 z-40">
         <div className="h-16 flex items-center px-5 border-b border-gray-100">
           <DotindotLogo size={30} textClass="text-lg" />
-          <Badge variant="outline" className="ml-2 text-[9px] px-1.5 border-gray-200 text-gray-400">Ops v1</Badge>
+          <Badge variant="outline" className="ml-2 text-[9px] px-1.5 border-gray-200 text-gray-400">Ops v2</Badge>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
           {NAV.map((section) => {
-            const visible = section.items.filter((i) => i.roles.includes(user?.role));
+            const visible = section.items.filter(
+              (i) => (!i.perm || hasPerm(...i.perm)) && (!i.when || i.when(user, hasPerm))
+            );
             if (!visible.length) return null;
             return (
               <div key={section.section}>

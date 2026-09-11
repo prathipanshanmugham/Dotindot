@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import api, { formatINR } from "@/lib/api";
 import { saveBlobResponse } from "@/components/ExportMenu";
-import { labelize } from "@/components/Badges";
+import { labelize, CHART_COLORS } from "@/components/Badges";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,39 @@ const SectionTable = ({ section, limit = 10 }) => (
     {section.rows.length > limit && (
       <div className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100">Showing {limit} of {section.rows.length} rows — full data in the downloaded file.</div>
     )}
+  </Card>
+);
+
+const ChartCard = ({ chart }) => (
+  <Card className="border-gray-200/80 shadow-sm">
+    <div className="px-4 pt-3 text-xs font-bold uppercase tracking-widest text-[#F26B21]">{chart.title}</div>
+    <CardContent className="h-60 pt-2">
+      {!chart.data || chart.data.length === 0 ? (
+        <div className="h-full flex items-center justify-center text-sm text-gray-400">No data for this period.</div>
+      ) : chart.type === "donut" ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={chart.data} dataKey="value" nameKey="name" innerRadius={42} outerRadius={72} paddingAngle={3}>
+              {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+            </Pie>
+            <Tooltip />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+          </PieChart>
+        </ResponsiveContainer>
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chart.data}>
+            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6B7280" }} axisLine={false} tickLine={false} interval={0} />
+            <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={48} />
+            <Tooltip cursor={{ fill: "#FFF7ED" }} />
+            {(chart.keys || ["value"]).map((k, i) => (
+              <Bar key={k} dataKey={k} name={labelize(k)} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[5, 5, 0, 0]} maxBarSize={36} />
+            ))}
+            {chart.keys && <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />}
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </CardContent>
   </Card>
 );
 
@@ -254,6 +288,11 @@ export default function ReportsPage() {
                   </Card>
                 ))}
               </div>
+              {preview.charts?.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" data-testid="report-charts">
+                  {preview.charts.map((c, i) => <ChartCard key={i} chart={c} />)}
+                </div>
+              )}
               {preview.sections.map((sec, i) => <SectionTable key={i} section={sec} />)}
             </div>
           )}

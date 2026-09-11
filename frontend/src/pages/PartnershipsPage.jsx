@@ -51,7 +51,7 @@ export default function PartnershipsPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const canWrite = ["admin", "finance"].includes(user?.role);
+  const canWrite = ["super_admin", "admin", "finance"].includes(user?.role);
 
   const load = useCallback(() => {
     api.get("/partnerships").then((r) => setPartners(r.data)).catch(() => setPartners([]));

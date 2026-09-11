@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Mail, Phone, MapPin, CalendarDays, Building2, Pencil, FolderKanban,
-  IndianRupee, CheckCircle2, GraduationCap, Plus, Trash2,
+  IndianRupee, CheckCircle2, GraduationCap, Plus, Trash2, Boxes,
 } from "lucide-react";
 
 const initials = (name) => (name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -52,9 +52,9 @@ export default function EmployeeProfilePage() {
   const [form, setForm] = useState({});
   const [assignForm, setAssignForm] = useState({ course_id: "", due_date: "" });
 
-  const canManageTraining = ["admin", "pm"].includes(user?.role);
+  const canManageTraining = ["super_admin", "admin", "pm"].includes(user?.role);
   const isSelf = user?.id === id;
-  const canEdit = user?.role === "admin" || isSelf;
+  const canEdit = ["super_admin", "admin"].includes(user?.role) || isSelf;
 
   const load = useCallback(() => {
     api.get(`/employees/${id}`)
@@ -77,7 +77,7 @@ export default function EmployeeProfilePage() {
   if (!data)
     return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
-  const { user: emp, projects, training, performance: perf } = data;
+  const { user: emp, projects, training, performance: perf, assets = [] } = data;
 
   const openEdit = () => {
     setForm({
@@ -190,6 +190,7 @@ export default function EmployeeProfilePage() {
         <TabsList>
           <TabsTrigger value="projects" data-testid="tab-projects">Projects</TabsTrigger>
           <TabsTrigger value="training" data-testid="tab-training">Training</TabsTrigger>
+          <TabsTrigger value="assets" data-testid="tab-assets">Assets{assets.length > 0 ? ` (${assets.length})` : ""}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="projects" className="mt-4">
@@ -290,6 +291,31 @@ export default function EmployeeProfilePage() {
             </Card>
           ))}
         </TabsContent>
+        <TabsContent value="assets" className="mt-4">
+          <Card className="border-gray-200/80 shadow-sm">
+            <CardContent className="p-0 divide-y divide-gray-100" data-testid="profile-assets-list">
+              {assets.length === 0 && <div className="p-6 text-sm text-gray-400 text-center">No company assets assigned.</div>}
+              {assets.map((a) => (
+                <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5" data-testid={`profile-asset-${a.id}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-[#FFF7ED] flex items-center justify-center shrink-0">
+                      <Boxes style={{ height: 16, width: 16 }} className="text-[#F26B21]" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">{a.name} <span className="text-xs font-normal text-gray-400 ml-1">{a.code}</span></div>
+                      <div className="text-xs text-gray-400">
+                        {labelize(a.asset_type)}{a.serial_no ? ` · SN ${a.serial_no}` : ""}{a.since ? ` · held since ${a.since}` : ""}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={a.status === "assigned" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-600 border-gray-200"}>
+                    {labelize(a.status)}
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Edit profile dialog */}
@@ -297,7 +323,7 @@ export default function EmployeeProfilePage() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Edit profile</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-3">
-            {user?.role === "admin" && (
+            {["super_admin", "admin"].includes(user?.role) && (
               <div className="col-span-2">
                 <Label>Name</Label>
                 <Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} data-testid="profile-edit-name" />

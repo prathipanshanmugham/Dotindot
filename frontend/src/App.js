@@ -36,19 +36,28 @@ import PartnershipsPage from "@/pages/PartnershipsPage";
 import LocationsPage from "@/pages/LocationsPage";
 import ReportsPage from "@/pages/ReportsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import AccessControlPage from "@/pages/AccessControlPage";
+import AssetsPage from "@/pages/AssetsPage";
+import AdsPage from "@/pages/ads/AdsPage";
+import AdCampaignDetailPage from "@/pages/ads/AdCampaignDetailPage";
+import SocialPage from "@/pages/SocialPage";
+import InfluencersPage from "@/pages/InfluencersPage";
+import InfluencerDetailPage from "@/pages/InfluencerDetailPage";
+import SalesHudPage from "@/pages/SalesHudPage";
 
-const STAFF = ["admin", "finance", "sales", "pm"];
-const FIN = ["admin", "finance"];
-const SALES_READ = ["admin", "sales", "pm", "finance"];
-const SALES_WRITE = ["admin", "sales"];
+const FIN_ANY = [
+  "finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
+  "finance.ai_spend", "finance.marketing", "finance.project_profit", "finance.employee_revenue",
+];
+const SALES_ANY = ["sales.pipeline", "sales.quotes", "sales.targets"];
 
 const HomeDashboard = () => {
   const { user } = useAuth();
-  return user?.role === "admin" ? <CeoDashboard /> : <DashboardPage />;
+  return ["super_admin", "admin"].includes(user?.role) ? <CeoDashboard /> : <DashboardPage />;
 };
 
-const Protected = ({ children, roles }) => {
-  const { user, loading } = useAuth();
+const Protected = ({ children, perm, roles, bare }) => {
+  const { user, loading, hasPerm } = useAuth();
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
@@ -56,8 +65,10 @@ const Protected = ({ children, roles }) => {
       </div>
     );
   if (!user) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role)) return <Navigate to="/dashboard" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  const permOk = !perm || hasPerm(...(Array.isArray(perm) ? perm : [perm]));
+  const roleOk = !roles || user.role === "super_admin" || roles.includes(user.role);
+  if (!permOk || !roleOk) return <Navigate to="/dashboard" replace />;
+  return bare ? children : <AppLayout>{children}</AppLayout>;
 };
 
 function App() {
@@ -68,36 +79,44 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Protected><HomeDashboard /></Protected>} />
-          <Route path="/clients" element={<Protected roles={STAFF}><ClientsPage /></Protected>} />
-          <Route path="/clients/:id" element={<Protected roles={STAFF}><ClientDetailPage /></Protected>} />
-          <Route path="/projects" element={<Protected><ProjectsPage /></Protected>} />
-          <Route path="/projects/new" element={<Protected roles={["admin", "pm", "sales"]}><NewProjectWizard /></Protected>} />
-          <Route path="/projects/:id" element={<Protected><ProjectDetailPage /></Protected>} />
-          <Route path="/admin/users" element={<Protected roles={["admin"]}><UsersPage /></Protected>} />
-          <Route path="/finance" element={<Protected roles={FIN}><FinanceOverview /></Protected>} />
-          <Route path="/finance/ledger" element={<Protected roles={FIN}><LedgerPage /></Protected>} />
-          <Route path="/finance/expenses" element={<Protected roles={FIN}><ExpensesPage /></Protected>} />
-          <Route path="/finance/subscriptions" element={<Protected roles={FIN}><SubscriptionsPage /></Protected>} />
-          <Route path="/finance/budgets" element={<Protected roles={FIN}><BudgetsPage /></Protected>} />
-          <Route path="/finance/ai" element={<Protected roles={FIN}><AiSpendPage /></Protected>} />
-          <Route path="/finance/marketing" element={<Protected roles={FIN}><MarketingPage /></Protected>} />
-          <Route path="/finance/profit" element={<Protected roles={["admin", "finance", "pm"]}><ProjectProfitPage /></Protected>} />
-          <Route path="/finance/employees" element={<Protected roles={FIN}><EmployeeRevenuePage /></Protected>} />
+          <Route path="/clients" element={<Protected perm="clients"><ClientsPage /></Protected>} />
+          <Route path="/clients/:id" element={<Protected perm="clients"><ClientDetailPage /></Protected>} />
+          <Route path="/projects" element={<Protected perm="projects"><ProjectsPage /></Protected>} />
+          <Route path="/projects/new" element={<Protected perm="projects" roles={["admin", "pm", "sales"]}><NewProjectWizard /></Protected>} />
+          <Route path="/projects/:id" element={<Protected perm="projects"><ProjectDetailPage /></Protected>} />
+          <Route path="/admin/users" element={<Protected perm="user_management"><UsersPage /></Protected>} />
+          <Route path="/access" element={<Protected perm="access_control"><AccessControlPage /></Protected>} />
+          <Route path="/finance" element={<Protected perm={FIN_ANY}><FinanceOverview /></Protected>} />
+          <Route path="/finance/ledger" element={<Protected perm="finance.ledger"><LedgerPage /></Protected>} />
+          <Route path="/finance/expenses" element={<Protected perm="finance.expenses"><ExpensesPage /></Protected>} />
+          <Route path="/finance/subscriptions" element={<Protected perm="finance.subscriptions"><SubscriptionsPage /></Protected>} />
+          <Route path="/finance/budgets" element={<Protected perm="finance.budgets"><BudgetsPage /></Protected>} />
+          <Route path="/finance/ai" element={<Protected perm="finance.ai_spend"><AiSpendPage /></Protected>} />
+          <Route path="/finance/marketing" element={<Protected perm="finance.marketing"><MarketingPage /></Protected>} />
+          <Route path="/finance/profit" element={<Protected perm="finance.project_profit"><ProjectProfitPage /></Protected>} />
+          <Route path="/finance/employees" element={<Protected perm="finance.employee_revenue"><EmployeeRevenuePage /></Protected>} />
           <Route path="/my-expenses" element={<Protected><MyExpensesPage /></Protected>} />
-          <Route path="/sales" element={<Protected roles={SALES_READ}><SalesOverview /></Protected>} />
-          <Route path="/sales/pipeline" element={<Protected roles={SALES_READ}><PipelinePage /></Protected>} />
-          <Route path="/sales/leads/:id" element={<Protected roles={SALES_READ}><LeadDetailPage /></Protected>} />
-          <Route path="/sales/quotes" element={<Protected roles={SALES_READ}><QuotesPage /></Protected>} />
-          <Route path="/sales/quotes/new" element={<Protected roles={SALES_WRITE}><QuoteBuilderPage /></Protected>} />
-          <Route path="/sales/quotes/:id" element={<Protected roles={SALES_READ}><QuoteViewPage /></Protected>} />
-          <Route path="/sales/quotes/:id/edit" element={<Protected roles={SALES_WRITE}><QuoteBuilderPage /></Protected>} />
-          <Route path="/sales/targets" element={<Protected roles={SALES_READ}><TargetsPage /></Protected>} />
-          <Route path="/employees" element={<Protected><EmployeesPage /></Protected>} />
-          <Route path="/employees/:id" element={<Protected><EmployeeProfilePage /></Protected>} />
-          <Route path="/partnerships" element={<Protected roles={STAFF}><PartnershipsPage /></Protected>} />
-          <Route path="/locations" element={<Protected roles={STAFF}><LocationsPage /></Protected>} />
-          <Route path="/logs" element={<Protected roles={["admin"]}><LogsPage /></Protected>} />
-          <Route path="/reports" element={<Protected roles={STAFF}><ReportsPage /></Protected>} />
+          <Route path="/sales" element={<Protected perm={SALES_ANY}><SalesOverview /></Protected>} />
+          <Route path="/sales/pipeline" element={<Protected perm="sales.pipeline"><PipelinePage /></Protected>} />
+          <Route path="/sales/leads/:id" element={<Protected perm="sales.pipeline"><LeadDetailPage /></Protected>} />
+          <Route path="/sales/quotes" element={<Protected perm="sales.quotes"><QuotesPage /></Protected>} />
+          <Route path="/sales/quotes/new" element={<Protected perm="sales.quotes" roles={["admin", "sales"]}><QuoteBuilderPage /></Protected>} />
+          <Route path="/sales/quotes/:id" element={<Protected perm="sales.quotes"><QuoteViewPage /></Protected>} />
+          <Route path="/sales/quotes/:id/edit" element={<Protected perm="sales.quotes" roles={["admin", "sales"]}><QuoteBuilderPage /></Protected>} />
+          <Route path="/sales/targets" element={<Protected perm="sales.targets"><TargetsPage /></Protected>} />
+          <Route path="/hud" element={<Protected perm="sales.hud" bare><SalesHudPage /></Protected>} />
+          <Route path="/ads" element={<Protected perm="ads"><AdsPage /></Protected>} />
+          <Route path="/ads/:id" element={<Protected perm="ads"><AdCampaignDetailPage /></Protected>} />
+          <Route path="/social" element={<Protected perm="social"><SocialPage /></Protected>} />
+          <Route path="/influencers" element={<Protected perm="influencers"><InfluencersPage /></Protected>} />
+          <Route path="/influencers/:id" element={<Protected perm="influencers"><InfluencerDetailPage /></Protected>} />
+          <Route path="/assets" element={<Protected perm="assets"><AssetsPage /></Protected>} />
+          <Route path="/employees" element={<Protected perm="employees"><EmployeesPage /></Protected>} />
+          <Route path="/employees/:id" element={<Protected perm="employees"><EmployeeProfilePage /></Protected>} />
+          <Route path="/partnerships" element={<Protected perm="partnerships"><PartnershipsPage /></Protected>} />
+          <Route path="/locations" element={<Protected perm="locations"><LocationsPage /></Protected>} />
+          <Route path="/logs" element={<Protected perm="logs"><LogsPage /></Protected>} />
+          <Route path="/reports" element={<Protected perm="reports"><ReportsPage /></Protected>} />
           <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
