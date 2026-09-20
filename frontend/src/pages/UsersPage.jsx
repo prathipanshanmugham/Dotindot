@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { apiError } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { ROLE_LABELS } from "@/components/Badges";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,16 +11,24 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 const ROLES = ["super_admin", "admin", "finance", "sales", "pm", "employee", "ads_manager", "social_manager"];
 
 export default function UsersPage() {
+  const { user: me } = useAuth();
+  const isSuper = me?.role === "super_admin";
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "employee" });
   const [busy, setBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [assignments, setAssignments] = useState(null);
 
   const load = useCallback(() => {
     api.get("/users").then((r) => setUsers(r.data)).catch((e) => toast.error(apiError(e)));
@@ -50,6 +59,29 @@ export default function UsersPage() {
     try {
       await api.put(`/users/${id}`, patch);
       toast.success(msg);
+      load();
+    } catch (e) {
+      toast.error(apiError(e));
+    }
+  };
+
+  const openDelete = async (u) => {
+    setDeleteTarget(u);
+    setAssignments(null);
+    try {
+      const { data } = await api.get(`/users/${u.id}/assignments`);
+      setAssignments(data);
+    } catch (e) {
+      setAssignments({ active_projects: [], open_leads: [], assets_held: [] });
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await api.delete(`/users/${deleteTarget.id}`);
+      toast.success(`${deleteTarget.name} permanently deleted`);
+      setDeleteTarget(null);
       load();
     } catch (e) {
       toast.error(apiError(e));
@@ -101,10 +133,13 @@ export default function UsersPage() {
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Active</TableHead>
+              {isSuper && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((u) => (
+            {users.map((u) => {
+              const lockedRow = me?.role === "admin" && ["admin", "super_admin"].includes(u.role);
+              return (
               <TableRow key={u.id} data-testid={`user-row-${u.id}`}>
                 <TableCell>
                   <div className="flex items-center gap-3">
@@ -118,7 +153,7 @@ export default function UsersPage() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Select value={u.role} onValueChange={(v) => updateUser(u.id, { role: v }, `Role updated to ${ROLE_LABELS[v]}`)}>
+                  <Select value={u.role} disabled={lockedRow} onValueChange={(v) => updateUser(u.id, { role: v }, `Role updated to ${ROLE_LABELS[v]}`)}>
                     <SelectTrigger className="w-[170px]" data-testid={`user-role-select-${u.id}`}><SelectValue /></SelectTrigger>
                     <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}</SelectContent>
                   </Select>
@@ -133,15 +168,71 @@ export default function UsersPage() {
                 <TableCell>
                   <Switch
                     checked={u.is_active}
+                    disabled={lockedRow}
                     onCheckedChange={(v) => updateUser(u.id, { is_active: v }, v ? "User activated" : "User deactivated")}
                     data-testid={`user-active-switch-${u.id}`}
                   />
                 </TableCell>
+                {isSuper && (
+                  <TableCell className="text-right">
+                    {u.id !== me.id && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => openDelete(u)} data-testid={`delete-user-btn-${u.id}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </TableCell>
+                )}
               </TableRow>
-            ))}
+              );
+            })}
           </TableBody>
         </Table>
       </Card>
+
+      {/* Permanent delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" /> Permanently delete {deleteTarget?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-gray-500">
+                <p>
+                  This is <span className="font-semibold text-red-600">permanent</span>. The account is removed and can never
+                  log in again. Historical records (projects, transactions, logs) are kept with the name
+                  "Deleted user ({deleteTarget?.name})".
+                </p>
+                {!assignments ? (
+                  <p className="text-xs text-gray-400">Checking current assignments…</p>
+                ) : assignments.active_projects.length + assignments.open_leads.length + assignments.assets_held.length > 0 ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1" data-testid="delete-user-warnings">
+                    <div className="font-bold">This user is still assigned to:</div>
+                    {assignments.active_projects.length > 0 && (
+                      <div>• {assignments.active_projects.length} active project(s): {assignments.active_projects.map((p) => p.name).join(", ")}</div>
+                    )}
+                    {assignments.open_leads.length > 0 && (
+                      <div>• {assignments.open_leads.length} open lead(s): {assignments.open_leads.map((l) => l.name).join(", ")}</div>
+                    )}
+                    {assignments.assets_held.length > 0 && (
+                      <div>• {assignments.assets_held.length} asset(s): {assignments.assets_held.map((a) => a.name).join(", ")}</div>
+                    )}
+                    <div>Consider reassigning these before deleting.</div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-emerald-700">No active projects, open leads or assets assigned — safe to delete.</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="delete-user-cancel">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700" data-testid="delete-user-confirm">
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

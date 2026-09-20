@@ -5,7 +5,8 @@ import SalesLayout, { STAGE_STYLES } from "@/components/SalesLayout";
 import { labelize, CHART_COLORS } from "@/components/Badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, CalendarClock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, CalendarClock, MonitorPlay } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, Cell as BarCell } from "recharts";
 
 const Stat = ({ label, value, sub, testid }) => (
@@ -51,7 +52,15 @@ export default function SalesOverview() {
   const funnelData = data.funnel.map((f) => ({ ...f, stage: labelize(f.stage) }));
 
   return (
-    <SalesLayout title="Sales Overview" subtitle={`${data.total_leads} leads · open pipeline ${formatINR(data.open_pipeline_value)}`}>
+    <SalesLayout
+      title="Sales Overview"
+      subtitle={`${data.total_leads} leads · open pipeline ${formatINR(data.open_pipeline_value)}`}
+      actions={
+        <Button asChild variant="outline" size="sm" className="gap-1.5" data-testid="open-sales-view-btn">
+          <Link to="/hud"><MonitorPlay className="h-4 w-4 text-[#F26B21]" /> Sales View</Link>
+        </Button>
+      }
+    >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Win rate" value={`${data.win_rate}%`} sub="won ÷ (won + lost)" testid="sales-stat-winrate" />
         <Stat label="Avg deal size" value={formatINR(data.avg_deal_size)} testid="sales-stat-avgdeal" />

@@ -27,7 +27,7 @@ async def team_members(user: dict = Depends(get_current_user)):
 
 @router.get("/users")
 async def list_users(user: dict = Depends(require_roles("admin"))):
-    return await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(500)
+    return await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "password_hash": 0}).to_list(500)
 
 
 @router.post("/users")
@@ -76,3 +76,52 @@ async def update_user(user_id: str, body: UserUpdate, user: dict = Depends(requi
     await log_activity(user, action, "user", user_id, target["name"])
     updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     return updated
+
+
+@router.get("/users/{user_id}/assignments")
+async def user_assignments(user_id: str, user: dict = Depends(require_roles("admin"))):
+    """What is this user still responsible for? Shown as a warning before deletion."""
+    target = await db.users.find_one({"id": user_id, "deleted": {"$ne": True}})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    projects = await db.projects.find(
+        {"team_member_ids": user_id, "status": {"$in": ["kickoff", "in_progress", "review"]}},
+        {"_id": 0, "id": 1, "name": 1, "status": 1}).to_list(100)
+    leads = await db.leads.find(
+        {"owner_id": user_id, "stage": {"$nin": ["won", "lost"]}},
+        {"_id": 0, "id": 1, "name": 1, "stage": 1}).to_list(100)
+    assets = await db.assets.find(
+        {"assigned_to": user_id, "status": {"$ne": "retired"}},
+        {"_id": 0, "id": 1, "name": 1, "code": 1}).to_list(100)
+    return {"active_projects": projects, "open_leads": leads, "assets_held": assets}
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: str, user: dict = Depends(require_roles("admin"))):
+    """Permanent deletion (super_admin only). Tombstone keeps historical records resolving the name."""
+    if user["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only a super admin can delete accounts")
+    if user_id == user["id"]:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+    target = await db.users.find_one({"id": user_id, "deleted": {"$ne": True}})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target["role"] == "super_admin":
+        remaining = await db.users.count_documents(
+            {"role": "super_admin", "deleted": {"$ne": True}, "id": {"$ne": user_id}})
+        if remaining == 0:
+            raise HTTPException(status_code=400, detail="Cannot delete the last remaining super admin")
+    original_name = target["name"]
+    await db.users.update_one({"id": user_id}, {"$set": {
+        "deleted": True,
+        "is_active": False,
+        "name": f"Deleted user ({original_name})",
+        "email": f"deleted-{user_id}@removed.dotindot.in",
+        "password_hash": "",
+        "permission_overrides": {},
+        "assigned_branches": [],
+        "deleted_at": datetime.now(timezone.utc).isoformat(),
+        "deleted_by": user["id"],
+    }})
+    await log_activity(user, "user_deleted", "user", user_id, original_name)
+    return {"ok": True, "message": f"{original_name} permanently deleted. Historical records keep the name."}

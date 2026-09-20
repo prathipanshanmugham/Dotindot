@@ -30,7 +30,7 @@ const NAV = [
     section: "Growth",
     items: [
       { name: "Sales", path: "/sales", icon: TrendingUp, perm: ["sales.pipeline", "sales.quotes", "sales.targets"] },
-      { name: "Sales HUD", path: "/hud", icon: MonitorPlay, perm: ["sales.hud"] },
+      { name: "Sales View", path: "/hud", icon: MonitorPlay, perm: ["sales.hud"] },
       { name: "Ads", path: "/ads", icon: Megaphone, perm: ["ads"] },
       { name: "Social Media", path: "/social", icon: CalendarDays, perm: ["social"] },
       { name: "Influencers", path: "/influencers", icon: Sparkles, perm: ["influencers"] },

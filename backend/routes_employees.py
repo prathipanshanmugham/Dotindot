@@ -26,7 +26,7 @@ async def directory(
     search: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
-    q = {}
+    q = {"deleted": {"$ne": True}}
     if role:
         q["role"] = role
     if city:

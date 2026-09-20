@@ -10,6 +10,9 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ShieldCheck, RotateCcw, MapPin, Lock, Save } from "lucide-react";
 
+// Display-name overrides for permission keys (keys themselves stay stable)
+const PERM_LABELS = { "sales.hud": "Sales — Sales View (TV mode)" };
+
 export default function AccessControlPage() {
   const { user: me } = useAuth();
   const [registry, setRegistry] = useState(null);
@@ -209,7 +212,7 @@ export default function AccessControlPage() {
                         return (
                           <div key={k} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50" data-testid={`perm-row-${k}`}>
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-sm text-gray-700 truncate">{labelize(k.replace(".", " — "))}</span>
+                              <span className="text-sm text-gray-700 truncate">{PERM_LABELS[k] || labelize(k.replace(".", " — "))}</span>
                               {!isDefault && <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" title="Overridden from role default" />}
                             </div>
                             <Switch

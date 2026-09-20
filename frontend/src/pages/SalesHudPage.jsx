@@ -59,7 +59,7 @@ export default function SalesHudPage() {
         <div className="flex items-center gap-3">
           <DotindotMark size={30} />
           <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-[#F26B21] to-[#FBA834] bg-clip-text text-transparent">dotindot.</span>
-          <span className="text-xs font-bold uppercase tracking-[0.3em] text-white/40 ml-3">Sales HUD · {d.month}</span>
+          <span className="text-xs font-bold uppercase tracking-[0.3em] text-white/40 ml-3">Sales View · {d.month}</span>
         </div>
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-2 text-xs font-semibold text-emerald-400" data-testid="hud-live-indicator">

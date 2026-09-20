@@ -57,7 +57,7 @@ async def registry(user: dict = Depends(get_current_user)):
 
 @router.get("/access/users")
 async def access_users(user: dict = Depends(get_current_user)):
-    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).sort("name", 1).to_list(500)
+    users = await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "password_hash": 0}).sort("name", 1).to_list(500)
     for u in users:
         u["effective_permissions"] = effective_permissions(u)
         u["permission_overrides"] = u.get("permission_overrides") or {}
