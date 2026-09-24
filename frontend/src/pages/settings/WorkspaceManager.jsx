@@ -67,7 +67,10 @@ export const WorkspaceManager = () => {
 
   useEffect(() => { setPage(1); setSelected({}); }, [coll, search]);
 
-  const refreshCounts = () => api.get("/workspace/collections").then((r) => setCollections(r.data)).catch(() => {});
+  const refreshCounts = () => {
+    window.dispatchEvent(new Event("workspace-deleted"));
+    return api.get("/workspace/collections").then((r) => setCollections(r.data)).catch(() => {});
+  };
 
   const openEdit = (rec) => {
     setEditing(rec);
@@ -106,7 +109,7 @@ export const WorkspaceManager = () => {
   const doDelete = async (rid, cascade) => {
     try {
       await api.delete(`/workspace/${coll}/${rid}`, { params: cascade ? { cascade: true } : {} });
-      toast.success(cascade ? "Record and dependents deleted" : "Record permanently deleted");
+      toast.success(cascade ? "Record and dependents deleted — undo available for 24h" : "Record deleted — undo available for 24h");
       setDelTarget(null);
       load();
       refreshCounts();
@@ -151,7 +154,7 @@ export const WorkspaceManager = () => {
           <Database className="h-4 w-4 text-[#F26B21]" /> Workspace data manager
         </CardTitle>
         <p className="text-xs text-gray-400">
-          Super admin power tool — edit or <span className="font-semibold text-red-500">permanently delete</span> any record. Deletes are true DB removals and cannot be undone.
+          Super admin power tool — edit or <span className="font-semibold text-red-500">hard delete</span> any record. Deleted records go to "Recently deleted" below and can be restored for 24 hours, then are purged permanently.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -265,7 +268,7 @@ export const WorkspaceManager = () => {
           <div className="space-y-3 text-sm text-gray-600">
             <p>
               <span className="font-mono text-xs bg-gray-100 rounded px-1.5 py-0.5">{delTarget?.record?.id}</span>
-              {" — "}This action is <span className="font-semibold text-red-600">permanent and cannot be undone</span>.
+              {" — "}This removes the record now. It stays in <span className="font-semibold">Recently deleted</span> for 24 hours (undo available), then is purged permanently.
             </p>
             {delTarget && !delTarget.checked && (
               <p className="text-xs text-gray-400" data-testid="workspace-dependents-checking">Checking for dependent records…</p>
@@ -328,7 +331,7 @@ export const WorkspaceManager = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm text-gray-600">
-            <p>This permanently removes {selectedIds.length} records from <span className="font-semibold">{collections.find((c) => c.key === coll)?.label}</span>. It cannot be undone.</p>
+            <p>This removes {selectedIds.length} records from <span className="font-semibold">{collections.find((c) => c.key === coll)?.label}</span>. They stay in Recently deleted for 24 hours (undo available), then are purged.</p>
             <label className="flex items-center gap-2 text-xs text-gray-500">
               <Checkbox checked={cascadeBulk} onCheckedChange={(v) => setCascadeBulk(!!v)} data-testid="workspace-bulk-cascade" />
               Also cascade-delete/unlink dependent records (otherwise records with dependents are skipped)

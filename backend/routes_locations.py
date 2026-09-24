@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from database import db
 from auth import get_current_user, require_roles, log_activity
+from india_locations import INDIA_STATES, INDIA_CITY_COORDS, COUNTRIES
 
 router = APIRouter()
 
@@ -15,6 +16,7 @@ class BranchIn(BaseModel):
     name: str
     address: Optional[str] = ""
     city: str
+    state: Optional[str] = ""
     country: Optional[str] = ""
     region: Optional[str] = ""
     contact_phone: Optional[str] = ""
@@ -28,6 +30,7 @@ class BranchUpdate(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
+    state: Optional[str] = None
     country: Optional[str] = None
     region: Optional[str] = None
     contact_phone: Optional[str] = None
@@ -52,6 +55,16 @@ CITY_COORDS = {
     "Singapore": {"lat": 1.3521, "lng": 103.8198, "country": "Singapore"},
     "New York": {"lat": 40.7128, "lng": -74.0060, "country": "USA"},
 }
+
+# Extend with all Indian state capitals + major cities (map pin fallback)
+for _city, (_lat, _lng) in INDIA_CITY_COORDS.items():
+    CITY_COORDS.setdefault(_city, {"lat": _lat, "lng": _lng, "country": "India"})
+
+
+@router.get("/locations/geo")
+async def geo_data(user: dict = Depends(get_current_user)):
+    """Static geo dataset for dropdowns: countries + Indian states with cities."""
+    return {"countries": COUNTRIES, "india_states": INDIA_STATES}
 
 
 @router.get("/locations/cities")
@@ -158,9 +171,11 @@ async def map_data(user: dict = Depends(get_current_user)):
 
     city_map = {}
 
-    def bucket(city_name):
+    def bucket(city_name, state_name=None):
         coords = CITY_COORDS.get(city_name)
-        if not coords:
+        if not coords and state_name and INDIA_STATES.get(state_name):
+            coords = CITY_COORDS.get(INDIA_STATES[state_name][0])  # state capital fallback
+        if not coords or not city_name:
             return None
         if city_name not in city_map:
             city_map[city_name] = {
@@ -174,7 +189,7 @@ async def map_data(user: dict = Depends(get_current_user)):
         if b:
             b["clients"].append({"id": c["id"], "name": c["name"], "status": c.get("status"), "industry": c.get("industry")})
     for br in branch_rows:
-        b = bucket(br.get("city"))
+        b = bucket(br.get("city"), br.get("state"))
         if b:
             b["branches"].append({"id": br["id"], "name": br["name"], "address": br.get("address", ""), "head_name": br.get("head_name", "")})
     for e in employees:

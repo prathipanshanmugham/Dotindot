@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Building2, UserCheck, Globe2, Plus, Pencil, Trash2 } from "lucide-react";
+import { LocationFields } from "@/components/LocationFields";
 
 const LAYERS = [
   { key: "clients", label: "Clients", color: "#F26B21", icon: Users, offset: [0, 0] },
@@ -31,13 +32,12 @@ const makeIcon = (color, count) =>
     popupAnchor: [0, -26],
   });
 
-const EMPTY_BRANCH = { name: "", city: "", country: "", address: "", head_name: "", contact_email: "", contact_phone: "", status: "active" };
+const EMPTY_BRANCH = { name: "", city: "", state: "", country: "India", address: "", head_name: "", contact_email: "", contact_phone: "", status: "active" };
 
-const BranchManager = () => {
+const BranchManager = ({ onChanged }) => {
   const { user } = useAuth();
   const isAdmin = ["super_admin", "admin"].includes(user?.role);
   const [branches, setBranches] = useState([]);
-  const [cities, setCities] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_BRANCH);
@@ -48,23 +48,17 @@ const BranchManager = () => {
 
   useEffect(() => {
     load();
-    api.get("/locations/cities").then((r) => setCities(r.data)).catch(() => {});
   }, [load]);
 
   const openNew = () => { setEditing(null); setForm(EMPTY_BRANCH); setOpen(true); };
   const openEdit = (b) => {
     setEditing(b);
     setForm({
-      name: b.name || "", city: b.city || "", country: b.country || "", address: b.address || "",
+      name: b.name || "", city: b.city || "", state: b.state || "", country: b.country || "India", address: b.address || "",
       head_name: b.head_name || "", contact_email: b.contact_email || "", contact_phone: b.contact_phone || "",
       status: b.status || "active",
     });
     setOpen(true);
-  };
-
-  const pickCity = (city) => {
-    const c = cities.find((x) => x.city === city);
-    setForm((f) => ({ ...f, city, country: c?.country || f.country }));
   };
 
   const save = async () => {
@@ -72,9 +66,10 @@ const BranchManager = () => {
     try {
       if (editing) await api.put(`/locations/branches/${editing.id}`, form);
       else await api.post("/locations/branches", form);
-      toast.success(editing ? "Branch updated" : "Branch created");
+      toast.success(editing ? "Branch updated" : `Branch created — ${form.city} pinned on the map`);
       setOpen(false);
       load();
+      onChanged && onChanged();
     } catch (e) {
       toast.error(apiError(e));
     }
@@ -85,6 +80,7 @@ const BranchManager = () => {
       await api.delete(`/locations/branches/${b.id}`);
       toast.success("Branch deleted");
       load();
+      onChanged && onChanged();
     } catch (e) {
       toast.error(apiError(e));
     }
@@ -156,14 +152,11 @@ const BranchManager = () => {
               <Label>Branch name</Label>
               <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} data-testid="branch-form-name" />
             </div>
-            <div className="space-y-1">
-              <Label>City</Label>
-              <Select value={form.city} onValueChange={pickCity}>
-                <SelectTrigger data-testid="branch-form-city"><SelectValue placeholder="Pick a city" /></SelectTrigger>
-                <SelectContent>{cities.map((c) => <SelectItem key={c.city} value={c.city}>{c.city}, {c.country}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <LocationFields country={form.country} state={form.state} city={form.city} prefix="branch-form" compact
+                onChange={(v) => setForm((f) => ({ ...f, ...v }))} />
             </div>
-            <div className="space-y-1">
+            <div className="col-span-2 space-y-1">
               <Label>Status</Label>
               <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
                 <SelectTrigger data-testid="branch-form-status"><SelectValue /></SelectTrigger>
@@ -208,9 +201,11 @@ export default function LocationsPage() {
   const mapRef = useRef(null);
   const mapWrapRef = useRef(null);
 
-  useEffect(() => {
+  const loadMap = useCallback(() => {
     api.get("/locations/map").then((r) => setData(r.data)).catch(() => {});
   }, []);
+
+  useEffect(() => { loadMap(); }, [loadMap]);
 
   // Keep Leaflet correctly sized when its container changes (panel toggles, resize, layout shifts)
   useEffect(() => {
@@ -334,7 +329,7 @@ export default function LocationsPage() {
       </div>
 
       {/* Branch management */}
-      <BranchManager />
+      <BranchManager onChanged={loadMap} />
     </div>
   );
 }

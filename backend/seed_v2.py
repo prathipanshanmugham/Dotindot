@@ -343,6 +343,14 @@ async def seed_v2():
     await db.users.update_one({"email": "admin@dotindot.in"}, {"$set": {"role": "super_admin"}})
     await restore_seed_accounts(pw_hash)
 
+    # 1b) Migrate legacy assigned_branches -> branch_assignments (staff role)
+    legacy = await db.users.find({"assigned_branches.0": {"$exists": True},
+                                  "branch_assignments": {"$exists": False}},
+                                 {"_id": 0, "id": 1, "assigned_branches": 1}).to_list(500)
+    for u in legacy:
+        await db.users.update_one({"id": u["id"]}, {"$set": {
+            "branch_assignments": [{"branch_id": b, "branch_role": "staff"} for b in u["assigned_branches"]]}})
+
     # 2) New v2 users (by canonical id — restore_seed_accounts guarantees uniqueness)
     for u in V2_USERS:
         await db.users.update_one(

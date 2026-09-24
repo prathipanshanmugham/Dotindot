@@ -44,6 +44,7 @@ import SocialPage from "@/pages/SocialPage";
 import InfluencersPage from "@/pages/InfluencersPage";
 import InfluencerDetailPage from "@/pages/InfluencerDetailPage";
 import SalesHudPage from "@/pages/SalesHudPage";
+import PasswordManagerPage from "@/pages/PasswordManagerPage";
 
 const FIN_ANY = [
   "finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
@@ -86,6 +87,7 @@ function App() {
           <Route path="/projects/:id" element={<Protected perm="projects"><ProjectDetailPage /></Protected>} />
           <Route path="/admin/users" element={<Protected perm="user_management"><UsersPage /></Protected>} />
           <Route path="/access" element={<Protected perm="access_control"><AccessControlPage /></Protected>} />
+          <Route path="/passwords" element={<Protected perm="password_manager"><PasswordManagerPage /></Protected>} />
           <Route path="/finance" element={<Protected perm={FIN_ANY}><FinanceOverview /></Protected>} />
           <Route path="/finance/ledger" element={<Protected perm="finance.ledger"><LedgerPage /></Protected>} />
           <Route path="/finance/expenses" element={<Protected perm="finance.expenses"><ExpensesPage /></Protected>} />

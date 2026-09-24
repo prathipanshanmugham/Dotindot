@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, MapPin } from "lucide-react";
+import { BranchFilter } from "@/components/BranchFilter";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const FILTERS = [
@@ -141,6 +142,7 @@ export default function ClientsPage() {
               </SelectContent>
             </Select>
           ))}
+          <BranchFilter value={filters.branch} onChange={(v) => setFilters((p) => ({ ...p, branch: v }))} testid="filter-branch" />
         </CardContent>
       </Card>
 

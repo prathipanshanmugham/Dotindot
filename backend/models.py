@@ -68,6 +68,7 @@ class ClientCreate(BaseModel):
     status: Optional[str] = "active"  # active | inactive | churned
     retainer: bool = False
     region: Optional[str] = ""
+    state: Optional[str] = ""
     city: Optional[str] = ""
     google_drive_link: Optional[str] = ""
     contacts: List[Contact] = []
@@ -87,6 +88,7 @@ class ClientUpdate(BaseModel):
     status: Optional[str] = None
     retainer: Optional[bool] = None
     region: Optional[str] = None
+    state: Optional[str] = None
     city: Optional[str] = None
     google_drive_link: Optional[str] = None
     contacts: Optional[List[Contact]] = None

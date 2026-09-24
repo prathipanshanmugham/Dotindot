@@ -95,10 +95,29 @@ async def notifications(user: dict = Depends(get_current_user)):
                           "sub": f"{a.get('code', '')} · {'was due' if overdue else 'due'} {a['next_maintenance_date']}",
                           "link": "/assets", "date": a["next_maintenance_date"]})
 
+    if role == "admin":
+        week_pw = (today + timedelta(days=7)).isoformat()
+        pw_rows = await db.password_entries.find(
+            {}, {"_id": 0, "id": 1, "name": 1, "last_password_changed": 1,
+                 "change_interval_days": 1, "renewal_date": 1}).to_list(300)
+        for p in pw_rows:
+            lc = p.get("last_password_changed")
+            iv = p.get("change_interval_days") or 90
+            if lc:
+                due = (datetime.fromisoformat(lc[:10]).date() + timedelta(days=iv)).isoformat()
+                if due <= week_pw:
+                    overdue_pw = due < t_iso
+                    items.append({"kind": "password",
+                                  "title": f"Password change {'overdue' if overdue_pw else 'due'}: {p['name']}",
+                                  "sub": f"{'Was due' if overdue_pw else 'Due'} {due} (in-app reminder — email not configured)",
+                                  "link": "/passwords", "date": due})
+            if p.get("renewal_date") and t_iso <= p["renewal_date"] <= week_pw:
+                items.append({"kind": "password", "title": f"Subscription renews soon: {p['name']}",
+                              "sub": f"Renews {p['renewal_date']}", "link": "/passwords", "date": p["renewal_date"]})
+
     if role in ("admin", "social_manager"):
         week = (today + timedelta(days=7)).isoformat()
-        posts = await db.social_posts.find(
-            {"scheduled_at": {"$gte": t_iso, "$lte": week + "T23:59:59"}, "status": {"$in": ["planned", "in_review"]}},
+        posts = await db.social_posts.find(            {"scheduled_at": {"$gte": t_iso, "$lte": week + "T23:59:59"}, "status": {"$in": ["planned", "in_review"]}},
             {"_id": 0, "id": 1, "platform": 1, "scheduled_at": 1, "status": 1, "client_id": 1, "caption": 1}).to_list(200)
         cids = list({p["client_id"] for p in posts if p.get("client_id")})
         cmap = {c["id"]: c["name"] for c in await db.clients.find({"id": {"$in": cids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)}

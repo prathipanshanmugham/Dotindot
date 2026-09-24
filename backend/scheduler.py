@@ -28,14 +28,24 @@ async def purge_old_logs(trigger: str = "scheduled") -> dict:
     return run
 
 
+async def purge_deleted_records(trigger: str = "scheduled") -> int:
+    """Hourly: permanently remove workspace delete-snapshots older than 24h."""
+    cutoff = datetime.now(timezone.utc).isoformat()
+    res = await db.deleted_records.delete_many({"expires_at": {"$lt": cutoff}})
+    if res.deleted_count:
+        logger.info(f"Recycle-bin purge ({trigger}): {res.deleted_count} snapshots now permanent")
+    return res.deleted_count
+
+
 def start_scheduler():
     global _scheduler
     if _scheduler:
         return
     _scheduler = AsyncIOScheduler(timezone="UTC")
     _scheduler.add_job(purge_old_logs, CronTrigger(hour=2, minute=30), id="log_purge_daily", replace_existing=True)
+    _scheduler.add_job(purge_deleted_records, CronTrigger(minute=15), id="recycle_purge_hourly", replace_existing=True)
     _scheduler.start()
-    logger.info("Log purge scheduler started (daily 02:30 UTC)")
+    logger.info("Schedulers started (log purge daily 02:30 UTC, recycle-bin purge hourly)")
 
 
 def get_next_run():

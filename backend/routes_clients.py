@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from models import ClientCreate, ClientUpdate, CredentialIn
 from auth import require_roles, encrypt_secret, decrypt_secret, log_activity
-from permissions import branch_scope
+from permissions import branch_scope, check_branch_write
 
 router = APIRouter()
 
@@ -64,6 +64,7 @@ async def list_clients(
     retainer: Optional[bool] = None,
     region: Optional[str] = None,
     search: Optional[str] = None,
+    branch: Optional[str] = None,
     user: dict = Depends(require_roles(*READ_ROLES)),
 ):
     q = {}
@@ -85,7 +86,9 @@ async def list_clients(
             {"company": {"$regex": search, "$options": "i"}},
         ]
     branches = branch_scope(user)
-    if branches is not None:
+    if branch and (branches is None or branch in branches):
+        q["branch_id"] = branch
+    elif branches is not None:
         q["branch_id"] = {"$in": branches}
     clients = await db.clients.find(q, {"_id": 0, "credentials": 0}).sort("name", 1).to_list(500)
     counts = await project_counts_map()
@@ -125,6 +128,11 @@ async def get_client(client_id: str, user: dict = Depends(require_roles(*READ_RO
 async def create_client(body: ClientCreate, user: dict = Depends(require_roles(*WRITE_ROLES))):
     now = datetime.now(timezone.utc).isoformat()
     doc = body.model_dump()
+    if not doc.get("branch_id"):
+        scope = branch_scope(user)
+        if scope:
+            doc["branch_id"] = scope[0]
+    check_branch_write(user, doc.get("branch_id"))
     doc["credentials"] = [
         {"id": str(uuid.uuid4()), "label": cr["label"], "username": cr["username"],
          "secret_encrypted": encrypt_secret(cr.get("secret") or "")}
@@ -143,6 +151,7 @@ async def update_client(client_id: str, body: ClientUpdate, user: dict = Depends
     existing = await db.clients.find_one({"id": client_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Client not found")
+    check_branch_write(user, existing.get("branch_id"), existing.get("created_by"))
     updates = body.model_dump(exclude_unset=True)
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.clients.update_one({"id": client_id}, {"$set": updates})
@@ -155,6 +164,7 @@ async def delete_client(client_id: str, user: dict = Depends(require_roles("admi
     existing = await db.clients.find_one({"id": client_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Client not found")
+    check_branch_write(user, existing.get("branch_id"), existing.get("created_by"))
     await db.clients.delete_one({"id": client_id})
     await db.projects.delete_many({"client_id": client_id})
     await log_activity(user, "client_deleted", "client", client_id, existing["name"])

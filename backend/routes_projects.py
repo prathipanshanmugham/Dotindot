@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from models import ProjectCreate, ProjectUpdate, ToggleRequest
 from auth import get_current_user, require_roles, log_activity
-from permissions import scoped_client_ids
+from permissions import scoped_client_ids, check_branch_write
 
 router = APIRouter()
 
@@ -23,6 +23,7 @@ async def list_projects(
     client_id: Optional[str] = None,
     team_member: Optional[str] = None,
     search: Optional[str] = None,
+    branch: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
     q = {}
@@ -37,7 +38,12 @@ async def list_projects(
     if user["role"] == "employee":
         q["team_member_ids"] = user["id"]
     ids = await scoped_client_ids(user)
-    if ids is not None:
+    if branch and not client_id:
+        bset = {c["id"] for c in await db.clients.find({"branch_id": branch}, {"_id": 0, "id": 1}).to_list(2000)}
+        if ids is not None:
+            bset &= set(ids)
+        q["client_id"] = {"$in": list(bset)}
+    elif ids is not None:
         q["client_id"] = {"$in": ids} if not client_id else client_id
     projects = await db.projects.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
     names = await client_name_map()
@@ -69,6 +75,7 @@ async def create_project(body: ProjectCreate, user: dict = Depends(require_roles
     client = await db.clients.find_one({"id": body.client_id})
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
+    check_branch_write(user, client.get("branch_id"))
     now = datetime.now(timezone.utc).isoformat()
     doc = body.model_dump()
     if not doc.get("location"):
@@ -86,6 +93,8 @@ async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depe
     existing = await db.projects.find_one({"id": project_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Project not found")
+    _pc = await db.clients.find_one({"id": existing["client_id"]}, {"_id": 0, "branch_id": 1})
+    check_branch_write(user, (_pc or {}).get("branch_id"), existing.get("created_by"))
     updates = body.model_dump(exclude_unset=True)
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.projects.update_one({"id": project_id}, {"$set": updates})
@@ -98,6 +107,8 @@ async def delete_project(project_id: str, user: dict = Depends(require_roles("ad
     existing = await db.projects.find_one({"id": project_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Project not found")
+    _pc = await db.clients.find_one({"id": existing["client_id"]}, {"_id": 0, "branch_id": 1})
+    check_branch_write(user, (_pc or {}).get("branch_id"), existing.get("created_by"))
     await db.projects.delete_one({"id": project_id})
     await log_activity(user, "project_deleted", "project", project_id, existing["name"])
     return {"ok": True}

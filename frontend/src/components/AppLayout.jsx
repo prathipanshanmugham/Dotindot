@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
-  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu,
+  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu, Lock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -58,6 +58,7 @@ const NAV = [
       { name: "Reports", path: "/reports", icon: BarChart3, perm: ["reports"] },
       { name: "Logs", path: "/logs", icon: ScrollText, perm: ["logs"] },
       { name: "Access Control", path: "/access", icon: KeyRound, perm: ["access_control"] },
+      { name: "Password Manager", path: "/passwords", icon: Lock, perm: ["password_manager"] },
       { name: "User Management", path: "/admin/users", icon: ShieldCheck, perm: ["user_management"] },
       { name: "Settings", path: "/settings", icon: Settings },
     ],

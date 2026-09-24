@@ -88,6 +88,15 @@ async def hud_data(user: dict = Depends(get_current_user)):
                       "stage": "payment received", "at": x.get("date") or "", "owner": ""})
     moves.sort(key=lambda m: m["at"], reverse=True)
 
+    # Latest won deal (for TV-mode celebration)
+    won_all = [(won_at(l) or "", l) for l in leads if l["stage"] == "won"]
+    won_all = [w for w in won_all if w[0]]
+    latest_won = None
+    if won_all:
+        at, lw = max(won_all, key=lambda x: x[0])
+        latest_won = {"name": lw["name"], "value": lw.get("estimated_value", 0), "at": at,
+                      "owner": umap.get(lw.get("owner_id"), "")}
+
     pct = round(won_value_mtd / team_target * 100, 1) if team_target else 0
     return {
         "month": month,
@@ -98,5 +107,6 @@ async def hud_data(user: dict = Depends(get_current_user)):
         "pipeline": pipeline,
         "mtd_revenue": mtd_revenue,
         "won_count_mtd": len(won_mtd),
+        "latest_won": latest_won,
         "ticker": moves[:12],
     }

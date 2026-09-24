@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { formatINR } from "@/lib/api";
 import SalesLayout, { STAGE_STYLES } from "@/components/SalesLayout";
+import { BranchFilter } from "@/components/BranchFilter";
 import { labelize, CHART_COLORS } from "@/components/Badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,10 +42,11 @@ const FollowupList = ({ title, items, tone }) => (
 
 export default function SalesOverview() {
   const [data, setData] = useState(null);
+  const [branch, setBranch] = useState("all");
 
   useEffect(() => {
-    api.get("/sales/overview").then((r) => setData(r.data)).catch(() => {});
-  }, []);
+    api.get("/sales/overview", { params: branch !== "all" ? { branch } : {} }).then((r) => setData(r.data)).catch(() => {});
+  }, [branch]);
 
   if (!data)
     return <SalesLayout title="Overview"><div className="h-40 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div></SalesLayout>;
@@ -56,9 +58,12 @@ export default function SalesOverview() {
       title="Sales Overview"
       subtitle={`${data.total_leads} leads · open pipeline ${formatINR(data.open_pipeline_value)}`}
       actions={
-        <Button asChild variant="outline" size="sm" className="gap-1.5" data-testid="open-sales-view-btn">
-          <Link to="/hud"><MonitorPlay className="h-4 w-4 text-[#F26B21]" /> Sales View</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <BranchFilter value={branch} onChange={setBranch} testid="sales-branch-filter" />
+          <Button asChild variant="outline" size="sm" className="gap-1.5" data-testid="open-sales-view-btn">
+            <Link to="/hud"><MonitorPlay className="h-4 w-4 text-[#F26B21]" /> Sales View</Link>
+          </Button>
+        </div>
       }
     >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -21,7 +21,7 @@ PERMISSION_GROUPS = {
     "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud"],
     "Growth": ["ads", "social", "influencers"],
     "Operations": ["employees", "training", "partnerships", "assets", "locations"],
-    "System": ["logs", "reports", "access_control", "user_management"],
+    "System": ["logs", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal"],
 }
 
 ALL_KEYS = {k for keys in PERMISSION_GROUPS.values() for k in keys}
@@ -96,8 +96,39 @@ def branch_scope(user: dict):
     """Return list of allowed branch ids, or None if unrestricted."""
     if user.get("role") == "super_admin":
         return None
+    assigns = user.get("branch_assignments") or []
+    if assigns:
+        return [a["branch_id"] for a in assigns if a.get("branch_id")]
     branches = user.get("assigned_branches") or []
     return branches if branches else None
+
+
+def user_branch_role(user: dict, branch_id):
+    """Branch-level capability: 'manager' | 'staff' | None (no access).
+    Unrestricted users (no assignments) behave as manager everywhere."""
+    if user.get("role") == "super_admin":
+        return "manager"
+    assigns = user.get("branch_assignments") or []
+    legacy = user.get("assigned_branches") or []
+    if not assigns and not legacy:
+        return "manager"  # unrestricted — current behavior
+    for a in assigns:
+        if a.get("branch_id") == branch_id:
+            return a.get("branch_role", "staff")
+    if branch_id in legacy:
+        return "staff"
+    return None
+
+
+def check_branch_write(user: dict, record_branch_id, owner_id=None):
+    """Raise 403 when the user cannot write records of this branch, or when a
+    branch 'staff' member tries to modify someone else's record."""
+    from fastapi import HTTPException
+    role = user_branch_role(user, record_branch_id)
+    if role is None:
+        raise HTTPException(status_code=403, detail="This record belongs to a branch outside your access")
+    if role == "staff" and owner_id and owner_id != user.get("id"):
+        raise HTTPException(status_code=403, detail="Branch staff can only modify their own records")
 
 
 async def scoped_client_ids(user: dict):
@@ -113,6 +144,7 @@ async def scoped_client_ids(user: dict):
 # Ordered prefix → permission key(s). First match wins. Any listed key grants access.
 PATH_PERMISSIONS = [
     ("/api/ceo", ("ceo_dashboard",)),
+    ("/api/passwords", ("password_manager",)),
     ("/api/clients", ("clients",)),
     ("/api/projects", ("projects",)),
     ("/api/finance/overview", tuple(_FINANCE_ALL)),

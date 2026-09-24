@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { formatINR } from "@/lib/api";
 import FinanceLayout from "@/components/FinanceLayout";
+import { BranchFilter } from "@/components/BranchFilter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, ReceiptText, Repeat, PiggyBank, Cpu, Megaphone, TrendingUp, Users, IndianRupee, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -28,16 +29,18 @@ const Stat = ({ label, value, tone, testid }) => (
 
 export default function FinanceOverview() {
   const [data, setData] = useState(null);
+  const [branch, setBranch] = useState("all");
 
   useEffect(() => {
-    api.get("/finance/overview").then((r) => setData(r.data)).catch(() => {});
-  }, []);
+    api.get("/finance/overview", { params: branch !== "all" ? { branch } : {} }).then((r) => setData(r.data)).catch(() => {});
+  }, [branch]);
 
   if (!data)
     return <FinanceLayout title="Overview"><div className="h-40 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div></FinanceLayout>;
 
   return (
-    <FinanceLayout title="Overview" subtitle="Financial health of dotindot at a glance — all figures in ₹ INR.">
+    <FinanceLayout title="Overview" subtitle="Financial health of dotindot at a glance — all figures in ₹ INR."
+      actions={<BranchFilter value={branch} onChange={setBranch} testid="finance-branch-filter" />}>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Stat label="Net this month" value={formatINR(data.net_this_month)} tone={data.net_this_month >= 0 ? "text-emerald-600" : "text-red-600"} testid="fin-stat-net-month" />
         <Stat label="Income YTD" value={formatINR(data.income_ytd)} testid="fin-stat-income-ytd" />

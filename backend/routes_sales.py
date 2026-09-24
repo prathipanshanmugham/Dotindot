@@ -49,6 +49,7 @@ async def list_leads(
     owner: Optional[str] = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
+    branch: Optional[str] = None,
     user: dict = Depends(require_roles(*READ)),
 ):
     q = {}
@@ -66,7 +67,9 @@ async def list_leads(
             q["created_at"]["$lte"] = end + "T23:59:59"
     from permissions import branch_scope
     branches = branch_scope(user)
-    if branches is not None:
+    if branch and (branches is None or branch in branches):
+        q["branch_id"] = branch
+    elif branches is not None:
         q["branch_id"] = {"$in": branches}
     leads = await db.leads.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
     umap = await user_map()
@@ -117,6 +120,8 @@ async def update_lead(lead_id: str, body: LeadUpdate, user: dict = Depends(requi
     existing = await db.leads.find_one({"id": lead_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Lead not found")
+    from permissions import check_branch_write
+    check_branch_write(user, existing.get("branch_id"), existing.get("owner_id"))
     updates = body.model_dump(exclude_unset=True)
     updates["updated_at"] = _now()
     await db.leads.update_one({"id": lead_id}, {"$set": updates})
@@ -129,6 +134,8 @@ async def delete_lead(lead_id: str, user: dict = Depends(require_roles(*WRITE)))
     existing = await db.leads.find_one({"id": lead_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Lead not found")
+    from permissions import check_branch_write
+    check_branch_write(user, existing.get("branch_id"), existing.get("owner_id"))
     await db.leads.delete_one({"id": lead_id})
     await db.lead_activities.delete_many({"lead_id": lead_id})
     await log_activity(user, "lead_deleted", "lead", lead_id, existing["name"])
@@ -142,6 +149,8 @@ async def change_stage(lead_id: str, body: StageChange, user: dict = Depends(req
     lead = await db.leads.find_one({"id": lead_id})
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+    from permissions import check_branch_write
+    check_branch_write(user, lead.get("branch_id"), lead.get("owner_id"))
     if lead.get("converted_client_id"):
         raise HTTPException(status_code=400, detail="Converted leads are locked")
     if lead["stage"] == body.stage:
@@ -412,8 +421,10 @@ async def delete_target(target_id: str, user: dict = Depends(require_roles(*WRIT
 
 # ---------------- Sales overview / conversion metrics ----------------
 @router.get("/sales/overview")
-async def sales_overview(user: dict = Depends(require_roles(*READ))):
+async def sales_overview(branch: Optional[str] = None, user: dict = Depends(require_roles(*READ))):
     leads = await db.leads.find({}, {"_id": 0}).to_list(2000)
+    if branch:
+        leads = [l for l in leads if l.get("branch_id") == branch]
     umap = await user_map()
 
     funnel = []

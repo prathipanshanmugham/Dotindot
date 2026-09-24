@@ -27,7 +27,24 @@ async def team_members(user: dict = Depends(get_current_user)):
 
 @router.get("/users")
 async def list_users(user: dict = Depends(require_roles("admin"))):
-    return await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "password_hash": 0}).to_list(500)
+    rows = await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "password_hash": 0}).to_list(500)
+    logins = await db.activity_logs.aggregate([
+        {"$match": {"action": "login"}},
+        {"$group": {"_id": "$user_id", "last": {"$max": "$timestamp"}}},
+    ]).to_list(1000)
+    lmap = {r["_id"]: r["last"] for r in logins}
+    for u in rows:
+        u["last_login"] = lmap.get(u["id"])
+    return rows
+
+
+@router.get("/users/{user_id}/logins")
+async def login_history(user_id: str, user: dict = Depends(require_roles("admin"))):
+    """Recent login events for a user (admin/super_admin only)."""
+    rows = await db.activity_logs.find(
+        {"action": "login", "user_id": user_id},
+        {"_id": 0, "timestamp": 1, "user_name": 1}).sort("timestamp", -1).to_list(25)
+    return rows
 
 
 @router.post("/users")

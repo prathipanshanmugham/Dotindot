@@ -78,6 +78,15 @@ Internal web app (FARM: FastAPI + React + MongoDB) for Dotindot Creative, an AI-
 - Location-specific reports: `branches` param on all template generate/export endpoints + custom builder; server-side scoped to user's assigned branches (`/api/reports/branch-options`); PDF/Excel headers include the branch filter; Location Comparison respects subset
 - Password visibility eye-toggle on login, user-create, and new Settings → Change password (`POST /api/auth/change-password`)
 
+## v2.3 Revision 2 (24 Sept 2026) — all 7 items shipped
+1. Locations bug fixed: branch dialog no longer uses a fixed city list; verified in browser: add branch → success toast → appears in Branches table AND pinned on map immediately (map refetch on save/delete)
+2. State & City comboboxes: `LocationFields` component (Country → State/UT → City, searchable Popover+Command) fed by `GET /api/locations/geo` (static India dataset `india_locations.py`: 36 states/UTs + cities + coords). Custom city allowed ("Use 'X'"); map falls back to state-capital coordinates when a city has no coords. Used in Branch dialog + Client form (client `state` field added to models)
+3. Branch-wise roles: `users.branch_assignments [{branch_id, branch_role: manager|staff}]`; Access Control shows per-branch role picker (No access / Staff / Manager) → `PUT /api/access/users/{id}/branches {assignments}`. Manager = edit/delete branch records, Staff = view + own records (`permissions.user_branch_role`, `check_branch_write`). `BranchFilter` dropdown added to Clients, Projects, CEO dashboard, Finance overview, Sales overview (`?branch=` param)
+4. Password Manager module (`/passwords`, perms `password_manager` + `password_manager.reveal`, System nav group): Fernet-encrypted vault, summary strip (entries / no-2FA / overdue / due-7d / renewals-30d), filters, green-amber-red change status, 2FA badge, owner/branch, strength meter + generator, reveal = re-enter login password → shown 30s then auto-hides, copy; all actions audited. In-app bell reminders (`kind: password`) — NO email (no provider configured)
+5. Workspace undo: hard deletes snapshot into `deleted_records` (doc + cascade plan) with 24h `expires_at`; Settings → "Recently deleted" panel with Undo (`GET /api/workspace/recycle-bin`, `POST .../{id}/restore`); hourly APScheduler purge. Dialog copy updated
+6. Sales View: polls every 15s; when `latest_won.at` changes → canvas-confetti burst + full-screen "DEAL WON — name · ₹value · closed by owner" splash (8s, data-testid hud-deal-won-splash)
+7. Login history: `login` events logged; `GET /api/users` returns `last_login`; User Management shows "Last active" column (click → `GET /api/users/{id}/logins` dialog, last 25)
+
 ## Prioritized Backlog (post-launch ideas)
 - P2: multi-currency, email alert digests, scheduled auto-generated monthly reports, quote e-signature
 

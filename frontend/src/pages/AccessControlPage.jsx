@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShieldCheck, RotateCcw, MapPin, Lock, Save } from "lucide-react";
 
 // Display-name overrides for permission keys (keys themselves stay stable)
@@ -20,7 +21,7 @@ export default function AccessControlPage() {
   const [branches, setBranches] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [draft, setDraft] = useState(new Set());
-  const [draftBranches, setDraftBranches] = useState([]);
+  const [draftBranches, setDraftBranches] = useState({});
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -35,7 +36,10 @@ export default function AccessControlPage() {
   const pickUser = (u) => {
     setSelectedId(u.id);
     setDraft(new Set(u.effective_permissions || []));
-    setDraftBranches(u.assigned_branches || []);
+    const assigns = (u.branch_assignments || []).length
+      ? u.branch_assignments
+      : (u.assigned_branches || []).map((b) => ({ branch_id: b, branch_role: "staff" }));
+    setDraftBranches(Object.fromEntries(assigns.map((a) => [a.branch_id, a.branch_role])));
   };
 
   const locked = selected && (
@@ -89,18 +93,23 @@ export default function AccessControlPage() {
     }
   };
 
-  const toggleBranch = (bid) => {
+  const setBranchRole = (bid, role) => {
     if (locked) return;
-    setDraftBranches((prev) => (prev.includes(bid) ? prev.filter((b) => b !== bid) : [...prev, bid]));
+    setDraftBranches((prev) => {
+      const next = { ...prev };
+      if (role === "none") delete next[bid]; else next[bid] = role;
+      return next;
+    });
   };
 
   const saveBranches = async () => {
     if (!selected) return;
     setBusy(true);
+    const assignments = Object.entries(draftBranches).map(([branch_id, branch_role]) => ({ branch_id, branch_role }));
     try {
-      await api.put(`/access/users/${selected.id}/branches`, { assigned_branches: draftBranches });
-      setUsers((prev) => prev.map((u) => (u.id === selected.id ? { ...u, assigned_branches: draftBranches } : u)));
-      toast.success(draftBranches.length ? "Branch access restricted" : "Branch restrictions removed (all branches)");
+      await api.put(`/access/users/${selected.id}/branches`, { assignments });
+      setUsers((prev) => prev.map((u) => (u.id === selected.id ? { ...u, branch_assignments: assignments, assigned_branches: assignments.map((a) => a.branch_id) } : u)));
+      toast.success(assignments.length ? "Branch roles saved" : "Branch restrictions removed (all branches)");
     } catch (e) {
       toast.error(apiError(e));
     } finally {
@@ -235,22 +244,32 @@ export default function AccessControlPage() {
               <CardContent className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div>
-                    <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5"><MapPin className="h-4 w-4 text-[#F26B21]" /> Branch access</div>
-                    <p className="text-xs text-gray-400 mt-0.5">No branches selected = access to all branches. Selecting branches restricts the records this user can see.</p>
+                    <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5"><MapPin className="h-4 w-4 text-[#F26B21]" /> Branch access & role</div>
+                    <p className="text-xs text-gray-400 mt-0.5">No branch assigned = access to all branches. <span className="font-semibold">Manager</span> can edit/delete branch records; <span className="font-semibold">Staff</span> can view and edit only their own.</p>
                   </div>
                   {!locked && (
                     <Button size="sm" variant="outline" onClick={saveBranches} disabled={busy} data-testid="branch-save-btn">
-                      <Save className="h-3.5 w-3.5 mr-1.5" /> Save branch access
+                      <Save className="h-3.5 w-3.5 mr-1.5" /> Save branch roles
                     </Button>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-4">
-                  {branches.map((b) => (
-                    <label key={b.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer" data-testid={`branch-check-${b.id}`}>
-                      <Checkbox checked={draftBranches.includes(b.id)} disabled={locked || busy} onCheckedChange={() => toggleBranch(b.id)} />
-                      {b.name} <span className="text-xs text-gray-400">({b.city})</span>
-                    </label>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {branches.map((b) => {
+                    const role = draftBranches[b.id] || "none";
+                    return (
+                      <div key={b.id} className={`rounded-lg border px-3 py-2.5 flex items-center justify-between gap-2 ${role !== "none" ? "border-[#F26B21]/40 bg-[#FFF7ED]/60" : "border-gray-200"}`} data-testid={`branch-check-${b.id}`}>
+                        <div className="min-w-0"><div className="text-sm font-semibold text-gray-800 truncate">{b.name}</div><div className="text-[11px] text-gray-400">{b.city}</div></div>
+                        <Select value={role} disabled={locked || busy} onValueChange={(v) => setBranchRole(b.id, v)}>
+                          <SelectTrigger className="w-[120px] h-8 text-xs" data-testid={`branch-role-${b.id}`}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No access</SelectItem>
+                            <SelectItem value="staff">Staff</SelectItem>
+                            <SelectItem value="manager">Manager</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

@@ -22,6 +22,7 @@ class OverridesBody(BaseModel):
 
 class BranchesBody(BaseModel):
     assigned_branches: List[str] = []
+    assignments: Optional[List[dict]] = None  # [{branch_id, branch_role: manager|staff}]
 
 
 class RoleDefaultsBody(BaseModel):
@@ -88,6 +89,7 @@ async def access_users(user: dict = Depends(get_current_user)):
         u["effective_permissions"] = effective_permissions(u)
         u["permission_overrides"] = u.get("permission_overrides") or {}
         u["assigned_branches"] = u.get("assigned_branches") or []
+        u["branch_assignments"] = u.get("branch_assignments") or []
     return users
 
 
@@ -128,11 +130,26 @@ async def set_branches(user_id: str, body: BranchesBody, user: dict = Depends(ge
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     _can_edit(user, target)
+    if body.assignments is not None:
+        ids = [a.get("branch_id") for a in body.assignments]
+        if any(not i for i in ids) or any(a.get("branch_role") not in ("manager", "staff") for a in body.assignments):
+            raise HTTPException(status_code=400, detail="Each assignment needs a branch_id and branch_role of manager or staff")
+        if ids:
+            valid = await db.branches.count_documents({"id": {"$in": ids}})
+            if valid != len(set(ids)):
+                raise HTTPException(status_code=400, detail="Unknown branch id in list")
+        assignments = [{"branch_id": a["branch_id"], "branch_role": a["branch_role"]} for a in body.assignments]
+        await db.users.update_one({"id": user_id}, {"$set": {"branch_assignments": assignments, "assigned_branches": ids}})
+        label = ", ".join(f"{a['branch_id']} ({a['branch_role']})" for a in assignments) or "all branches"
+        await log_activity(user, "branch_access_updated", "user", user_id, f"{target['name']} → {label}")
+        return {"ok": True, "branch_assignments": assignments}
     if body.assigned_branches:
         valid = await db.branches.count_documents({"id": {"$in": body.assigned_branches}})
         if valid != len(set(body.assigned_branches)):
             raise HTTPException(status_code=400, detail="Unknown branch id in list")
-    await db.users.update_one({"id": user_id}, {"$set": {"assigned_branches": body.assigned_branches}})
+    await db.users.update_one({"id": user_id}, {"$set": {
+        "assigned_branches": body.assigned_branches,
+        "branch_assignments": [{"branch_id": b, "branch_role": "staff"} for b in body.assigned_branches]}})
     label = ", ".join(body.assigned_branches) if body.assigned_branches else "all branches"
     await log_activity(user, "branch_access_updated", "user", user_id, f"{target['name']} → {label}")
     return {"ok": True, "assigned_branches": body.assigned_branches}

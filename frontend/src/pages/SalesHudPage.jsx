@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import api, { formatINR } from "@/lib/api";
 import { labelize } from "@/components/Badges";
 import { DotindotMark } from "@/components/DotindotLogo";
-import { X, Trophy, TrendingUp, Building2 } from "lucide-react";
+import { X, Trophy, TrendingUp, Building2, PartyPopper } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import confetti from "canvas-confetti";
 
-const REFRESH_MS = 45000;
+const REFRESH_MS = 15000;
 const ROTATE_MS = 12000;
+const SPLASH_MS = 8000;
 const PANELS = ["Pipeline", "Leaderboard", "Month Pulse"];
 const BAR_COLORS = ["#FBA834", "#F26B21", "#38BDF8", "#A78BFA", "#34D399", "#F87171"];
 
@@ -23,10 +25,32 @@ export default function SalesHudPage() {
   const [d, setD] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [panel, setPanel] = useState(0);
+  const [splash, setSplash] = useState(null);
+  const lastWonRef = useRef(undefined);
+
+  const fireConfetti = useCallback(() => {
+    const end = Date.now() + 4000;
+    const colors = ["#F26B21", "#FBA834", "#ffffff", "#34D399"];
+    (function frame() {
+      confetti({ particleCount: 6, angle: 60, spread: 70, origin: { x: 0, y: 0.7 }, colors, zIndex: 300 });
+      confetti({ particleCount: 6, angle: 120, spread: 70, origin: { x: 1, y: 0.7 }, colors, zIndex: 300 });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  }, []);
 
   const load = useCallback(() => {
-    api.get("/sales/hud").then((r) => { setD(r.data); setUpdatedAt(new Date()); }).catch(() => {});
-  }, []);
+    api.get("/sales/hud").then((r) => {
+      setD(r.data);
+      setUpdatedAt(new Date());
+      const key = r.data.latest_won?.at || null;
+      if (lastWonRef.current !== undefined && key && key !== lastWonRef.current) {
+        setSplash(r.data.latest_won);
+        fireConfetti();
+        setTimeout(() => setSplash(null), SPLASH_MS);
+      }
+      lastWonRef.current = key;
+    }).catch(() => {});
+  }, [fireConfetti]);
 
   useEffect(() => {
     load();
@@ -52,7 +76,20 @@ export default function SalesHudPage() {
       <style>{`
         @keyframes hud-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         @keyframes hud-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+        @keyframes hud-splash-in { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
       `}</style>
+
+      {splash && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#080B12]/85 backdrop-blur-sm" data-testid="hud-deal-won-splash" onClick={() => setSplash(null)}>
+          <div className="text-center px-8" style={{ animation: "hud-splash-in .5s cubic-bezier(.2,.8,.2,1)" }}>
+            <PartyPopper className="mx-auto h-16 w-16 text-[#FBA834]" />
+            <div className="mt-4 text-xs font-bold uppercase tracking-[0.5em] text-[#F26B21]">Deal won</div>
+            <div className="mt-2 text-5xl sm:text-7xl font-extrabold tracking-tight bg-gradient-to-r from-[#F26B21] to-[#FBA834] bg-clip-text text-transparent" data-testid="hud-splash-name">{splash.name}</div>
+            <div className="mt-4 font-mono text-4xl sm:text-5xl font-extrabold text-white" data-testid="hud-splash-value">{bigINR(splash.value)}</div>
+            {splash.owner && <div className="mt-3 text-lg text-white/60">closed by <span className="font-bold text-white">{splash.owner}</span></div>}
+          </div>
+        </div>
+      )}
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-8 pt-5">
@@ -64,7 +101,7 @@ export default function SalesHudPage() {
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-2 text-xs font-semibold text-emerald-400" data-testid="hud-live-indicator">
             <span className="h-2 w-2 rounded-full bg-emerald-400" style={{ animation: "hud-pulse 1.6s infinite" }} />
-            LIVE · refreshes every 45s{updatedAt && ` · updated ${updatedAt.toLocaleTimeString("en-IN", { hour12: false })}`}
+            LIVE · refreshes every 15s{updatedAt && ` · updated ${updatedAt.toLocaleTimeString("en-IN", { hour12: false })}`}
           </span>
           <button onClick={() => navigate("/sales")} data-testid="hud-exit-btn"
             className="flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-1.5 text-xs font-semibold text-white/60 hover:text-white hover:border-white/40 transition-colors">

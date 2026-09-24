@@ -16,8 +16,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, AlertTriangle, History } from "lucide-react";
 import { toast } from "sonner";
+import { LoginHistoryDialog, fmtWhen } from "@/pages/users/LoginHistoryDialog";
 
 const ROLES = ["super_admin", "admin", "finance", "sales", "pm", "employee", "ads_manager", "social_manager"];
 
@@ -30,6 +31,7 @@ export default function UsersPage() {
   const [busy, setBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [assignments, setAssignments] = useState(null);
+  const [historyUser, setHistoryUser] = useState(null);
 
   const load = useCallback(() => {
     api.get("/users").then((r) => setUsers(r.data)).catch((e) => toast.error(apiError(e)));
@@ -134,7 +136,8 @@ export default function UsersPage() {
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Active</TableHead>
-              {isSuper && <TableHead className="text-right">Actions</TableHead>}
+              <TableHead>Last active</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -174,15 +177,18 @@ export default function UsersPage() {
                     data-testid={`user-active-switch-${u.id}`}
                   />
                 </TableCell>
-                {isSuper && (
-                  <TableCell className="text-right">
-                    {u.id !== me.id && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => openDelete(u)} data-testid={`delete-user-btn-${u.id}`}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
-                )}
+                <TableCell>
+                  <button onClick={() => setHistoryUser(u)} className="text-left group" data-testid={`user-last-active-${u.id}`} title="View login history">
+                    <span className="text-sm text-gray-700 group-hover:text-[#F26B21] flex items-center gap-1.5"><History className="h-3.5 w-3.5 text-gray-400" />{fmtWhen(u.last_login)}</span>
+                  </button>
+                </TableCell>
+                <TableCell className="text-right">
+                  {isSuper && u.id !== me.id && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => openDelete(u)} data-testid={`delete-user-btn-${u.id}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </TableCell>
               </TableRow>
               );
             })}
@@ -234,6 +240,7 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {historyUser && <LoginHistoryDialog user={historyUser} onClose={() => setHistoryUser(null)} />}
     </div>
   );
 }

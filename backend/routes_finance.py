@@ -68,8 +68,11 @@ def enrich(rows, cmap, pmap):
 
 # ---------------- Overview ----------------
 @router.get("/finance/overview")
-async def finance_overview(user: dict = Depends(require_roles(*FIN))):
+async def finance_overview(branch: Optional[str] = None, user: dict = Depends(require_roles(*FIN))):
     tx = await db.transactions.find({}, {"_id": 0}).to_list(10000)
+    if branch:
+        _bc = {c["id"] for c in await db.clients.find({"branch_id": branch}, {"_id": 0, "id": 1}).to_list(2000)}
+        tx = [x for x in tx if x.get("client_id") in _bc]
     t = _today()
     this_month = t.isoformat()[:7]
     year = t.isoformat()[:4]
@@ -113,6 +116,7 @@ async def list_transactions(
     category: Optional[str] = None,
     client_id: Optional[str] = None,
     project_id: Optional[str] = None,
+    branch: Optional[str] = None,
     user: dict = Depends(require_roles(*FIN)),
 ):
     q = {}
@@ -132,7 +136,12 @@ async def list_transactions(
         q["project_id"] = project_id
     from permissions import scoped_client_ids
     ids = await scoped_client_ids(user)
-    if ids is not None:
+    if branch:
+        bc = [c["id"] for c in await db.clients.find({"branch_id": branch}, {"_id": 0, "id": 1}).to_list(2000)]
+        if ids is not None:
+            bc = [i for i in bc if i in set(ids)]
+        q["client_id"] = {"$in": bc}
+    elif ids is not None:
         q["$or"] = [{"client_id": {"$in": ids}}, {"client_id": {"$in": [None, ""]}}]
     rows = await db.transactions.find(q, {"_id": 0}).sort("date", -1).to_list(5000)
     cmap, pmap = await name_maps()

@@ -7,6 +7,7 @@ import { User, Building2, ShieldCheck, ArrowRight, IndianRupee, Clock } from "lu
 import { ChangePasswordCard } from "@/pages/settings/ChangePasswordCard";
 import { RolePermissionsCard } from "@/pages/settings/RolePermissionsCard";
 import { WorkspaceManager } from "@/pages/settings/WorkspaceManager";
+import { RecycleBin } from "@/pages/settings/RecycleBin";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -78,6 +79,7 @@ export default function SettingsPage() {
         <>
           <RolePermissionsCard />
           <WorkspaceManager />
+          <RecycleBin />
         </>
       )}
     </div>

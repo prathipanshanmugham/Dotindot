@@ -10,10 +10,11 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { LocationFields } from "@/components/LocationFields";
 
 const EMPTY = {
   name: "", company: "", industry: "other", service_type: "web_dev", size: "small",
-  status: "active", retainer: false, region: "", city: "", google_drive_link: "",
+  status: "active", retainer: false, region: "India", state: "", city: "", google_drive_link: "",
   contacts: [], contracts: [], credentials: [],
   domain_hosting: { registrar: "", domain_expiry: "", host: "", hosting_expiry: "" },
   notes: "",
@@ -130,8 +131,10 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSaved }
                 <SelectContent>{CLIENT_STATUSES.map((o) => <SelectItem key={o} value={o}>{labelize(o)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-1"><Label>Country / Region</Label><Input data-testid="client-form-region" value={form.region} onChange={(e) => set("region", e.target.value)} placeholder="India" /></div>
-            <div className="space-y-1"><Label>City</Label><Input data-testid="client-form-city" value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Mumbai" /></div>
+            <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <LocationFields country={form.region} state={form.state} city={form.city} prefix="client-form" compact
+                onChange={(v) => setForm((p) => ({ ...p, region: v.country, state: v.state, city: v.city }))} />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Switch checked={form.retainer} onCheckedChange={(v) => set("retainer", v)} data-testid="client-form-retainer" />

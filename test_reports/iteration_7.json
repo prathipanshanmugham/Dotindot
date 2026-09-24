@@ -1,0 +1,22 @@
+{
+  "summary": "V2.3 Revision 2 full backend + frontend verification. Backend: 13/13 pytest cases pass in /app/backend/tests/test_v23_rev2.py covering all 7 revision items (login of 11 seed accounts + last_login/login history, geo dataset with 36 India states + Kerala/Kochi, branch create with known + unknown-city fallback on /locations/map, clients.state persistence, branch-role assignments manager/staff + validation of invalid role & unknown branch + branch filter param on 5 endpoints, password manager list/summary/CRUD/reveal wrong+right pw + generate + 403 for employee/sales/finance, workspace recycle-bin delete->list->restore + super_admin gate + unknown snap 404, sales HUD latest_won updates after win). Frontend (desktop 1920 + mobile 360): Locations Kochi branch add via combobox → toast 'Branch created — Kochi pinned on the map', city-card-kochi appears, branch row visible; custom city 'Muvattupuzha' surfaces branch-form-city-custom. Password Manager: summary strip, seed rows, reveal with correct pw shows plaintext + countdown, wrong pw shows toast 'Your login password is incorrect', add/generate (strength meter present)/save/delete cycle works. User Management last-active column shows 'Just now' and clicking opens login-history-dialog with 25 rows. Access Control /access → branch-role-seed-branch-01 select Manager saves ('Branch roles saved') and reverting to No access saves ('Branch restrictions removed (all branches)'). Branch filter dropdowns present on /clients, /projects, /dashboard, /finance, /sales. Settings recycle-bin card exists; delete Branches item via workspace-delete-{id} + workspace-delete-confirm creates recycle-row-{id}, recycle-restore-{id} shows toast 'Restored ...' and clears row; branch confirmed back via API. Sales View /hud shows 15s refresh indicator, triggering POST /sales/leads/lead-02/stage {won} caused hud-deal-won-splash to render within seconds with hud-splash-name='Zen Yoga Collective' + hud-splash-value='₹1.8L' + confetti canvas. Mobile 360x740 for /passwords and /locations has no horizontal scroll (scrollWidth==clientWidth==360). All test data cleaned up (branches deleted, lead-02 reverted to 'new', user-sales branch assignments reset to []).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_v23_rev2.py",
+    "/app/test_reports/pytest/v23_rev2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes_passwords.py list_entries applies status filter AFTER pagination-less to_list(500) — fine at current scale, but if password_entries grows beyond ~500 the filter/pagination should move server-side.",
+    "Restore toast in Settings recycle bin shows both 'Restored ...' and the earlier 'Record permanently deleted' toast if the user restores fast; toasts stack but don't invalidate — consider dismissing the delete toast on restore to avoid confusing 'permanently deleted' text remaining on-screen.",
+    "Password reveal endpoint uses verify_password against stored user hash — good; but consider adding a small in-memory rate limiter per user (e.g., 5 wrong attempts / 5m) to prevent brute-forcing the login password via the reveal endpoint."
+  ],
+  "updated_files": ["/app/backend/tests/test_v23_rev2.py"],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% of tested flows"},
+  "test_credentials": "All @dotindot.in accounts / Dotindot@2026 (see /app/memory/test_credentials.md)",
+  "seed_data_creation": "Test-only branches/passwords/state-clients created and cleaned up in the same run. Seed data (seed-branch-01..03, pw-seed-01..08, lead-02) preserved.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "V2.3 Revision 2 fully green. Backend regression file /app/backend/tests/test_v23_rev2.py can be re-run with `pytest backend/tests/test_v23_rev2.py -o addopts=''` (the repo pytest.ini has xdist-loadscope addopts that this file doesn't need). Prior v2 regression at /app/backend/tests/test_v2.py still has a known routes_clients.py READ_ROLES gap for ads_manager/social_manager — not part of this iteration's scope but still open from iteration_6."
+}

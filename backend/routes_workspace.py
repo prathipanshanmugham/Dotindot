@@ -5,6 +5,8 @@ tombstone user-delete in User Management). Dependent records are detected and ei
 cascade-handled (delete / unset / pull) or the delete is refused with a 409 + counts.
 Every action is written to activity_logs.
 """
+import uuid
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
@@ -76,14 +78,42 @@ async def _dependents(coll: str, rid: str):
     return out
 
 
-async def _cascade(coll: str, rid: str):
+async def _collect_cascade_ops(coll: str, rid: str):
+    """Snapshot-friendly cascade plan: what will be deleted / unset / pulled."""
+    ops = []
     for child, field, mode in DEPS.get(coll, []):
         if mode == "delete":
-            await db[child].delete_many({field: rid})
-        elif mode == "unset":
-            await db[child].update_many({field: rid}, {"$set": {field: None}})
-        elif mode == "pull":
-            await db[child].update_many({field: rid}, {"$pull": {field: rid}})
+            docs = await db[child].find({field: rid}, {"_id": 0}).to_list(5000)
+            if docs:
+                ops.append({"type": "delete", "coll": child, "docs": docs})
+        else:
+            ids = [d["id"] for d in await db[child].find({field: rid}, {"_id": 0, "id": 1}).to_list(5000)]
+            if ids:
+                ops.append({"type": mode, "coll": child, "field": field, "ids": ids, "value": rid})
+    return ops
+
+
+async def _apply_cascade(ops):
+    for op in ops:
+        if op["type"] == "delete":
+            await db[op["coll"]].delete_many({"id": {"$in": [d["id"] for d in op["docs"]]}})
+        elif op["type"] == "unset":
+            await db[op["coll"]].update_many({"id": {"$in": op["ids"]}}, {"$set": {op["field"]: None}})
+        elif op["type"] == "pull":
+            await db[op["coll"]].update_many({"id": {"$in": op["ids"]}}, {"$pull": {op["field"]: op["value"]}})
+
+
+async def _snapshot(coll: str, doc: dict, ops, user: dict) -> str:
+    """Store a 24h-recoverable snapshot (main doc + full cascade plan)."""
+    label = doc.get("name") or doc.get("title") or doc.get("number") or doc.get("email") or doc["id"]
+    now = datetime.now(timezone.utc)
+    snap = {"id": str(uuid.uuid4()), "coll": coll, "record_id": doc["id"], "label": label,
+            "doc": {k: v for k, v in doc.items() if k != "_id"},
+            "cascade_ops": ops,
+            "deleted_at": now.isoformat(), "deleted_by": user.get("name", ""),
+            "expires_at": (now + timedelta(hours=24)).isoformat()}
+    await db.deleted_records.insert_one(dict(snap))
+    return snap["id"]
 
 
 async def _guard_user_delete(actor: dict, rid: str):
@@ -103,6 +133,42 @@ async def list_collections(user: dict = Depends(require_super_admin)):
     for key, spec in COLLECTIONS.items():
         out.append({"key": key, "label": spec["label"], "count": await db[key].count_documents({})})
     return out
+
+
+@router.get("/workspace/recycle-bin")
+async def recycle_bin(user: dict = Depends(require_super_admin)):
+    """Snapshots recoverable within 24h of deletion."""
+    now = datetime.now(timezone.utc).isoformat()
+    rows = await db.deleted_records.find({"expires_at": {"$gt": now}}, {"_id": 0}).sort("deleted_at", -1).to_list(200)
+    return [{
+        "id": r["id"], "coll": r["coll"], "record_id": r["record_id"], "label": r["label"],
+        "deleted_at": r["deleted_at"], "deleted_by": r["deleted_by"], "expires_at": r["expires_at"],
+        "cascaded": sum(len(o.get("docs") or o.get("ids") or []) for o in r.get("cascade_ops", [])),
+    } for r in rows]
+
+
+@router.post("/workspace/recycle-bin/{snap_id}/restore")
+async def restore_snapshot(snap_id: str, user: dict = Depends(require_super_admin)):
+    snap = await db.deleted_records.find_one({"id": snap_id})
+    if not snap:
+        raise HTTPException(status_code=404, detail="Snapshot not found (may have expired)")
+    if snap["expires_at"] <= datetime.now(timezone.utc).isoformat():
+        raise HTTPException(status_code=410, detail="Snapshot expired — deletion is now permanent")
+    if await db[snap["coll"]].find_one({"id": snap["record_id"]}):
+        raise HTTPException(status_code=409, detail="A record with this id already exists")
+    await db[snap["coll"]].insert_one(dict(snap["doc"]))
+    for op in snap.get("cascade_ops", []):
+        if op["type"] == "delete":
+            for d in op["docs"]:
+                if not await db[op["coll"]].find_one({"id": d["id"]}):
+                    await db[op["coll"]].insert_one(dict(d))
+        elif op["type"] == "unset":
+            await db[op["coll"]].update_many({"id": {"$in": op["ids"]}}, {"$set": {op["field"]: op["value"]}})
+        elif op["type"] == "pull":
+            await db[op["coll"]].update_many({"id": {"$in": op["ids"]}}, {"$addToSet": {op["field"]: op["value"]}})
+    await db.deleted_records.delete_one({"id": snap_id})
+    await log_activity(user, "workspace_restored", snap["coll"], snap["record_id"], snap["label"])
+    return {"ok": True, "restored": snap["label"]}
 
 
 @router.get("/workspace/{coll}")
@@ -167,13 +233,15 @@ async def delete_record(coll: str, rid: str, cascade: bool = False, user: dict =
             "message": "Record has dependent records",
             "dependents": {k: v["count"] for k, v in deps.items()},
         })
-    if deps and cascade:
-        await _cascade(coll, rid)
+    ops = await _collect_cascade_ops(coll, rid) if (deps and cascade) else []
+    await _snapshot(coll, existing, ops, user)
+    if ops:
+        await _apply_cascade(ops)
     await db[coll].delete_one({"id": rid})
     label = existing.get("name") or existing.get("title") or existing.get("number") or rid
     await log_activity(user, "workspace_deleted", coll, rid,
-                       f"{label}" + (" (+cascade)" if deps and cascade else ""))
-    return {"ok": True, "cascaded": bool(deps and cascade)}
+                       f"{label}" + (" (+cascade)" if ops else "") + " — recoverable 24h")
+    return {"ok": True, "cascaded": bool(ops), "recoverable_hours": 24}
 
 
 class BulkDeleteBody(BaseModel):
@@ -200,10 +268,12 @@ async def bulk_delete(coll: str, body: BulkDeleteBody, user: dict = Depends(requ
         if deps and not body.cascade:
             skipped.append({"id": rid, "reason": f"has dependents: {', '.join(deps.keys())}"})
             continue
-        if deps:
-            await _cascade(coll, rid)
+        ops = await _collect_cascade_ops(coll, rid) if deps else []
+        await _snapshot(coll, existing, ops, user)
+        if ops:
+            await _apply_cascade(ops)
         await db[coll].delete_one({"id": rid})
         deleted += 1
     await log_activity(user, "workspace_bulk_deleted", coll, None,
-                       f"{deleted} records deleted, {len(skipped)} skipped")
+                       f"{deleted} records deleted (recoverable 24h), {len(skipped)} skipped")
     return {"deleted": deleted, "skipped": skipped}
