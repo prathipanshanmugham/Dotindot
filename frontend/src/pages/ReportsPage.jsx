@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, FileSpreadsheet, Play, Sparkles, SlidersHorizontal } from "lucide-react";
+import { FileText, FileSpreadsheet, Play, Sparkles, SlidersHorizontal, MapPin } from "lucide-react";
 
 const iso = (d) => d.toISOString().slice(0, 10);
 const PRESETS = {
@@ -95,6 +95,29 @@ const ChartCard = ({ chart }) => (
   </Card>
 );
 
+const BranchChips = ({ options, selected, onToggle, testPrefix }) => (
+  <div className="flex flex-wrap items-center gap-1.5" data-testid={`${testPrefix}-branch-chips`}>
+    <MapPin className="h-3.5 w-3.5 text-gray-400" />
+    <button
+      onClick={() => onToggle(null)}
+      data-testid={`${testPrefix}-branch-all`}
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${selected.length === 0 ? "bg-[#FFF7ED] text-[#F26B21] border border-orange-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+    >
+      All locations
+    </button>
+    {options.map((b) => (
+      <button
+        key={b.id}
+        onClick={() => onToggle(b.id)}
+        data-testid={`${testPrefix}-branch-${b.id}`}
+        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${selected.includes(b.id) ? "bg-[#FFF7ED] text-[#F26B21] border border-orange-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+      >
+        {b.name}
+      </button>
+    ))}
+  </div>
+);
+
 export default function ReportsPage() {
   // ---------- Templates state ----------
   const [templates, setTemplates] = useState([]);
@@ -104,6 +127,9 @@ export default function ReportsPage() {
   const [preview, setPreview] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [branchOptions, setBranchOptions] = useState([]);
+  const [selBranches, setSelBranches] = useState([]);
+  const [cBranches, setCBranches] = useState([]);
 
   // ---------- Custom builder state ----------
   const [modules, setModules] = useState([]);
@@ -120,7 +146,13 @@ export default function ReportsPage() {
       if (r.data.length) setActiveKey(r.data[0].key);
     }).catch(() => {});
     api.get("/reports/custom/meta").then((r) => setModules(r.data)).catch(() => {});
+    api.get("/reports/branch-options").then((r) => setBranchOptions(r.data)).catch(() => {});
   }, []);
+
+  const toggleBranch = (setter) => (id) => {
+    if (id === null) return setter([]);
+    setter((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  };
 
   const applyPreset = (p) => { setPreset(p); setRange(PRESETS[p]()); };
 
@@ -128,21 +160,24 @@ export default function ReportsPage() {
     setGenerating(true);
     setPreview(null);
     try {
-      const { data } = await api.get(`/reports/template/${key}`, { params: { date_from: range[0], date_to: range[1] } });
+      const { data } = await api.get(`/reports/template/${key}`, {
+        params: { date_from: range[0], date_to: range[1], branches: selBranches.join(",") || undefined },
+      });
       setPreview(data);
     } catch (e) {
       toast.error("Could not generate this report");
     } finally {
       setGenerating(false);
     }
-  }, [range]);
+  }, [range, selBranches]);
 
   const exportTemplate = async (format) => {
     if (!activeKey) return;
     setExporting(true);
     try {
       const res = await api.get(`/reports/template/${activeKey}/export`, {
-        params: { format, date_from: range[0], date_to: range[1] }, responseType: "blob",
+        params: { format, date_from: range[0], date_to: range[1], branches: selBranches.join(",") || undefined },
+        responseType: "blob",
       });
       saveBlobResponse(res, `dotindot-${activeKey}.${format}`);
       toast.success(`${format === "pdf" ? "PDF" : "Excel"} downloaded`);
@@ -172,6 +207,7 @@ export default function ReportsPage() {
     date_to: cRange[1] || null,
     filters: cFilters,
     columns: mod.columns.map((c) => c.key).filter((k) => cColumns.includes(k)),
+    branches: cBranches,
     format,
   });
 
@@ -219,19 +255,27 @@ export default function ReportsPage() {
         {/* ---------------- Templates ---------------- */}
         <TabsContent value="templates" className="mt-5 space-y-5">
           <Card className="border-gray-200/80 shadow-sm">
-            <CardContent className="p-4 flex flex-wrap items-center gap-3">
-              <Label className="text-sm text-gray-500">Period</Label>
-              <div className="flex gap-1.5">
-                {Object.keys(PRESETS).map((p) => (
-                  <button key={p} onClick={() => applyPreset(p)} data-testid={`report-preset-${p}`}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${preset === p ? "bg-[#FFF7ED] text-[#F26B21] border border-orange-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
-                    {labelize(p === "ytd" ? "YTD" : p)}
-                  </button>
-                ))}
+            <CardContent className="p-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Label className="text-sm text-gray-500">Period</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.keys(PRESETS).map((p) => (
+                    <button key={p} onClick={() => applyPreset(p)} data-testid={`report-preset-${p}`}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${preset === p ? "bg-[#FFF7ED] text-[#F26B21] border border-orange-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                      {labelize(p === "ytd" ? "YTD" : p)}
+                    </button>
+                  ))}
+                </div>
+                <Input type="date" className="w-[150px]" value={range[0]} onChange={(e) => { setRange([e.target.value, range[1]]); setPreset(""); }} data-testid="report-date-from" />
+                <span className="text-gray-400 text-sm">→</span>
+                <Input type="date" className="w-[150px]" value={range[1]} onChange={(e) => { setRange([range[0], e.target.value]); setPreset(""); }} data-testid="report-date-to" />
               </div>
-              <Input type="date" className="w-[150px]" value={range[0]} onChange={(e) => { setRange([e.target.value, range[1]]); setPreset(""); }} data-testid="report-date-from" />
-              <span className="text-gray-400 text-sm">→</span>
-              <Input type="date" className="w-[150px]" value={range[1]} onChange={(e) => { setRange([range[0], e.target.value]); setPreset(""); }} data-testid="report-date-to" />
+              {branchOptions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <Label className="text-sm text-gray-500">Locations</Label>
+                  <BranchChips options={branchOptions} selected={selBranches} onToggle={toggleBranch(setSelBranches)} testPrefix="report" />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -333,6 +377,13 @@ export default function ReportsPage() {
                   </div>
                 ))}
               </div>
+
+              {mod && branchOptions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <Label className="text-sm text-gray-500">Locations</Label>
+                  <BranchChips options={branchOptions} selected={cBranches} onToggle={toggleBranch(setCBranches)} testPrefix="custom" />
+                </div>
+              )}
 
               {mod && (
                 <div>

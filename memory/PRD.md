@@ -69,6 +69,15 @@ Internal web app (FARM: FastAPI + React + MongoDB) for Dotindot Creative, an AI-
 - Seed (seed_v2.py, idempotent): email migration, London branch (seed-branch-03), branch assignments, assets, ad campaigns, social posts, influencers
 - v2.1 (Sept 2026): "Sales HUD" renamed to "Sales View" everywhere (labels only; permission key `sales.hud` stable); user lifecycle management — super_admin can permanently delete accounts (tombstone soft-delete preserving historical names as "Deleted user (X)", email freed, guards: no self-delete, no deleting last super_admin, pre-delete assignment warning); admin can deactivate non-admin only; deactivated users blocked at login + token check; all actions logged
 
+## v2.2 Revision (Sept 2026)
+- Map fix: Leaflet constrained (`.map-wrapper` isolation + z-index 0, ResizeObserver → `invalidateSize()`); modals/dropdowns always render above the map
+- Sales View ticker: server-side sales-only (lead stage moves incl. won/lost, quote sent/accepted/rejected, client payments) — no other module events
+- Full mobile responsiveness (360px+): sidebar → hamburger + slide-over Sheet drawer (data-testid mobile-menu-btn / mobile-sidebar), top-bar search collapses to icon (mobile-search-btn), 44px touch targets, no page-level horizontal scroll, tab lists wrap, kanban horizontal-scroll columns on mobile, dialogs scroll within 92vh
+- Settings → Role Permissions (super_admin): matrix roles × permission keys editing DB-backed ROLE DEFAULTS (`role_defaults` collection, loaded at startup + applied live to middleware). GET/PUT `/api/access/role-defaults[/{role}]`. super_admin locked. Per-user overrides unchanged. Logged to activity_logs
+- Settings → Workspace data manager (super_admin ONLY, 403 otherwise): `/api/workspace/*` — 21 collections, searchable/paginated lists, JSON record editor, HARD delete (true DB removal) with dependents detection (409 + counts → cascade delete/unset/pull or cancel), bulk delete with type-DELETE confirmation, guards (no self-delete / last super_admin), fully logged
+- Location-specific reports: `branches` param on all template generate/export endpoints + custom builder; server-side scoped to user's assigned branches (`/api/reports/branch-options`); PDF/Excel headers include the branch filter; Location Comparison respects subset
+- Password visibility eye-toggle on login, user-create, and new Settings → Change password (`POST /api/auth/change-password`)
+
 ## Prioritized Backlog (post-launch ideas)
 - P2: multi-currency, email alert digests, scheduled auto-generated monthly reports, quote e-signature
 

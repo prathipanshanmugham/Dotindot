@@ -110,13 +110,13 @@ export default function PipelinePage() {
         </CardContent>
       </Card>
 
-      {/* Kanban */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3" data-testid="pipeline-board">
+      {/* Kanban — horizontal scroll on mobile, grid on xl */}
+      <div className="flex gap-3 overflow-x-auto pb-3 xl:grid xl:grid-cols-6 xl:overflow-visible xl:pb-0" data-testid="pipeline-board">
         {LEAD_STAGES.map((stage) => {
           const col = leads.filter((l) => l.stage === stage);
           const value = col.reduce((s, l) => s + (l.estimated_value || 0), 0);
           return (
-            <div key={stage} className="rounded-xl bg-gray-50/80 border border-gray-200/70 flex flex-col" data-testid={`kanban-column-${stage}`}>
+            <div key={stage} className="rounded-xl bg-gray-50/80 border border-gray-200/70 flex flex-col w-[250px] shrink-0 xl:w-auto xl:shrink" data-testid={`kanban-column-${stage}`}>
               <div className="px-3 py-2.5 border-b border-gray-200/70">
                 <div className="flex items-center justify-between">
                   <Badge variant="outline" className={`${STAGE_STYLES[stage]} font-semibold`}>{labelize(stage)}</Badge>

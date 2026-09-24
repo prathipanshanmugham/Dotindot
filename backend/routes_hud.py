@@ -48,7 +48,7 @@ async def hud_data(user: dict = Depends(get_current_user)):
 
     # Top branch this month (revenue via client branch)
     branches = await db.branches.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(50)
-    clients = await db.clients.find({}, {"_id": 0, "id": 1, "branch_id": 1}).to_list(2000)
+    clients = await db.clients.find({}, {"_id": 0, "id": 1, "name": 1, "branch_id": 1}).to_list(2000)
     cb = {c["id"]: c.get("branch_id") for c in clients}
     tx = await db.transactions.find(
         {"type": "income", "date": {"$gte": month_start}, "client_id": {"$nin": [None, ""]}},
@@ -64,13 +64,28 @@ async def hud_data(user: dict = Depends(get_current_user)):
         bid, val = max(by_branch.items(), key=lambda i: i[1])
         top_branch = {"name": bmap.get(bid, "—"), "revenue": round(val, 2)}
 
-    # Recent stage movements ticker
+    # Sales-ONLY activity ticker: lead stage moves, quote lifecycle, sales-linked payments.
+    # Never includes locations/users/settings/assets or other module events.
     moves = []
     for l in leads:
         for h in (l.get("stage_history") or []):
             if h.get("at"):
                 moves.append({"lead": l["name"], "stage": h.get("stage"), "at": h["at"],
                               "owner": umap.get(l.get("owner_id"), "")})
+    quotes = await db.quotes.find(
+        {"status": {"$in": ["sent", "accepted", "rejected"]}},
+        {"_id": 0, "number": 1, "status": 1, "updated_at": 1, "created_at": 1}).to_list(500)
+    for q in quotes:
+        at = q.get("updated_at") or q.get("created_at")
+        if at:
+            moves.append({"lead": f"Quote {q['number']}", "stage": q["status"], "at": at, "owner": ""})
+    cname = {c["id"]: c.get("name", "client") for c in clients}
+    recent_pay = await db.transactions.find(
+        {"type": "income", "client_id": {"$nin": [None, ""]}},
+        {"_id": 0, "client_id": 1, "amount": 1, "date": 1}).sort("date", -1).to_list(10)
+    for x in recent_pay:
+        moves.append({"lead": f"₹{int(x['amount']):,} from {cname.get(x['client_id'], 'client')}",
+                      "stage": "payment received", "at": x.get("date") or "", "owner": ""})
     moves.sort(key=lambda m: m["at"], reverse=True)
 
     pct = round(won_value_mtd / team_target * 100, 1) if team_target else 0
@@ -83,5 +98,5 @@ async def hud_data(user: dict = Depends(get_current_user)):
         "pipeline": pipeline,
         "mtd_revenue": mtd_revenue,
         "won_count_mtd": len(won_mtd),
-        "ticker": moves[:8],
+        "ticker": moves[:12],
     }

@@ -4,12 +4,15 @@ import { RoleBadge } from "@/components/Badges";
 import { DotindotLogo } from "@/components/DotindotLogo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Building2, ShieldCheck, ArrowRight, IndianRupee, Clock } from "lucide-react";
+import { ChangePasswordCard } from "@/pages/settings/ChangePasswordCard";
+import { RolePermissionsCard } from "@/pages/settings/RolePermissionsCard";
+import { WorkspaceManager } from "@/pages/settings/WorkspaceManager";
 
 export default function SettingsPage() {
   const { user } = useAuth();
 
   return (
-    <div className="space-y-6 max-w-3xl" data-testid="settings-page">
+    <div className="space-y-6 max-w-5xl" data-testid="settings-page">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Settings</h1>
         <p className="text-sm text-gray-500 mt-1">Your account and workspace configuration.</p>
@@ -68,6 +71,15 @@ export default function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      <ChangePasswordCard />
+
+      {user?.role === "super_admin" && (
+        <>
+          <RolePermissionsCard />
+          <WorkspaceManager />
+        </>
+      )}
     </div>
   );
 }

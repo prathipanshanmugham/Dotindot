@@ -44,6 +44,23 @@ ROLE_DEFAULTS = {
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
+EDITABLE_ROLES = sorted(VALID_ROLES - {"super_admin"})
+
+
+async def load_role_defaults():
+    """DB-backed role defaults (collection role_defaults) override the code defaults. Call at startup."""
+    async for doc in db.role_defaults.find({}, {"_id": 0}):
+        role = doc.get("role")
+        if role in ROLE_DEFAULTS and role != "super_admin":
+            ROLE_DEFAULTS[role] = {k for k in doc.get("permissions", []) if k in ALL_KEYS}
+
+
+async def save_role_default(role: str, permissions: set):
+    """Persist + apply immediately (in-memory dict feeds middleware and effective_permissions)."""
+    ROLE_DEFAULTS[role] = set(permissions)
+    await db.role_defaults.update_one(
+        {"role": role}, {"$set": {"role": role, "permissions": sorted(permissions)}}, upsert=True)
+
 
 def effective_permissions(user: dict) -> list:
     if user.get("role") == "super_admin":

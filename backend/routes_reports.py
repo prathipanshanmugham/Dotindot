@@ -10,6 +10,7 @@ from routes_finance import monthly_equiv, name_maps, period_range
 from routes_sales import targets_with_actuals, won_at, STAGES
 from routes_clients import compute_health, project_counts_map
 from routes_exports import file_response, _umap
+from permissions import branch_scope
 
 router = APIRouter()
 
@@ -23,6 +24,29 @@ def _today():
 def _default_range():
     t = _today()
     return t.replace(day=1).isoformat(), t.isoformat()
+
+
+# ---------------- Branch (location) filtering helpers ----------------
+async def _resolve_branches(user, branches: Optional[str]):
+    """Intersect the requested branch ids with the user's allowed scope.
+    Returns a list of branch ids, or None = no branch filter (all allowed)."""
+    allowed = branch_scope(user) if user else None
+    selected = [b for b in (branches or "").split(",") if b]
+    if allowed is not None:
+        selected = [b for b in selected if b in allowed] or list(allowed)
+    return selected or None
+
+
+async def _branch_client_ids(branch_ids):
+    rows = await db.clients.find({"branch_id": {"$in": branch_ids}}, {"_id": 0, "id": 1}).to_list(3000)
+    return {r["id"] for r in rows}
+
+
+async def _branch_names(branch_ids):
+    if not branch_ids:
+        return None
+    rows = await db.branches.find({"id": {"$in": branch_ids}}, {"_id": 0, "name": 1}).to_list(50)
+    return ", ".join(r["name"] for r in rows)
 
 
 TEMPLATES = {
@@ -60,8 +84,11 @@ TEMPLATES = {
 
 
 # ---------------- template builders → {title, period, summary, sections} ----------------
-async def tpl_monthly_financial(date_from, date_to):
+async def tpl_monthly_financial(date_from, date_to, branch_ids=None):
     tx = await db.transactions.find({"date": {"$gte": date_from, "$lte": date_to}}, {"_id": 0}).to_list(10000)
+    if branch_ids:
+        cset = await _branch_client_ids(branch_ids)
+        tx = [x for x in tx if x.get("client_id") in cset]
     income = sum(x["amount"] for x in tx if x["type"] == "income")
     expense = sum(x["amount"] for x in tx if x["type"] == "expense")
     by_cat = {}
@@ -111,8 +138,9 @@ async def tpl_monthly_financial(date_from, date_to):
     }
 
 
-async def tpl_client_status(date_from, date_to):
-    clients = await db.clients.find({}, {"_id": 0, "credentials": 0}).sort("name", 1).to_list(1000)
+async def tpl_client_status(date_from, date_to, branch_ids=None):
+    cq = {"branch_id": {"$in": branch_ids}} if branch_ids else {}
+    clients = await db.clients.find(cq, {"_id": 0, "credentials": 0}).sort("name", 1).to_list(1000)
     counts = await project_counts_map()
     income = await db.transactions.find(
         {"type": "income", "date": {"$gte": date_from, "$lte": date_to}, "client_id": {"$nin": [None, ""]}},
@@ -158,8 +186,9 @@ async def tpl_client_status(date_from, date_to):
     }
 
 
-async def tpl_sales_pipeline(date_from, date_to):
-    leads = await db.leads.find({}, {"_id": 0}).to_list(1000)
+async def tpl_sales_pipeline(date_from, date_to, branch_ids=None):
+    lq = {"branch_id": {"$in": branch_ids}} if branch_ids else {}
+    leads = await db.leads.find(lq, {"_id": 0}).to_list(1000)
     funnel = []
     for s in STAGES:
         col = [l for l in leads if l["stage"] == s]
@@ -170,6 +199,10 @@ async def tpl_sales_pipeline(date_from, date_to):
     win_rate = round(won / (won + lost) * 100, 1) if (won + lost) else 0
     targets = await targets_with_actuals({})
     quotes = await db.quotes.find({"created_at": {"$gte": date_from, "$lte": date_to + "T23:59:59"}}, {"_id": 0}).to_list(500)
+    if branch_ids:
+        lead_ids = {l["id"] for l in leads}
+        cset = await _branch_client_ids(branch_ids)
+        quotes = [q for q in quotes if q.get("lead_id") in lead_ids or (q.get("client_id") and q["client_id"] in cset)]
     q_by_status = {}
     for q in quotes:
         b = q_by_status.setdefault(q["status"], {"status": q["status"], "count": 0, "value": 0})
@@ -200,12 +233,16 @@ async def tpl_sales_pipeline(date_from, date_to):
     }
 
 
-async def tpl_employee_activity(date_from, date_to):
+async def tpl_employee_activity(date_from, date_to, branch_ids=None):
     users = await db.users.find({"is_active": True}, {"_id": 0, "password_hash": 0}).sort("name", 1).to_list(300)
-    projects = await db.projects.find({}, {"_id": 0, "id": 1, "team_member_ids": 1}).to_list(1000)
+    projects = await db.projects.find({}, {"_id": 0, "id": 1, "team_member_ids": 1, "client_id": 1}).to_list(1000)
     team_map = {p["id"]: p.get("team_member_ids", []) for p in projects}
     income = await db.transactions.find(
         {"type": "income", "project_id": {"$nin": [None, ""]}, "date": {"$gte": date_from, "$lte": date_to}}, {"_id": 0}).to_list(10000)
+    if branch_ids:
+        cset = await _branch_client_ids(branch_ids)
+        pclient = {p["id"]: p.get("client_id") for p in projects}
+        income = [x for x in income if pclient.get(x["project_id"]) in cset]
     rev = {}
     for x in income:
         members = team_map.get(x["project_id"], [])
@@ -250,9 +287,12 @@ async def tpl_employee_activity(date_from, date_to):
     }
 
 
-async def tpl_ads_performance(date_from, date_to, client_id=None, variant=None):
+async def tpl_ads_performance(date_from, date_to, client_id=None, variant=None, branch_ids=None):
     from routes_ads import compute_metrics
     q = {"client_id": client_id} if client_id else {}
+    if branch_ids and not client_id:
+        cset = await _branch_client_ids(branch_ids)
+        q["client_id"] = {"$in": sorted(cset)}
     campaigns = await db.ad_campaigns.find(q, {"_id": 0}).to_list(500)
     cmap = {c["id"]: c["name"] for c in await db.clients.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(1000)}
     client_ready = variant == "client"
@@ -302,9 +342,11 @@ async def tpl_ads_performance(date_from, date_to, client_id=None, variant=None):
     }
 
 
-async def tpl_location_comparison(date_from, date_to):
+async def tpl_location_comparison(date_from, date_to, branch_ids=None):
     from routes_locations import compare_branches
     rows = await compare_branches(user=None)
+    if branch_ids:
+        rows = [r for r in rows if r["id"] in branch_ids]
     clients = await db.clients.find({}, {"_id": 0, "id": 1, "branch_id": 1}).to_list(2000)
     cb = {c["id"]: c.get("branch_id") for c in clients}
     tx = await db.transactions.find(
@@ -367,15 +409,29 @@ async def list_templates(user: dict = Depends(require_roles(*REPORT_ROLES))):
             for k, t in TEMPLATES.items() if user["role"] == "super_admin" or user["role"] in t["roles"]]
 
 
+@router.get("/reports/branch-options")
+async def report_branch_options(user: dict = Depends(require_roles(*REPORT_ROLES))):
+    """Branches the current user may filter reports by (server-side scoped)."""
+    allowed = branch_scope(user)
+    q = {"id": {"$in": allowed}} if allowed is not None else {}
+    return await db.branches.find(q, {"_id": 0, "id": 1, "name": 1, "city": 1}).sort("name", 1).to_list(50)
+
+
 @router.get("/reports/template/{key}")
 async def generate_template(key: str, date_from: Optional[str] = None, date_to: Optional[str] = None,
                             client_id: Optional[str] = None, variant: Optional[str] = None,
+                            branches: Optional[str] = None,
                             user: dict = Depends(require_roles(*REPORT_ROLES))):
     _check_template(key, user)
     df, dt = date_from or _default_range()[0], date_to or _default_range()[1]
-    kwargs = {"client_id": client_id, "variant": variant} if key == "ads-performance" else {}
+    branch_ids = await _resolve_branches(user, branches)
+    kwargs = {"branch_ids": branch_ids}
+    if key == "ads-performance":
+        kwargs.update({"client_id": client_id, "variant": variant})
     data = await BUILDERS[key](df, dt, **kwargs)
-    data["period"] = f"{df} → {dt}"
+    bn = await _branch_names(branch_ids)
+    data["branch_filter"] = bn
+    data["period"] = f"{df} → {dt}" + (f" · Branches: {bn}" if bn else "")
     data["sections"] = [{"title": s["title"],
                          "columns": [{"key": c[0], "label": c[1], "fmt": c[2]} for c in s["columns"]],
                          "rows": s["rows"]} for s in data["sections"]]
@@ -385,14 +441,19 @@ async def generate_template(key: str, date_from: Optional[str] = None, date_to: 
 @router.get("/reports/template/{key}/export")
 async def export_template(key: str, format: str = "pdf", date_from: Optional[str] = None, date_to: Optional[str] = None,
                           client_id: Optional[str] = None, variant: Optional[str] = None,
+                          branches: Optional[str] = None,
                           user: dict = Depends(require_roles(*REPORT_ROLES))):
     tpl = _check_template(key, user)
     if format not in ("pdf", "xlsx"):
         raise HTTPException(status_code=400, detail="format must be pdf or xlsx")
     df, dt = date_from or _default_range()[0], date_to or _default_range()[1]
-    kwargs = {"client_id": client_id, "variant": variant} if key == "ads-performance" else {}
+    branch_ids = await _resolve_branches(user, branches)
+    kwargs = {"branch_ids": branch_ids}
+    if key == "ads-performance":
+        kwargs.update({"client_id": client_id, "variant": variant})
     data = await BUILDERS[key](df, dt, **kwargs)
-    subtitle = f"Period: {df} → {dt}"
+    bn = await _branch_names(branch_ids)
+    subtitle = f"Period: {df} → {dt}" + (f" · Branches: {bn}" if bn else "")
     if format == "pdf":
         blob = build_pdf(data["title"], subtitle, data["sections"], summary=data["summary"], generated_by=user.get("name", ""))
     else:
@@ -462,6 +523,7 @@ class CustomReportRequest(BaseModel):
     date_to: Optional[str] = None
     filters: Dict[str, str] = {}
     columns: List[str] = []
+    branches: List[str] = []
     format: Optional[str] = "pdf"
 
 
@@ -483,6 +545,14 @@ async def _run_custom(body: CustomReportRequest, user: dict):
             q[df_field]["$gte"] = body.date_from
         if body.date_to:
             q[df_field]["$lte"] = body.date_to + ("T23:59:59" if df_field == "created_at" else "")
+    # Location filter (server-side scoped to the user's allowed branches)
+    branch_ids = await _resolve_branches(user, ",".join(body.branches or []))
+    if branch_ids:
+        if body.module in ("clients", "leads"):
+            q["branch_id"] = {"$in": branch_ids}
+        elif body.module in ("projects", "ledger"):
+            cset = await _branch_client_ids(branch_ids)
+            q["client_id"] = {"$in": sorted(cset)}
     rows = await db[COLLECTIONS[body.module]].find(q, {"_id": 0, "credentials": 0} if body.module == "clients" else {"_id": 0}).sort(df_field, -1).to_list(3000)
 
     # Enrichment
@@ -539,6 +609,10 @@ async def custom_export(body: CustomReportRequest, user: dict = Depends(require_
     if body.date_from or body.date_to:
         parts.append(f"{body.date_from or '...'} → {body.date_to or '...'}")
     parts.extend(f"{k}: {v}" for k, v in (body.filters or {}).items() if v and v != "all")
+    if body.branches:
+        bn = await _branch_names(body.branches)
+        if bn:
+            parts.append(f"Branches: {bn}")
     subtitle = f"{len(rows)} records" + (f" · {' · '.join(parts)}" if parts else "")
     sections = [{"title": None, "columns": columns, "rows": rows}]
     if body.format == "pdf":

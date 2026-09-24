@@ -9,8 +9,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from auth import get_current_user, log_activity
 from permissions import (
-    PERMISSION_GROUPS, ALL_KEYS, ROLE_DEFAULTS, VALID_ROLES,
-    effective_permissions,
+    PERMISSION_GROUPS, ALL_KEYS, ROLE_DEFAULTS, VALID_ROLES, EDITABLE_ROLES,
+    effective_permissions, save_role_default,
 )
 
 router = APIRouter()
@@ -22,6 +22,32 @@ class OverridesBody(BaseModel):
 
 class BranchesBody(BaseModel):
     assigned_branches: List[str] = []
+
+
+class RoleDefaultsBody(BaseModel):
+    permissions: List[str] = []
+
+
+@router.get("/access/role-defaults")
+async def get_role_defaults(user: dict = Depends(get_current_user)):
+    """Current role default permission sets (DB-backed). Gated by access_control middleware."""
+    return {
+        "groups": PERMISSION_GROUPS,
+        "editable_roles": EDITABLE_ROLES,
+        "roles": {r: sorted(v) for r, v in ROLE_DEFAULTS.items()},
+    }
+
+
+@router.put("/access/role-defaults/{role}")
+async def put_role_defaults(role: str, body: RoleDefaultsBody, user: dict = Depends(get_current_user)):
+    if user["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only a super admin can edit role defaults")
+    if role not in VALID_ROLES or role == "super_admin":
+        raise HTTPException(status_code=400, detail="Invalid or non-editable role")
+    perms = {k for k in body.permissions if k in ALL_KEYS}
+    await save_role_default(role, perms)
+    await log_activity(user, "role_defaults_updated", "role", role, f"{role}: {len(perms)} permissions")
+    return {"role": role, "permissions": sorted(perms)}
 
 
 def _can_edit(actor: dict, target: dict):

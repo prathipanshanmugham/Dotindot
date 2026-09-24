@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
-  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound,
+  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -12,6 +12,7 @@ import NotificationsBell from "@/components/NotificationsBell";
 import { RoleBadge, ROLE_LABELS, labelize } from "@/components/Badges";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -159,10 +160,72 @@ const GlobalSearch = () => {
   );
 };
 
+const SidebarInner = ({ user, hasPerm, onNavigate }) => {
+  const initials = (user?.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  return (
+    <>
+      <div className="h-16 flex items-center px-5 border-b border-gray-100 shrink-0">
+        <DotindotLogo size={30} textClass="text-lg" />
+        <Badge variant="outline" className="ml-2 text-[9px] px-1.5 border-gray-200 text-gray-400">Ops v2</Badge>
+      </div>
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+        {NAV.map((section) => {
+          const visible = section.items.filter(
+            (i) => (!i.perm || hasPerm(...i.perm)) && (!i.when || i.when(user, hasPerm))
+          );
+          if (!visible.length) return null;
+          return (
+            <div key={section.section}>
+              <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                {section.section}
+              </div>
+              {visible.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={onNavigate}
+                  data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium mb-0.5 transition-colors ${
+                      isActive
+                        ? "bg-[#FFF7ED] text-[#F26B21]"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    }`
+                  }
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span className="flex-1">{item.name}</span>
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
+      </nav>
+      <div className="p-3 border-t border-gray-100 shrink-0">
+        <div className="flex items-center gap-2.5 px-2 py-1.5">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-xs font-bold flex items-center justify-center">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-gray-800 truncate">{user?.name}</div>
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">{ROLE_LABELS[user?.role]}</div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 export default function AppLayout({ children }) {
   const { user, hasPerm, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -178,69 +241,43 @@ export default function AppLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex">
-      {/* Sidebar */}
-      <aside className="w-64 shrink-0 bg-white border-r border-gray-200/80 flex flex-col fixed inset-y-0 left-0 z-40">
-        <div className="h-16 flex items-center px-5 border-b border-gray-100">
-          <DotindotLogo size={30} textClass="text-lg" />
-          <Badge variant="outline" className="ml-2 text-[9px] px-1.5 border-gray-200 text-gray-400">Ops v2</Badge>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
-          {NAV.map((section) => {
-            const visible = section.items.filter(
-              (i) => (!i.perm || hasPerm(...i.perm)) && (!i.when || i.when(user, hasPerm))
-            );
-            if (!visible.length) return null;
-            return (
-              <div key={section.section}>
-                <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  {section.section}
-                </div>
-                {visible.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium mb-0.5 transition-colors ${
-                        isActive
-                          ? "bg-[#FFF7ED] text-[#F26B21]"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                      }`
-                    }
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{item.name}</span>
-                    {item.soon && (
-                      <span className="text-[9px] font-semibold text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">
-                        Soon
-                      </span>
-                    )}
-                  </NavLink>
-                ))}
-              </div>
-            );
-          })}
-        </nav>
-        <div className="p-3 border-t border-gray-100">
-          <div className="flex items-center gap-2.5 px-2 py-1.5">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-xs font-bold flex items-center justify-center">
-              {initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-gray-800 truncate">{user?.name}</div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-wide">{ROLE_LABELS[user?.role]}</div>
-            </div>
-          </div>
-        </div>
+      {/* Desktop sidebar */}
+      <aside className="w-64 shrink-0 bg-white border-r border-gray-200/80 hidden lg:flex flex-col fixed inset-y-0 left-0 z-40">
+        <SidebarInner user={user} hasPerm={hasPerm} />
       </aside>
 
+      {/* Mobile slide-over sidebar */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="w-72 p-0 flex flex-col" data-testid="mobile-sidebar">
+          <SidebarInner user={user} hasPerm={hasPerm} onNavigate={() => setMobileOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
       {/* Main */}
-      <div className="flex-1 ml-64 flex flex-col min-h-screen">
-        <header className="h-16 sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 flex items-center gap-6 px-6">
-          <GlobalSearch />
-          <div className="ml-auto flex items-center gap-3">
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0">
+        <header className="h-16 sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 flex items-center gap-2 sm:gap-6 px-3 sm:px-6">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="lg:hidden !min-h-0 h-11 w-11 -ml-1 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50 transition-colors shrink-0"
+            data-testid="mobile-menu-btn"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="hidden sm:block flex-1 max-w-md">
+            <GlobalSearch />
+          </div>
+          <div className="ml-auto flex items-center gap-1 sm:gap-3">
+            <button
+              onClick={() => setMobileSearch((s) => !s)}
+              className="sm:hidden !min-h-0 h-11 w-11 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
+              data-testid="mobile-search-btn"
+              aria-label="Toggle search"
+            >
+              <Search className="h-5 w-5" />
+            </button>
             <NotificationsBell />
-            <RoleBadge role={user?.role} />
+            <span className="hidden md:inline-flex"><RoleBadge role={user?.role} /></span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -266,7 +303,12 @@ export default function AppLayout({ children }) {
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-6 lg:p-8 animate-fadein" key={location.pathname}>
+        {mobileSearch && (
+          <div className="sm:hidden sticky top-16 z-30 bg-white border-b border-gray-200 px-3 py-2.5" data-testid="mobile-search-bar">
+            <GlobalSearch />
+          </div>
+        )}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-fadein min-w-0" key={location.pathname}>
           {children}
         </main>
       </div>

@@ -38,6 +38,7 @@ from routes_ads import router as ads_router
 from routes_social import router as social_router
 from routes_influencers import router as influencers_router
 from routes_hud import router as hud_router
+from routes_workspace import router as workspace_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -47,7 +48,7 @@ app = FastAPI(
 
 for r in (auth_router, users_router, clients_router, projects_router, misc_router, finance_router, sales_router, ceo_router,
           employees_router, logs_router, partnerships_router, locations_router, exports_router, reports_router,
-          access_router, assets_router, ads_router, social_router, influencers_router, hud_router):
+          access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router):
     app.include_router(r, prefix="/api")
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
@@ -106,6 +107,8 @@ async def startup():
     await seed_sales()
     await seed_phase4()
     await seed_v2()
+    from permissions import load_role_defaults
+    await load_role_defaults()
     start_scheduler()
     try:
         init_storage()

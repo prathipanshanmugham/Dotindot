@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -205,10 +205,23 @@ const BranchManager = () => {
 export default function LocationsPage() {
   const [data, setData] = useState(null);
   const [enabled, setEnabled] = useState({ clients: true, branches: true, employees: true });
+  const mapRef = useRef(null);
+  const mapWrapRef = useRef(null);
 
   useEffect(() => {
     api.get("/locations/map").then((r) => setData(r.data)).catch(() => {});
   }, []);
+
+  // Keep Leaflet correctly sized when its container changes (panel toggles, resize, layout shifts)
+  useEffect(() => {
+    const el = mapWrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (mapRef.current) mapRef.current.invalidateSize();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data]);
 
   if (!data)
     return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
@@ -254,8 +267,8 @@ export default function LocationsPage() {
         {/* Map */}
         <Card className="border-gray-200/80 shadow-sm overflow-hidden">
           <CardContent className="p-0">
-            <div style={{ height: "calc(100vh - 320px)", minHeight: 420 }} data-testid="locations-map">
-              <MapContainer center={[22, 55]} zoom={4} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+            <div style={{ height: "calc(100vh - 320px)", minHeight: 420 }} data-testid="locations-map" className="map-wrapper" ref={mapWrapRef}>
+              <MapContainer ref={mapRef} center={[22, 55]} zoom={4} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

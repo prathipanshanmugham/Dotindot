@@ -36,6 +36,46 @@ V2_USERS = [
 CITY_BRANCH = {"Dubai": "seed-branch-02", "London": "seed-branch-03"}
 DEFAULT_BRANCH = "seed-branch-01"
 
+# id -> (email, name, role) for every seeded demo account (self-healing registry)
+SEED_ACCOUNTS = {
+    "user-admin": ("admin@dotindot.in", "Arjun Mehta", "super_admin"),
+    "user-midhun": ("midhun@dotindot.in", "Midhun", "admin"),
+    "user-finance": ("finance@dotindot.in", "Priya Sharma", "finance"),
+    "user-sales": ("sales@dotindot.in", "Rohan Kapoor", "sales"),
+    "user-pm": ("pm@dotindot.in", "Sneha Iyer", "pm"),
+    "user-employee": ("employee@dotindot.in", "Karan Patel", "employee"),
+    "user-designer": ("designer@dotindot.in", "Ananya Verma", "employee"),
+    "user-dev": ("dev@dotindot.in", "Dev Malhotra", "employee"),
+    "user-marketing": ("marketing@dotindot.in", "Fatima Khan", "employee"),
+    "user-ads": ("ads@dotindot.in", "Aarav Shetty", "ads_manager"),
+    "user-social": ("social@dotindot.in", "Zara Ali", "social_manager"),
+}
+
+
+async def restore_seed_accounts(pw_hash: str):
+    """Self-healing: consolidate duplicates and restore any seeded demo account that
+    was deleted/tombstoned or email-mangled (e.g. during delete-flow testing).
+    Guarantees exactly one canonical doc per seed account — never raises dup-key."""
+    for uid, (email, name, role) in SEED_ACCOUNTS.items():
+        docs = await db.users.find({"$or": [{"id": uid}, {"email": email}]}).to_list(10)
+        keep = next((x for x in docs if x.get("email") == email and not x.get("deleted")), None)
+        if keep is None and docs:
+            keep = docs[0]
+        for x in docs:
+            if keep is not None and x["_id"] != keep["_id"]:
+                await db.users.delete_one({"_id": x["_id"]})
+        if keep is not None:
+            await db.users.update_one({"_id": keep["_id"]}, {
+                "$set": {"id": uid, "email": email, "name": name, "role": role,
+                         "is_active": True, "deleted": False,
+                         "password_hash": keep.get("password_hash") or pw_hash},
+                "$unset": {"deleted_at": "", "deleted_by": ""},
+            })
+        else:
+            await db.users.insert_one({"id": uid, "email": email, "name": name, "role": role,
+                                       "is_active": True, "deleted": False,
+                                       "password_hash": pw_hash, "created_at": _now()})
+
 LONDON_BRANCH = {
     "id": "seed-branch-03", "name": "London Branch", "city": "London", "country": "UK",
     "address": "3rd Floor, 12 Soho Square, London W1D 3QF", "head_name": "Sneha Iyer",
@@ -301,11 +341,12 @@ async def seed_v2():
         await db.users.update_one({"email": old}, {"$set": {"email": new}})
     # admin becomes super_admin
     await db.users.update_one({"email": "admin@dotindot.in"}, {"$set": {"role": "super_admin"}})
+    await restore_seed_accounts(pw_hash)
 
-    # 2) New v2 users
+    # 2) New v2 users (by canonical id — restore_seed_accounts guarantees uniqueness)
     for u in V2_USERS:
         await db.users.update_one(
-            {"email": u["email"]},
+            {"id": u["id"]},
             {"$setOnInsert": {**u, "is_active": True, "password_hash": pw_hash, "created_at": _now()}},
             upsert=True,
         )

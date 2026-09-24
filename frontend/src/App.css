@@ -56,3 +56,42 @@
     background: white !important;
   }
 }
+
+/* ---- Leaflet containment: map must never overlap app UI (modals, dropdowns, headers) ---- */
+.map-wrapper {
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+}
+.leaflet-container {
+  z-index: 0 !important;
+}
+
+/* ---- Mobile responsiveness ---- */
+html,
+body {
+  overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+  [role="tablist"] {
+    height: auto;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Touch targets >= 44px for inputs and standard buttons */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 44px;
+  }
+  button:not([role="switch"]):not(.h-6):not(.h-7):not(.h-8):not([data-slot="dot"]) {
+    min-height: 44px;
+  }
+  [role="dialog"] {
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+}

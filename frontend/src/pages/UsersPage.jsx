@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { apiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { ROLE_LABELS } from "@/components/Badges";
+import { PasswordInput } from "@/components/PasswordInput";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,7 +107,7 @@ export default function UsersPage() {
             <div className="space-y-3">
               <div className="space-y-1"><Label>Full name</Label><Input data-testid="user-form-name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} /></div>
               <div className="space-y-1"><Label>Email</Label><Input data-testid="user-form-email" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} /></div>
-              <div className="space-y-1"><Label>Password</Label><Input data-testid="user-form-password" type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Password</Label><PasswordInput data-testid="user-form-password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} /></div>
               <div className="space-y-1">
                 <Label>Role</Label>
                 <Select value={form.role} onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}>
