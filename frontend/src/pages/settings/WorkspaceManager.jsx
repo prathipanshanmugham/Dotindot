@@ -43,7 +43,8 @@ export const WorkspaceManager = () => {
   const [selected, setSelected] = useState({});
   const [editing, setEditing] = useState(null);
   const [editText, setEditText] = useState("");
-  const [delTarget, setDelTarget] = useState(null); // {record, dependents?}
+  const [delTarget, setDelTarget] = useState(null); // {record, dependents|null, checked}
+  const [singleConfirm, setSingleConfirm] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [cascadeBulk, setCascadeBulk] = useState(false);
@@ -90,6 +91,18 @@ export const WorkspaceManager = () => {
     }
   };
 
+  const openDelete = async (rec) => {
+    setSingleConfirm("");
+    setDelTarget({ record: rec, dependents: null, checked: false });
+    try {
+      const { data: res } = await api.get(`/workspace/${coll}/${rec.id}/dependents`);
+      const deps = res.dependents || {};
+      setDelTarget({ record: rec, dependents: Object.keys(deps).length ? deps : null, checked: true });
+    } catch (e) {
+      setDelTarget({ record: rec, dependents: null, checked: true });
+    }
+  };
+
   const doDelete = async (rid, cascade) => {
     try {
       await api.delete(`/workspace/${coll}/${rid}`, { params: cascade ? { cascade: true } : {} });
@@ -100,7 +113,9 @@ export const WorkspaceManager = () => {
     } catch (e) {
       const detail = e.response?.data?.detail;
       if (e.response?.status === 409 && detail?.dependents) {
-        setDelTarget((t) => ({ ...t, dependents: detail.dependents }));
+        // Safety net: wire the 409 body into the open dialog
+        setDelTarget((t) => ({ ...t, dependents: detail.dependents, checked: true }));
+        toast.warning("Dependent records found — cascade confirmation required");
       } else {
         toast.error(apiError(e));
       }
@@ -202,7 +217,7 @@ export const WorkspaceManager = () => {
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(r)} data-testid={`workspace-edit-${r.id}`}>
                           <Pencil className="h-3.5 w-3.5 text-gray-500" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDelTarget({ record: r })} data-testid={`workspace-delete-${r.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDelete(r)} data-testid={`workspace-delete-${r.id}`}>
                           <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
                         </Button>
                       </TableCell>
@@ -252,24 +267,51 @@ export const WorkspaceManager = () => {
               <span className="font-mono text-xs bg-gray-100 rounded px-1.5 py-0.5">{delTarget?.record?.id}</span>
               {" — "}This action is <span className="font-semibold text-red-600">permanent and cannot be undone</span>.
             </p>
+            {delTarget && !delTarget.checked && (
+              <p className="text-xs text-gray-400" data-testid="workspace-dependents-checking">Checking for dependent records…</p>
+            )}
             {delTarget?.dependents && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1" data-testid="workspace-dependents-warning">
-                <div className="font-bold">Dependent records found:</div>
-                {Object.entries(delTarget.dependents).map(([k, n]) => (
-                  <div key={k}>• {labelize(k)}: {n} record{n === 1 ? "" : "s"}</div>
-                ))}
-                <div>Cascade delete will remove or unlink them so no broken references remain.</div>
-              </div>
+              <>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1" data-testid="workspace-dependents-warning">
+                  <div className="font-bold">Dependent records found:</div>
+                  {Object.entries(delTarget.dependents).map(([k, n]) => (
+                    <div key={k} data-testid={`workspace-dependent-${k}`}>• {labelize(k)}: {n} record{n === 1 ? "" : "s"}</div>
+                  ))}
+                  <div>Cascade delete will remove or unlink them so no broken references remain.</div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-700">Type <span className="font-mono text-red-600">DELETE</span> to enable cascade delete:</p>
+                  <Input
+                    value={singleConfirm}
+                    onChange={(e) => setSingleConfirm(e.target.value)}
+                    placeholder="DELETE"
+                    data-testid="workspace-delete-confirm-input"
+                  />
+                </div>
+              </>
+            )}
+            {delTarget?.checked && !delTarget?.dependents && (
+              <p className="text-xs text-emerald-700" data-testid="workspace-no-dependents">No dependent records — safe to delete this record only.</p>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDelTarget(null)} data-testid="workspace-delete-cancel">Cancel</Button>
             {delTarget?.dependents ? (
-              <Button variant="destructive" onClick={() => doDelete(delTarget.record.id, true)} data-testid="workspace-delete-cascade">
-                Delete with dependents
+              <Button
+                variant="destructive"
+                disabled={singleConfirm !== "DELETE"}
+                onClick={() => doDelete(delTarget.record.id, true)}
+                data-testid="workspace-delete-cascade"
+              >
+                Cascade delete
               </Button>
             ) : (
-              <Button variant="destructive" onClick={() => doDelete(delTarget.record.id, false)} data-testid="workspace-delete-confirm">
+              <Button
+                variant="destructive"
+                disabled={!delTarget?.checked}
+                onClick={() => doDelete(delTarget.record.id, false)}
+                data-testid="workspace-delete-confirm"
+              >
                 Delete permanently
               </Button>
             )}

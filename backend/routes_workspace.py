@@ -143,6 +143,16 @@ async def edit_record(coll: str, rid: str, body: dict = Body(...), user: dict = 
     return await db[coll].find_one({"id": rid}, SAFE_PROJECTION)
 
 
+@router.get("/workspace/{coll}/{rid}/dependents")
+async def get_dependents(coll: str, rid: str, user: dict = Depends(require_super_admin)):
+    """Pre-delete check: dependent record counts for this record."""
+    _spec(coll)
+    if not await db[coll].find_one({"id": rid}):
+        raise HTTPException(status_code=404, detail="Record not found")
+    deps = await _dependents(coll, rid)
+    return {"dependents": {k: v["count"] for k, v in deps.items()}}
+
+
 @router.delete("/workspace/{coll}/{rid}")
 async def delete_record(coll: str, rid: str, cascade: bool = False, user: dict = Depends(require_super_admin)):
     _spec(coll)
