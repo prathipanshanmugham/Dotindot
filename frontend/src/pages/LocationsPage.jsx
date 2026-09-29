@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Users, Building2, UserCheck, Globe2, Plus, Pencil, Trash2 } from "lucide-react";
 import { LocationFields } from "@/components/LocationFields";
+import { PinPicker } from "@/components/PinPicker";
+import { BranchFilter } from "@/components/BranchFilter";
 
 const LAYERS = [
   { key: "clients", label: "Clients", color: "#F26B21", icon: Users, offset: [0, 0] },
@@ -32,9 +34,9 @@ const makeIcon = (color, count) =>
     popupAnchor: [0, -26],
   });
 
-const EMPTY_BRANCH = { name: "", city: "", state: "", country: "India", address: "", head_name: "", contact_email: "", contact_phone: "", status: "active" };
+const EMPTY_BRANCH = { name: "", city: "", state: "", country: "India", address: "", head_name: "", contact_email: "", contact_phone: "", status: "active", lat: null, lng: null };
 
-const BranchManager = ({ onChanged }) => {
+const BranchManager = ({ onChanged, onLocate }) => {
   const { user } = useAuth();
   const isAdmin = ["super_admin", "admin"].includes(user?.role);
   const [branches, setBranches] = useState([]);
@@ -56,7 +58,7 @@ const BranchManager = ({ onChanged }) => {
     setForm({
       name: b.name || "", city: b.city || "", state: b.state || "", country: b.country || "India", address: b.address || "",
       head_name: b.head_name || "", contact_email: b.contact_email || "", contact_phone: b.contact_phone || "",
-      status: b.status || "active",
+      status: b.status || "active", lat: b.lat ?? null, lng: b.lng ?? null,
     });
     setOpen(true);
   };
@@ -115,7 +117,7 @@ const BranchManager = ({ onChanged }) => {
               <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-sm text-gray-400">No branches yet.</TableCell></TableRow>
             )}
             {branches.map((b) => (
-              <TableRow key={b.id} data-testid={`branch-row-${b.id}`}>
+              <TableRow key={b.id} data-testid={`branch-row-${b.id}`} className="cursor-pointer hover:bg-orange-50/40" onClick={() => onLocate && onLocate(b)}>
                 <TableCell>
                   <div className="font-semibold text-gray-900">{b.name}</div>
                   {b.address && <div className="text-xs text-gray-400">{b.address}</div>}
@@ -130,10 +132,10 @@ const BranchManager = ({ onChanged }) => {
                 </TableCell>
                 {isAdmin && (
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(b)} data-testid={`edit-branch-${b.id}`}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(b); }} data-testid={`edit-branch-${b.id}`}>
                       <Pencil className="h-3.5 w-3.5 text-gray-500" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(b)} data-testid={`delete-branch-${b.id}`}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); remove(b); }} data-testid={`delete-branch-${b.id}`}>
                       <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
                     </Button>
                   </TableCell>
@@ -154,7 +156,10 @@ const BranchManager = ({ onChanged }) => {
             </div>
             <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <LocationFields country={form.country} state={form.state} city={form.city} prefix="branch-form" compact
-                onChange={(v) => setForm((f) => ({ ...f, ...v }))} />
+                onChange={(v) => setForm((f) => ({ ...f, ...v, lat: null, lng: null }))} />
+            </div>
+            <div className="col-span-2">
+              <PinPicker city={form.city} state={form.state} lat={form.lat} lng={form.lng} onChange={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))} />
             </div>
             <div className="col-span-2 space-y-1">
               <Label>Status</Label>
@@ -198,14 +203,26 @@ const BranchManager = ({ onChanged }) => {
 export default function LocationsPage() {
   const [data, setData] = useState(null);
   const [enabled, setEnabled] = useState({ clients: true, branches: true, employees: true });
+  const [branchFilter, setBranchFilter] = useState("all");
   const mapRef = useRef(null);
   const mapWrapRef = useRef(null);
 
   const loadMap = useCallback(() => {
-    api.get("/locations/map").then((r) => setData(r.data)).catch(() => {});
-  }, []);
+    api.get("/locations/map", { params: branchFilter !== "all" ? { branch: branchFilter } : {} }).then((r) => setData(r.data)).catch(() => {});
+  }, [branchFilter]);
 
   useEffect(() => { loadMap(); }, [loadMap]);
+
+  // Auto-fit to all visible pins whenever data changes
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !data?.cities?.length) return;
+    const pts = data.cities.map((c) => [c.lat, c.lng]);
+    if (pts.length === 1) m.setView(pts[0], 10);
+    else m.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 12 });
+  }, [data]);
+
+  const flyTo = (c) => mapRef.current?.flyTo([c.lat, c.lng], 11, { duration: 0.8 });
 
   // Keep Leaflet correctly sized when its container changes (panel toggles, resize, layout shifts)
   useEffect(() => {
@@ -231,6 +248,7 @@ export default function LocationsPage() {
           <p className="text-sm text-gray-500 mt-1">Where our clients, branches and team are — across {data.totals.cities} cities.</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-400">
+          <BranchFilter value={branchFilter} onChange={setBranchFilter} testid="map-branch-filter" />
           <Globe2 className="h-4 w-4" /> OpenStreetMap
         </div>
       </div>
@@ -311,7 +329,7 @@ export default function LocationsPage() {
         {/* City list */}
         <div className="space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
           {data.cities.map((c) => (
-            <Card key={c.city} className="border-gray-200/80 shadow-sm" data-testid={`city-card-${c.city.replace(/\s+/g, "-").toLowerCase()}`}>
+            <Card key={c.city} className="border-gray-200/80 shadow-sm cursor-pointer hover:border-[#F26B21]/50 transition-colors" onClick={() => flyTo(c)} data-testid={`city-card-${c.city.replace(/\s+/g, "-").toLowerCase()}`}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="font-semibold text-gray-900 text-sm">{c.city}</div>
@@ -329,7 +347,7 @@ export default function LocationsPage() {
       </div>
 
       {/* Branch management */}
-      <BranchManager onChanged={loadMap} />
+      <BranchManager onChanged={loadMap} onLocate={(b) => b.lat && mapRef.current?.flyTo([b.lat, b.lng], 12, { duration: 0.8 })} />
     </div>
   );
 }

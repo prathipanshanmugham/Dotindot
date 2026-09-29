@@ -252,6 +252,7 @@ class LeadCreate(BaseModel):
     stage: str = "new"
     owner_id: Optional[str] = None
     region: Optional[str] = ""
+    state: Optional[str] = ""
     city: Optional[str] = ""
     notes: Optional[str] = ""
     follow_up_date: Optional[str] = None
@@ -268,6 +269,7 @@ class LeadUpdate(BaseModel):
     service_interest: Optional[str] = None
     owner_id: Optional[str] = None
     region: Optional[str] = None
+    state: Optional[str] = None
     city: Optional[str] = None
     notes: Optional[str] = None
     follow_up_date: Optional[str] = None
@@ -335,6 +337,8 @@ class ProfileUpdate(BaseModel):
     designation: Optional[str] = None
     department: Optional[str] = None
     skills: Optional[List[str]] = None
+    country: Optional[str] = None
+    state: Optional[str] = None
     city: Optional[str] = None
     phone: Optional[str] = None
     join_date: Optional[str] = None

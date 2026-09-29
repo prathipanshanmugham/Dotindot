@@ -20,7 +20,7 @@ PERMISSION_GROUPS = {
                 "finance.ai_spend", "finance.marketing", "finance.project_profit", "finance.employee_revenue"],
     "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud"],
     "Growth": ["ads", "social", "influencers"],
-    "Operations": ["employees", "training", "partnerships", "assets", "locations"],
+    "Operations": ["employees", "training", "partnerships", "assets", "assets.delete", "locations"],
     "System": ["logs", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal"],
 }
 
@@ -30,7 +30,7 @@ _FINANCE_ALL = set(PERMISSION_GROUPS["Finance"])
 
 ROLE_DEFAULTS = {
     "super_admin": set(ALL_KEYS),
-    "admin": set(ALL_KEYS),
+    "admin": set(ALL_KEYS) - {"assets.delete"},
     "finance": {"clients", "projects", *_FINANCE_ALL, "sales.pipeline", "sales.quotes", "sales.targets",
                 "employees", "training", "partnerships", "assets", "locations", "reports"},
     "sales": {"clients", "projects", "sales.pipeline", "sales.quotes", "sales.targets", "sales.hud",
@@ -79,6 +79,8 @@ def effective_permissions(user: dict) -> list:
 def has_permission(user: dict, *keys) -> bool:
     if user.get("role") == "super_admin":
         return True
+    if "__super_admin__" in keys:
+        return False
     perms = set(effective_permissions(user))
     return any(k in perms for k in keys)
 
@@ -144,7 +146,9 @@ async def scoped_client_ids(user: dict):
 # Ordered prefix → permission key(s). First match wins. Any listed key grants access.
 PATH_PERMISSIONS = [
     ("/api/ceo", ("ceo_dashboard",)),
+    ("/api/dashboard/ceo", ("ceo_dashboard",)),
     ("/api/passwords", ("password_manager",)),
+    ("/api/workspace", ("__super_admin__",)),
     ("/api/clients", ("clients",)),
     ("/api/projects", ("projects",)),
     ("/api/finance/overview", tuple(_FINANCE_ALL)),

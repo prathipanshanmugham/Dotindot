@@ -14,9 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, ChevronRight, AlertCircle } from "lucide-react";
+import { LocationFields } from "@/components/LocationFields";
 import { toast } from "sonner";
 
-const EMPTY = { name: "", company: "", contact_email: "", contact_phone: "", source: "website", estimated_value: "", service_interest: "", region: "India", city: "", owner_id: "", follow_up_date: "", notes: "" };
+const EMPTY = { name: "", company: "", contact_email: "", contact_phone: "", source: "website", estimated_value: "", service_interest: "", region: "India", state: "", city: "", owner_id: "", follow_up_date: "", notes: "" };
 
 export default function PipelinePage() {
   const { user } = useAuth();
@@ -195,8 +196,10 @@ export default function PipelinePage() {
             </div>
             <div className="space-y-1"><Label>Service interest</Label><Input data-testid="lead-form-service" value={form.service_interest} onChange={(e) => setForm((p) => ({ ...p, service_interest: e.target.value }))} /></div>
             <div className="space-y-1"><Label>Follow-up date</Label><Input data-testid="lead-form-followup" type="date" value={form.follow_up_date} onChange={(e) => setForm((p) => ({ ...p, follow_up_date: e.target.value }))} /></div>
-            <div className="space-y-1"><Label>Region</Label><Input data-testid="lead-form-region" value={form.region} onChange={(e) => setForm((p) => ({ ...p, region: e.target.value }))} /></div>
-            <div className="space-y-1"><Label>City</Label><Input data-testid="lead-form-city" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} /></div>
+            <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <LocationFields country={form.region} state={form.state} city={form.city} prefix="lead-form" compact
+                onChange={(v) => setForm((p) => ({ ...p, region: v.country, state: v.state, city: v.city }))} />
+            </div>
             <div className="space-y-1 col-span-2"><Label>Notes</Label><Textarea data-testid="lead-form-notes" rows={2} value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></div>
           </div>
           <DialogFooter>

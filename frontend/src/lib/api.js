@@ -15,6 +15,9 @@ api.interceptors.response.use(
       localStorage.removeItem("dot_token");
       window.location.href = "/login";
     }
+    if (err.response?.status === 403 && /permission for this module|restricted to super admins|is restricted/i.test(String(err.response?.data?.detail || ""))) {
+      window.dispatchEvent(new CustomEvent("app-forbidden", { detail: err.response.data.detail }));
+    }
     return Promise.reject(err);
   }
 );

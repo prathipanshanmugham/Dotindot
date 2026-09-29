@@ -166,21 +166,33 @@ async def delete_entry(entry_id: str, user: dict = Depends(get_current_user)):
     return {"ok": True}
 
 
-@router.post("/passwords/{entry_id}/reveal")
-async def reveal_password(entry_id: str, body: RevealBody, user: dict = Depends(get_current_user)):
+async def _verify_reveal(entry_id: str, body: RevealBody, user: dict, action: str):
     if not has_permission(user, "password_manager.reveal"):
         raise HTTPException(status_code=403, detail="You don't have reveal permission for the password manager")
     me = await db.users.find_one({"id": user["id"]})
     if not me or not me.get("password_hash") or not verify_password(body.login_password, me["password_hash"]):
-        await log_activity(user, "password_reveal_denied", "password", entry_id, "incorrect login password")
+        await log_activity(user, f"{action}_denied", "password", entry_id, "incorrect login password")
         raise HTTPException(status_code=403, detail="Your login password is incorrect")
     e = await db.password_entries.find_one({"id": entry_id})
     if not e:
         raise HTTPException(status_code=404, detail="Entry not found")
     if not e.get("password_encrypted"):
         raise HTTPException(status_code=404, detail="No password stored for this entry")
-    await log_activity(user, "password_revealed", "password", entry_id, e["name"])
+    await log_activity(user, action, "password", entry_id, e["name"])
+    return e
+
+
+@router.post("/passwords/{entry_id}/reveal")
+async def reveal_password(entry_id: str, body: RevealBody, user: dict = Depends(get_current_user)):
+    e = await _verify_reveal(entry_id, body, user, "password_revealed")
     return {"id": entry_id, "password": decrypt_secret(e["password_encrypted"]), "hide_after_seconds": 30}
+
+
+@router.post("/passwords/{entry_id}/copy")
+async def copy_password(entry_id: str, body: RevealBody, user: dict = Depends(get_current_user)):
+    """Same verification as reveal; logged separately as password_copied (clipboard-only on the client)."""
+    e = await _verify_reveal(entry_id, body, user, "password_copied")
+    return {"id": entry_id, "password": decrypt_secret(e["password_encrypted"]), "clear_after_seconds": 30}
 
 
 @router.get("/passwords/generate")

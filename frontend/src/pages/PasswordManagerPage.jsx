@@ -33,7 +33,7 @@ export default function PasswordManagerPage() {
   const [summary, setSummary] = useState(null);
   const [filters, setFilters] = useState({ twofa: "all", status: "all", search: "" });
   const [editing, setEditing] = useState(undefined); // undefined closed, null new, obj edit
-  const [revealTarget, setRevealTarget] = useState(null);
+  const [revealTarget, setRevealTarget] = useState(null); // {entry, mode}
   const [revealed, setRevealed] = useState({}); // id -> {password, until}
 
   const load = useCallback(() => {
@@ -63,12 +63,19 @@ export default function PasswordManagerPage() {
     try { await api.delete(`/passwords/${e.id}`); toast.success("Entry deleted"); load(); } catch (err) { toast.error(apiError(err)); }
   };
 
-  const onRevealed = (id, password) => {
-    setRevealed((r) => ({ ...r, [id]: { password, until: Date.now() + 30000 } }));
+  const onRevealed = (id, password, mode) => {
+    if (mode === "copy") {
+      navigator.clipboard?.writeText(password).then(() => {
+        toast.success("Copied to clipboard — clears automatically in 30s");
+        setTimeout(() => navigator.clipboard?.writeText("").catch(() => {}), 30000);
+      }).catch(() => toast.error("Clipboard blocked by the browser — use Reveal instead"));
+    } else {
+      setRevealed((r) => ({ ...r, [id]: { password, until: Date.now() + 30000 } }));
+    }
     setRevealTarget(null);
   };
 
-  const copy = (pw) => { navigator.clipboard?.writeText(pw); toast.success("Copied — clears from view in 30s"); };
+  const copy = (pw) => { navigator.clipboard?.writeText(pw); toast.success("Copied — clipboard clears in 30s"); setTimeout(() => navigator.clipboard?.writeText("").catch(() => {}), 30000); };
 
   return (
     <div className="space-y-6 max-w-7xl" data-testid="password-manager-page">
@@ -126,7 +133,12 @@ export default function PasswordManagerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2"><span className="text-gray-400 tracking-widest">••••••••</span>
-                      {e.has_password && canReveal && <button onClick={() => setRevealTarget(e)} className="text-gray-400 hover:text-[#F26B21]" data-testid={`pw-reveal-${e.id}`} title="Reveal (requires login password)"><Eye className="h-4 w-4" /></button>}
+                      {e.has_password && canReveal && (
+                        <>
+                          <button onClick={() => setRevealTarget({ entry: e, mode: "reveal" })} className="text-gray-400 hover:text-[#F26B21]" data-testid={`pw-reveal-${e.id}`} title="Reveal (requires login password)"><Eye className="h-4 w-4" /></button>
+                          <button onClick={() => setRevealTarget({ entry: e, mode: "copy" })} className="text-gray-400 hover:text-[#F26B21]" data-testid={`pw-copy-hidden-${e.id}`} title="Copy without showing (requires login password)"><Copy className="h-4 w-4" /></button>
+                        </>
+                      )}
                     </div>
                   )}
                 </TableCell>
@@ -145,7 +157,7 @@ export default function PasswordManagerPage() {
       </Table></div></Card>
 
       {editing !== undefined && <PasswordEntryDialog entry={editing} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); load(); }} />}
-      {revealTarget && <RevealDialog entry={revealTarget} onClose={() => setRevealTarget(null)} onRevealed={onRevealed} />}
+      {revealTarget && <RevealDialog entry={revealTarget.entry} mode={revealTarget.mode} onClose={() => setRevealTarget(null)} onRevealed={onRevealed} />}
     </div>
   );
 }

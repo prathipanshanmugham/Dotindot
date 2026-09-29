@@ -7,32 +7,37 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [perms, setPerms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false);
+  const [landing, setLanding] = useState("staff");
+
+  const loadPerms = async () => {
+    const [p, w] = await Promise.all([api.get("/me/permissions"), api.get("/dashboard/which")]);
+    setPerms(p.data.permissions || []);
+    setLanding(w.data.dashboard || "staff");
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("dot_token");
     if (!token) {
       setLoading(false);
+      setReady(true);
       return;
     }
-    Promise.all([api.get("/auth/me"), api.get("/me/permissions")])
-      .then(([me, p]) => {
-        setUser(me.data);
-        setPerms(p.data.permissions || []);
-      })
+    Promise.all([api.get("/auth/me"), loadPerms()])
+      .then(([me]) => setUser(me.data))
       .catch(() => localStorage.removeItem("dot_token"))
-      .finally(() => setLoading(false));
+      .finally(() => { setLoading(false); setReady(true); });
   }, []);
 
   const login = async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
     localStorage.setItem("dot_token", data.access_token);
-    setUser(data.user);
     try {
-      const p = await api.get("/me/permissions");
-      setPerms(p.data.permissions || []);
+      await loadPerms();
     } catch (e) {
       setPerms([]);
     }
+    setUser(data.user);
     return data.user;
   };
 
@@ -53,7 +58,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, perms, hasPerm, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, perms, hasPerm, loading, ready, landing, refreshPerms: loadPerms, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

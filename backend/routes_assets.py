@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from auth import get_current_user, require_roles, log_activity
-from permissions import branch_scope
+from permissions import branch_scope, has_permission
 
 router = APIRouter()
 
@@ -187,7 +187,60 @@ async def update_asset(asset_id: str, body: AssetUpdate, user: dict = Depends(re
     return await db.assets.find_one({"id": asset_id}, {"_id": 0})
 
 
+@router.get("/assets/{asset_id}/dependents")
+async def asset_dependents(asset_id: str, user: dict = Depends(get_current_user)):
+    a = await db.assets.find_one({"id": asset_id}, {"_id": 0})
+    if not a:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return {
+        "assigned_to": a.get("assigned_to"), "assigned_to_name": await _user_name(a.get("assigned_to")),
+        "assigned_location": a.get("assigned_location") or "",
+        "branch_id": a.get("branch_id"),
+        "maintenance_entries": len(a.get("maintenance_log") or []),
+        "assignment_entries": len(a.get("assignment_history") or []),
+    }
+
+
+def _require_delete(user: dict):
+    if not has_permission(user, "assets.delete"):
+        raise HTTPException(status_code=403, detail="You don't have permission to delete assets (assets.delete)")
+
+
+async def _hard_delete_asset(a: dict, user: dict):
+    from routes_workspace import _snapshot
+    await _snapshot("assets", a, [], user)
+    await db.assets.delete_one({"id": a["id"]})
+    await log_activity(user, "asset_deleted", "asset", a["id"],
+                       f"{a.get('code', '')} {a.get('name', '')} — permanent (recoverable 24h)")
+
+
 @router.delete("/assets/{asset_id}")
+async def delete_asset(asset_id: str, user: dict = Depends(get_current_user)):
+    _require_delete(user)
+    a = await db.assets.find_one({"id": asset_id})
+    if not a:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    await _hard_delete_asset(a, user)
+    return {"ok": True, "recoverable_hours": 24}
+
+
+class BulkDeleteBody(BaseModel):
+    ids: List[str]
+
+
+@router.post("/assets/bulk-delete")
+async def bulk_delete_assets(body: BulkDeleteBody, user: dict = Depends(get_current_user)):
+    _require_delete(user)
+    deleted = 0
+    for aid in body.ids[:200]:
+        a = await db.assets.find_one({"id": aid})
+        if a:
+            await _hard_delete_asset(a, user)
+            deleted += 1
+    return {"deleted": deleted}
+
+
+@router.post("/assets/{asset_id}/retire")
 async def retire_asset(asset_id: str, user: dict = Depends(require_roles("admin"))):
     a = await db.assets.find_one({"id": asset_id})
     if not a:

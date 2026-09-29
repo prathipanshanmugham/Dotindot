@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BranchFilter } from "@/components/BranchFilter";
+import { DashboardSwitcher } from "@/components/DashboardSwitcher";
+import { CeoExtras } from "@/components/CeoExtras";
 import { ArrowUpRight, ArrowDownRight, Info, ArrowRight, Globe2, Building2 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -80,6 +82,7 @@ export default function CeoDashboard() {
           <p className="text-sm text-gray-500 mt-0.5">{d.range.start} → {d.range.end} · compared with {d.prev_range.start} → {d.prev_range.end}</p>
         </div>
         <div className="flex items-center gap-2">
+          <DashboardSwitcher current="ceo" />
           <BranchFilter value={branch} onChange={setBranch} testid="ceo-branch-filter" />
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[170px]" data-testid="ceo-period-select"><SelectValue /></SelectTrigger>
@@ -237,6 +240,8 @@ export default function CeoDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      <CeoExtras />
     </div>
   );
 }

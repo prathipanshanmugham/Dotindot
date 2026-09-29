@@ -1,10 +1,13 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
 import AppLayout from "@/components/AppLayout";
 import LoginPage from "@/pages/LoginPage";
-import DashboardPage from "@/pages/DashboardPage";
+import StaffDashboard from "@/pages/StaffDashboard";
+import ManagerDashboard from "@/pages/ManagerDashboard";
 import ClientsPage from "@/pages/ClientsPage";
 import ClientDetailPage from "@/pages/ClientDetailPage";
 import ProjectsPage from "@/pages/ProjectsPage";
@@ -53,15 +56,42 @@ const FIN_ANY = [
 const SALES_ANY = ["sales.pipeline", "sales.quotes", "sales.targets"];
 
 const HomeDashboard = () => {
-  const { user } = useAuth();
-  return ["super_admin", "admin"].includes(user?.role) ? <CeoDashboard /> : <DashboardPage />;
+  const { landing } = useAuth();
+  if (landing === "ceo") return <CeoDashboard />;
+  if (landing === "manager") return <ManagerDashboard />;
+  return <StaffDashboard />;
+};
+
+// Only super_admin may view another role's dashboard; everyone else is sent to their own.
+const DashboardRoute = ({ kind }) => {
+  const { user, landing } = useAuth();
+  if (user?.role !== "super_admin" && landing !== kind) return <Navigate to="/dashboard" replace />;
+  if (kind === "ceo") return <CeoDashboard />;
+  if (kind === "manager") return <ManagerDashboard />;
+  return <StaffDashboard />;
+};
+
+// Redirects to the user's own dashboard whenever the API answers 403 for a module (e.g. perms revoked mid-session).
+const ForbiddenGuard = () => {
+  const navigate = useNavigate();
+  const { refreshPerms } = useAuth();
+  useEffect(() => {
+    const onForbidden = () => {
+      toast.error("You don't have access to that module");
+      refreshPerms().catch(() => {});
+      navigate("/dashboard", { replace: true });
+    };
+    window.addEventListener("app-forbidden", onForbidden);
+    return () => window.removeEventListener("app-forbidden", onForbidden);
+  }, [navigate, refreshPerms]);
+  return null;
 };
 
 const Protected = ({ children, perm, roles, bare }) => {
-  const { user, loading, hasPerm } = useAuth();
-  if (loading)
+  const { user, ready, hasPerm } = useAuth();
+  if (!ready)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]" data-testid="app-loader">
         <div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" />
       </div>
     );
@@ -76,10 +106,14 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ForbiddenGuard />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Protected><HomeDashboard /></Protected>} />
+          <Route path="/dashboard/ceo" element={<Protected perm="ceo_dashboard"><DashboardRoute kind="ceo" /></Protected>} />
+          <Route path="/dashboard/manager" element={<Protected><DashboardRoute kind="manager" /></Protected>} />
+          <Route path="/dashboard/staff" element={<Protected><DashboardRoute kind="staff" /></Protected>} />
           <Route path="/clients" element={<Protected perm="clients"><ClientsPage /></Protected>} />
           <Route path="/clients/:id" element={<Protected perm="clients"><ClientDetailPage /></Protected>} />
           <Route path="/projects" element={<Protected perm="projects"><ProjectsPage /></Protected>} />

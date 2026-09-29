@@ -1,0 +1,37 @@
+{
+  "summary": "v2.4 Revision 3 full backend + frontend verification. Backend: 25/25 pytest cases pass in /app/backend/tests/test_v24_rev3.py — dashboards (which routes admin/midhun/employee to ceo/manager/staff, staff dashboard shape, ceo/manager 403 matrix), assets.delete permission (midhun 403 on single + bulk, admin 200, dependents shape, recycle-bin snapshot + restore round-trip, bulk-delete 2 → {deleted:2}, asset_deleted activity log, pm gains delete after {'assets':true,'assets.delete':true} override + reset), map coords (Mumbai/Dubai/London ≈ expected, geo.city_coords + __capital__Kerala key, Bengaluru branch auto lat/lng ≈12.97/77.59, explicit lat/lng kept, PUT updates coords, /locations/map?branch=X scoped, sales branch-scoped shows only seed-branch-01 on branch-options + map), passwords (copy wrong pw → 403, correct → returns password + clear_after_seconds=30, employee 403 on reveal/copy, activity logs contain both password_revealed and password_copied), lead POST accepts state=Kerala, employee profile PUT accepts country/state/city (works with admin role midhun; super_admin admin@ gets 403 due to role check bug — see action_items), access matrix (employee 403 on /workspace/collections + /passwords; midhun 403 on /workspace/collections). Frontend (1920px): employee lands on staff-dashboard, no switcher, no nav-password-manager / nav-access-control; deep-links to /passwords /settings/workspace /dashboard/ceo /access all redirect to /dashboard staff without spinner. admin@ lands on CEO with all 5 ceo-extras cards + switcher; dashboard-switch-manager→staff→ceo all work. midhun@ lands on manager-dashboard with manager-branch-filter and /dashboard/ceo redirects back to manager. Mid-session revoke of midhun's 'assets' perm via API → next /assets action redirects to /dashboard (manager), nav-assets removed, permission message shown; reset OK. Assets delete: admin can single-delete (toast 'undo available for 24h'), bulk-delete confirm is disabled until asset-bulk-confirm-input == 'DELETE'; midhun sees no asset-select-* or asset-delete-* buttons. Locations: 16 leaflet markers, map-branch-filter present, city-card-london pans map, add-branch flow with state=Karnataka + city=Bengaluru shows pin-picker with coords '12.9716, 77.5946', save toast 'Branch created — Bengaluru pinned on the map'. Lead form (/sales/pipeline add) uses lead-form-country/state/city comboboxes (no free-text city input). Asset detail asset-assign-location is a Select (BUTTON). Password Manager: pw-reveal-pw-seed-01 + pw-copy-hidden-pw-seed-01 present; copy dialog titled 'Copy Figma' with 'clipboard cleared after 30 seconds' copy; entering correct login pw closes without rendering pw-revealed-pw-seed-01 (plaintext hidden). Reveal still shows plaintext. midhun (admin default) has both buttons; after PUT overrides {password_manager.reveal:false} both buttons disappear on reload; reset restores. Mobile 360x740: /dashboard for admin/midhun/employee all have scrollWidth==360 with correct ceo-extras/manager-dashboard/staff-dashboard testid; /assets and /locations both scrollWidth==clientWidth==360. All test data (TEST_ assets, TEST_ branches, permission overrides, sales branch assignments, lead) cleaned up.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/employees/{id}/profile", "issue": "Route checks `user['role'] != 'admin'` (routes_employees.py:105) so super_admin (admin@) editing another user's profile gets 403 'Only admins can edit other profiles'. Works for midhun (role=admin). Should also allow super_admin."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "CEO dashboard (recharts)", "issues": ["Recharts emits 'width(-1) and height(-1) of chart should be greater than 0' warnings on initial render — cosmetic; suggests ResponsiveContainer parent lacks a settled height on first paint."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v24_rev3.py",
+    "/app/test_reports/pytest/v24_rev3.xml"
+  ],
+  "action_items": [
+    "routes_employees.py update_profile: change `user['role'] != 'admin'` to `user['role'] not in ('admin','super_admin')` (or use existing require_admin helper) so super_admin can edit any employee profile. Not user-facing (super_admin admin@ is the CEO), but semantically wrong."
+  ],
+  "critical_code_review_comments": [
+    "routes_employees.py:105 uses raw role equality check that excludes super_admin. Same anti-pattern exists in other write endpoints — audit and prefer the require_roles/require_admin helpers that already treat super_admin as admin.",
+    "routes_workspace._snapshot uses the field name `coll` while the prior test agent's report and typical API grammar suggests `collection`. Consider aliasing/renaming for consumer clarity (or expose both) — client code currently must know the exact key.",
+    "Assets ROLE_DEFAULTS does not grant `assets` to pm/sales/employee, so granting only `assets.delete` in per-user overrides still yields 403 at middleware (permission-key gate). If assets.delete is meant to be independently grantable, either the middleware should treat assets.delete as implying assets, or the docs/PRD should clearly require granting both."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_v24_rev3.py"
+  ],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "100% of tested flows"},
+  "test_credentials": "All @dotindot.in / Dotindot@2026 (see /app/memory/test_credentials.md)",
+  "seed_data_creation": "Only ephemeral TEST_ assets, TEST_ branches, one TEST_Lead_State lead, and short-lived permission overrides on user-midhun and user-pm — all cleaned up in the same run. Seed IDs (seed-branch-01..03, pw-seed-01..08, DOT-AST-001..) untouched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "v2.4 Revision 3 is green end-to-end. One legitimate minor bug remains: PUT /api/employees/{id}/profile rejects super_admin (routes_employees.py:105) — main agent can self-fix. Regression file /app/backend/tests/test_v24_rev3.py can be re-run with `pytest backend/tests/test_v24_rev3.py -o addopts=''` (avoids repo-level xdist config). Note: the recycle-bin snapshot field is `coll` (not `collection`); `deleted:2` shape for bulk-delete; asset creation requires asset_type ∈ {laptop|computer|phone|sim_card|camera|equipment|other} and status ∈ {in_use|available|maintenance|retired}."
+}

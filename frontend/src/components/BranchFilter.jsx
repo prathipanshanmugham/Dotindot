@@ -10,7 +10,7 @@ export const BranchFilter = ({ value, onChange, testid = "branch-filter", classN
   const [branches, setBranches] = useState(cache || []);
   useEffect(() => {
     if (cache) return;
-    api.get("/locations/branches").then((r) => { cache = r.data; setBranches(r.data); }).catch(() => {});
+    api.get("/locations/branch-options").then((r) => { cache = r.data; setBranches(r.data); }).catch(() => {});
   }, []);
   return (
     <Select value={value || "all"} onValueChange={onChange}>

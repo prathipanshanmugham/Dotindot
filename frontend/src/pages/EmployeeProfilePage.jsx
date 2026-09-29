@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LocationFields } from "@/components/LocationFields";
 import {
   Mail, Phone, MapPin, CalendarDays, Building2, Pencil, FolderKanban,
   IndianRupee, CheckCircle2, GraduationCap, Plus, Trash2, Boxes,
@@ -82,7 +83,7 @@ export default function EmployeeProfilePage() {
   const openEdit = () => {
     setForm({
       name: emp.name || "", designation: emp.designation || "", department: emp.department || "",
-      city: emp.city || "", phone: emp.phone || "", join_date: emp.join_date || "",
+      city: emp.city || "", state: emp.state || "", country: emp.country || "India", phone: emp.phone || "", join_date: emp.join_date || "",
       bio: emp.bio || "", skills: (emp.skills || []).join(", "),
     });
     setEditOpen(true);
@@ -337,9 +338,9 @@ export default function EmployeeProfilePage() {
               <Label>Department</Label>
               <Input className="mt-1" value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} />
             </div>
-            <div>
-              <Label>City</Label>
-              <Input className="mt-1" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} data-testid="profile-edit-city" />
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <LocationFields country={form.country || "India"} state={form.state} city={form.city} prefix="profile-edit" compact
+                onChange={(v) => setForm((f) => ({ ...f, country: v.country, state: v.state, city: v.city }))} />
             </div>
             <div>
               <Label>Phone</Label>

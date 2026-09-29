@@ -13,7 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Laptop, Plus, Search, Wrench, IndianRupee, Boxes, AlertTriangle } from "lucide-react";
+import { Laptop, Plus, Search, Wrench, IndianRupee, Boxes, AlertTriangle, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AssetDeleteDialog } from "@/pages/assets/AssetDeleteDialog";
+import { BranchFilter } from "@/components/BranchFilter";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { CHART_COLORS } from "@/components/Badges";
 
@@ -63,14 +66,20 @@ export default function AssetsPage() {
   const [assign, setAssign] = useState({ assigned_to: "", assigned_location: "", note: "" });
   const [maint, setMaint] = useState({ date: "", description: "", cost: "" });
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState({});
+  const [delTarget, setDelTarget] = useState(null);
 
   const canWrite = ["super_admin", "admin"].includes(user.role);
+  const { hasPerm } = useAuth();
+  const canDelete = hasPerm("assets.delete");
+  const selectedRows = rows.filter((r) => selected[r.id]);
 
   const load = useCallback(() => {
     const params = {};
     if (filters.asset_type !== "all") params.asset_type = filters.asset_type;
     if (filters.status !== "all") params.status = filters.status;
     if (filters.search.trim()) params.search = filters.search.trim();
+    if (filters.branch && filters.branch !== "all") params.branch_id = filters.branch;
     api.get("/assets", { params }).then((r) => setRows(r.data)).catch((e) => toast.error(apiError(e)));
     api.get("/assets/stats").then((r) => setStats(r.data)).catch(() => {});
   }, [filters]);
@@ -234,6 +243,12 @@ export default function AssetsPage() {
           <SelectTrigger className="w-[150px]" data-testid="asset-status-filter"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="all">All statuses</SelectItem>{STATUSES.map((s) => <SelectItem key={s} value={s}>{labelize(s)}</SelectItem>)}</SelectContent>
         </Select>
+        <BranchFilter value={filters.branch} onChange={(v) => setFilters((f) => ({ ...f, branch: v }))} testid="asset-branch-filter" />
+        {canDelete && selectedRows.length > 0 && (
+          <Button variant="destructive" size="sm" onClick={() => setDelTarget(selectedRows)} data-testid="asset-bulk-delete-btn">
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete {selectedRows.length} selected
+          </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -241,17 +256,20 @@ export default function AssetsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/70">
+              {canDelete && <TableHead className="w-8"><Checkbox checked={rows.length > 0 && selectedRows.length === rows.length} onCheckedChange={(v) => setSelected(v ? Object.fromEntries(rows.map((r) => [r.id, true])) : {})} data-testid="asset-select-all" /></TableHead>}
               <TableHead>Code</TableHead><TableHead>Asset</TableHead><TableHead>Type</TableHead>
               <TableHead>Status</TableHead><TableHead>Assigned to</TableHead><TableHead>Branch</TableHead>
               <TableHead className="text-right">Value</TableHead><TableHead>Next maintenance</TableHead>
+              {canDelete && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center py-10 text-sm text-gray-400">No assets match these filters.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center py-10 text-sm text-gray-400">No assets match these filters.</TableCell></TableRow>
             )}
             {rows.map((a) => (
               <TableRow key={a.id} className="cursor-pointer hover:bg-orange-50/40" onClick={() => openDetail(a.id)} data-testid={`asset-row-${a.id}`}>
+                {canDelete && <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={!!selected[a.id]} onCheckedChange={(v) => setSelected((s) => ({ ...s, [a.id]: !!v }))} data-testid={`asset-select-${a.id}`} /></TableCell>}
                 <TableCell className="font-mono text-xs text-gray-500">{a.code}</TableCell>
                 <TableCell>
                   <div className="font-semibold text-gray-900 text-sm">{a.name}</div>
@@ -271,11 +289,18 @@ export default function AssetsPage() {
                     </span>
                   ) : <span className="text-gray-300">—</span>}
                 </TableCell>
+                {canDelete && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => setDelTarget(a)} data-testid={`asset-delete-${a.id}`}><Trash2 className="h-4 w-4" /></Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Card>
+
+      {delTarget && <AssetDeleteDialog target={delTarget} onClose={() => setDelTarget(null)} onDeleted={() => { setDelTarget(null); setSelected({}); setDetail(null); load(); }} />}
 
       {/* Detail dialog */}
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
@@ -308,8 +333,13 @@ export default function AssetsPage() {
                         {team.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <Input placeholder="Or a location (e.g. Mumbai HQ Studio)" value={assign.assigned_location}
-                      onChange={(e) => setAssign((a) => ({ ...a, assigned_location: e.target.value }))} data-testid="asset-assign-location" />
+                    <Select value={assign.assigned_location || "none"} onValueChange={(v) => setAssign((a) => ({ ...a, assigned_location: v === "none" ? "" : v }))}>
+                      <SelectTrigger data-testid="asset-assign-location"><SelectValue placeholder="Or a branch location" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— No location —</SelectItem>
+                        {branches.map((b) => <SelectItem key={b.id} value={b.name}>{b.name} · {b.city}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex gap-2">
                     <Input placeholder="Note (optional)" value={assign.note} onChange={(e) => setAssign((a) => ({ ...a, note: e.target.value }))} />

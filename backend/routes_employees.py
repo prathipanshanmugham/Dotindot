@@ -102,13 +102,13 @@ async def employee_profile(user_id: str, user: dict = Depends(get_current_user))
 
 @router.put("/employees/{user_id}/profile")
 async def update_profile(user_id: str, body: ProfileUpdate, user: dict = Depends(get_current_user)):
-    if user["role"] != "admin" and user["id"] != user_id:
+    if user["role"] not in ("admin", "super_admin") and user["id"] != user_id:
         raise HTTPException(status_code=403, detail="Only admins can edit other profiles")
     target = await db.users.find_one({"id": user_id})
     if not target:
         raise HTTPException(status_code=404, detail="Employee not found")
     updates = {k: v for k, v in body.dict().items() if v is not None}
-    if user["role"] != "admin":
+    if user["role"] not in ("admin", "super_admin"):
         updates.pop("name", None)  # only admin renames
     if updates:
         await db.users.update_one({"id": user_id}, {"$set": updates})

@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { ROLE_LABELS, labelize } from "@/components/Badges";
 import { ShieldCheck, Lock } from "lucide-react";
 
-const PERM_LABELS = { "sales.hud": "Sales — Sales View (TV mode)" };
+const PERM_LABELS = { "sales.hud": "Sales — Sales View (TV mode)", "assets.delete": "Assets — Delete (permanent, super admin by default)", "password_manager.reveal": "Password Manager — Reveal / Copy secrets" };
 
 // super_admin only: edits the DB-backed ROLE DEFAULT permission sets.
 // Per-user overrides (Access Control) stay layered on top of these.

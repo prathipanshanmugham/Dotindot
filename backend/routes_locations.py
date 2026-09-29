@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from database import db
 from auth import get_current_user, require_roles, log_activity
+from permissions import branch_scope
 from india_locations import INDIA_STATES, INDIA_CITY_COORDS, COUNTRIES
 
 router = APIRouter()
@@ -24,6 +25,8 @@ class BranchIn(BaseModel):
     manager_id: Optional[str] = None
     head_name: Optional[str] = ""
     status: str = "active"
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 class BranchUpdate(BaseModel):
@@ -38,6 +41,8 @@ class BranchUpdate(BaseModel):
     manager_id: Optional[str] = None
     head_name: Optional[str] = None
     status: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 # Hardcoded city -> coordinates lookup (no external geocoding API)
 CITY_COORDS = {
@@ -61,15 +66,58 @@ for _city, (_lat, _lng) in INDIA_CITY_COORDS.items():
     CITY_COORDS.setdefault(_city, {"lat": _lat, "lng": _lng, "country": "India"})
 
 
+def resolve_coords(city, state=None, lat=None, lng=None):
+    """[lat, lng] for a record: explicit coords win, else city dataset, else state capital."""
+    if lat is not None and lng is not None and -90 <= lat <= 90 and -180 <= lng <= 180:
+        return lat, lng
+    c = CITY_COORDS.get(city)
+    if not c and state and INDIA_STATES.get(state):
+        c = CITY_COORDS.get(INDIA_STATES[state][0])
+    return (c["lat"], c["lng"]) if c else (None, None)
+
+
+async def repair_coordinates():
+    """One-time idempotent migration: normalise lat/lng on branches from the dataset.
+    Fixes swapped pairs (lat outside ±90 while lng within) and fills missing values."""
+    async for b in db.branches.find({}, {"_id": 0, "id": 1, "city": 1, "state": 1, "lat": 1, "lng": 1}):
+        lat, lng = b.get("lat"), b.get("lng")
+        swapped = lat is not None and lng is not None and (abs(lat) > 90 or (abs(lng) <= 90 and abs(lat) > abs(lng) and abs(lat) > 60))
+        if swapped:
+            lat, lng = lng, lat
+        ds = CITY_COORDS.get(b.get("city"))
+        # If the stored pin is >3° away from its dataset city, trust the dataset
+        if ds and lat is not None and lng is not None and (abs(lat - ds["lat"]) > 3 or abs(lng - ds["lng"]) > 3):
+            lat, lng = None, None
+        nlat, nlng = resolve_coords(b.get("city"), b.get("state"), lat, lng)
+        if nlat is not None and (nlat != b.get("lat") or nlng != b.get("lng")):
+            await db.branches.update_one({"id": b["id"]}, {"$set": {"lat": nlat, "lng": nlng}})
+
+
 @router.get("/locations/geo")
 async def geo_data(user: dict = Depends(get_current_user)):
-    """Static geo dataset for dropdowns: countries + Indian states with cities."""
-    return {"countries": COUNTRIES, "india_states": INDIA_STATES}
+    """Static geo dataset for dropdowns: countries + Indian states with cities + coords (incl. state-capital fallbacks)."""
+    coords = {k: {"lat": v["lat"], "lng": v["lng"]} for k, v in CITY_COORDS.items()}
+    for st, cities_ in INDIA_STATES.items():
+        cap = CITY_COORDS.get(cities_[0]) if cities_ else None
+        if cap:
+            coords[f"__capital__{st}"] = {"lat": cap["lat"], "lng": cap["lng"]}
+    return {"countries": COUNTRIES, "india_states": INDIA_STATES, "city_coords": coords}
 
 
 @router.get("/locations/cities")
 async def cities(user: dict = Depends(get_current_user)):
     return [{"city": k, **v} for k, v in CITY_COORDS.items()]
+
+
+@router.get("/locations/branch-options")
+async def branch_options(user: dict = Depends(get_current_user)):
+    """Branches the current user may see (server-side scoped) — for dropdowns everywhere."""
+    q = {}
+    scope = branch_scope(user)
+    if scope is not None:
+        q["id"] = {"$in": scope}
+    rows = await db.branches.find(q, {"_id": 0, "id": 1, "name": 1, "city": 1, "state": 1, "country": 1}).sort("name", 1).to_list(100)
+    return rows
 
 
 @router.get("/locations/branches")
@@ -81,6 +129,7 @@ async def branches(user: dict = Depends(get_current_user)):
     for b in rows:
         b["manager_name"] = umap.get(b.get("manager_id")) or b.get("head_name", "")
         b.setdefault("status", "active")
+        b["lat"], b["lng"] = resolve_coords(b.get("city"), b.get("state"), b.get("lat"), b.get("lng"))
     return rows
 
 
@@ -88,6 +137,7 @@ async def branches(user: dict = Depends(get_current_user)):
 async def create_branch(body: BranchIn, user: dict = Depends(require_roles("admin"))):
     doc = {"id": str(uuid.uuid4()), **body.dict(), "established": datetime.now(timezone.utc).date().isoformat(),
            "created_at": datetime.now(timezone.utc).isoformat()}
+    doc["lat"], doc["lng"] = resolve_coords(doc.get("city"), doc.get("state"), doc.get("lat"), doc.get("lng"))
     await db.branches.insert_one(dict(doc))
     await log_activity(user, "branch_created", "branch", doc["id"], doc["name"])
     doc.pop("_id", None)
@@ -161,37 +211,46 @@ async def compare_branches(user: dict = Depends(get_current_user)):
 
 
 @router.get("/locations/map")
-async def map_data(user: dict = Depends(get_current_user)):
-    clients = await db.clients.find({}, {"_id": 0, "id": 1, "name": 1, "city": 1, "status": 1, "industry": 1}).to_list(1000)
-    branch_rows = await db.branches.find({}, {"_id": 0}).to_list(100)
-    employees = await db.users.find(
-        {"is_active": True, "city": {"$exists": True, "$ne": ""}},
-        {"_id": 0, "id": 1, "name": 1, "city": 1, "role": 1, "designation": 1},
-    ).to_list(500)
+async def map_data(branch: Optional[str] = None, user: dict = Depends(get_current_user)):
+    scope = branch_scope(user)
+    bq = {}
+    if scope is not None:
+        bq["id"] = {"$in": scope}
+    if branch and (scope is None or branch in scope):
+        bq["id"] = branch
+    branch_rows = await db.branches.find(bq, {"_id": 0}).to_list(100)
+    allowed_branch_ids = [b["id"] for b in branch_rows]
+    restricted = scope is not None or bool(branch)
+    cq = {"branch_id": {"$in": allowed_branch_ids}} if restricted else {}
+    clients = await db.clients.find(cq, {"_id": 0, "id": 1, "name": 1, "city": 1, "state": 1, "status": 1, "industry": 1}).to_list(1000)
+    eq = {"is_active": True, "city": {"$exists": True, "$ne": ""}}
+    if restricted:
+        eq["$or"] = [{"branch_id": {"$in": allowed_branch_ids}}, {"branch_assignments.branch_id": {"$in": allowed_branch_ids}}]
+    employees = await db.users.find(eq, {"_id": 0, "id": 1, "name": 1, "city": 1, "role": 1, "designation": 1}).to_list(500)
 
     city_map = {}
 
-    def bucket(city_name, state_name=None):
-        coords = CITY_COORDS.get(city_name)
-        if not coords and state_name and INDIA_STATES.get(state_name):
-            coords = CITY_COORDS.get(INDIA_STATES[state_name][0])  # state capital fallback
-        if not coords or not city_name:
+    def bucket(city_name, state_name=None, lat=None, lng=None):
+        rlat, rlng = resolve_coords(city_name, state_name, lat, lng)
+        if rlat is None or not city_name:
             return None
         if city_name not in city_map:
+            country = (CITY_COORDS.get(city_name) or {}).get("country") or ("India" if state_name in INDIA_STATES else "")
             city_map[city_name] = {
-                "city": city_name, "lat": coords["lat"], "lng": coords["lng"],
-                "country": coords["country"], "clients": [], "branches": [], "employees": [],
+                "city": city_name, "lat": rlat, "lng": rlng,
+                "country": country, "clients": [], "branches": [], "employees": [],
             }
         return city_map[city_name]
 
     for c in clients:
-        b = bucket(c.get("city"))
+        b = bucket(c.get("city"), c.get("state"))
         if b:
             b["clients"].append({"id": c["id"], "name": c["name"], "status": c.get("status"), "industry": c.get("industry")})
     for br in branch_rows:
-        b = bucket(br.get("city"), br.get("state"))
+        b = bucket(br.get("city"), br.get("state"), br.get("lat"), br.get("lng"))
         if b:
-            b["branches"].append({"id": br["id"], "name": br["name"], "address": br.get("address", ""), "head_name": br.get("head_name", "")})
+            b["branches"].append({"id": br["id"], "name": br["name"], "address": br.get("address", ""), "head_name": br.get("head_name", ""),
+                                  "lat": b["lat"], "lng": b["lng"]})
     for e in employees:
         b = bucket(e.get("city"))
         if b:
