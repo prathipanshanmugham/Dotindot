@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { apiError } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const BranchManager = ({ onChanged, onLocate }) => {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_BRANCH);
 
+  const del = useRecordDelete({ coll: "branches", permKey: "locations.delete", rows: branches, onDeleted: () => { load(); onChanged && onChanged(); } });
   const load = useCallback(() => {
     api.get("/locations/branches").then((r) => setBranches(r.data)).catch(() => {});
   }, []);
@@ -104,6 +106,7 @@ const BranchManager = ({ onChanged, onLocate }) => {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/70">
+              <TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Branch</TableHead>
               <TableHead>City</TableHead>
               <TableHead>Manager / Head</TableHead>
@@ -117,7 +120,7 @@ const BranchManager = ({ onChanged, onLocate }) => {
               <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-sm text-gray-400">No branches yet.</TableCell></TableRow>
             )}
             {branches.map((b) => (
-              <TableRow key={b.id} data-testid={`branch-row-${b.id}`} className="cursor-pointer hover:bg-orange-50/40" onClick={() => onLocate && onLocate(b)}>
+              <TableRow key={b.id} data-testid={`branch-row-${b.id}`} className="cursor-pointer hover:bg-orange-50/40" onClick={() => onLocate && onLocate(b)}><TableCell className="w-20"><RowDeleteControls kit={del} row={b} /></TableCell>
                 <TableCell>
                   <div className="font-semibold text-gray-900">{b.name}</div>
                   {b.address && <div className="text-xs text-gray-400">{b.address}</div>}

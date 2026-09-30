@@ -6,6 +6,8 @@ import ExportMenu from "@/components/ExportMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PurgeAllLogs } from "@/components/PurgeAllLogs";
+import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -34,6 +36,7 @@ const PAGE_SIZE = 25;
 export default function LogsPage() {
   const [meta, setMeta] = useState(null);
   const [logs, setLogs] = useState(null);
+  const { user } = useAuth();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({ user_id: "all", action: "all", date_from: "", date_to: "" });
   const [purging, setPurging] = useState(false);
@@ -118,6 +121,7 @@ export default function LogsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+          {user?.role === "super_admin" && <PurgeAllLogs onDone={() => { loadMeta(); loadLogs(); }} />}
         </div>
       </div>
 

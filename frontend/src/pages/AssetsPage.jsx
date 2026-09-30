@@ -277,7 +277,7 @@ export default function AssetsPage() {
                 </TableCell>
                 <TableCell className="text-sm text-gray-600">{labelize(a.asset_type)}</TableCell>
                 <TableCell><StatusBadge status={a.status} /></TableCell>
-                <TableCell className="text-sm text-gray-700">{a.assigned_to_name || a.assigned_location || <span className="text-gray-300">—</span>}</TableCell>
+                <TableCell className="text-sm text-gray-700">{a.assigned_to_name || a.assigned_location || <Badge variant="outline" className="bg-gray-50 text-gray-500 border-dashed text-[10px]" data-testid={`asset-unassigned-${a.id}`}>Unassigned</Badge>}</TableCell>
                 <TableCell className="text-sm text-gray-500">{a.branch_name || "—"}</TableCell>
                 <TableCell className="text-right font-mono text-sm">{formatINR(a.purchase_value)}</TableCell>
                 <TableCell className="text-sm">

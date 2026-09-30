@@ -39,6 +39,7 @@ COLLECTIONS = {
     "training_assignments": {"label": "Training Assignments", "search": []},
     "targets": {"label": "Sales Targets", "search": ["period"]},
     "lead_activities": {"label": "Lead Activities", "search": ["note"]},
+    "password_entries": {"label": "Password Entries", "search": ["name", "username"]},
 }
 
 # child collection, foreign-key field, cascade mode: delete | unset | pull(array)
@@ -50,8 +51,11 @@ DEPS = {
     "leads": [("quotes", "lead_id", "unset"), ("lead_activities", "lead_id", "delete")],
     "branches": [("clients", "branch_id", "unset"), ("leads", "branch_id", "unset"), ("users", "branch_id", "unset")],
     "users": [("projects", "team_member_ids", "pull"), ("training_assignments", "user_id", "delete"),
-              ("leads", "owner_id", "unset"), ("assets", "assigned_to", "unset")],
+              ("leads", "owner_id", "unset"), ("assets", "assigned_to", "unset"), ("password_entries", "owner_id", "unset"),
+              ("clients", "account_manager_id", "unset"), ("branches", "manager_id", "unset"), ("targets", "user_id", "delete")],
     "campaigns": [("transactions", "campaign_id", "unset")],
+    "subscriptions": [("transactions", "subscription_id", "unset")],
+    "ad_campaigns": [("transactions", "campaign_id", "unset")],
     "training_courses": [("training_assignments", "course_id", "delete")],
 }
 

@@ -115,30 +115,15 @@ async def user_assignments(user_id: str, user: dict = Depends(require_roles("adm
 
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: str, user: dict = Depends(require_roles("admin"))):
-    """Permanent deletion (super_admin only). Tombstone keeps historical records resolving the name."""
+    """Permanent hard delete (super_admin only): user doc removed, assignments unset (→ Unassigned),
+    snapshot kept 24h in the recycle bin, live tokens die immediately."""
     if user["role"] != "super_admin":
         raise HTTPException(status_code=403, detail="Only a super admin can delete accounts")
     if user_id == user["id"]:
         raise HTTPException(status_code=400, detail="You cannot delete your own account")
-    target = await db.users.find_one({"id": user_id, "deleted": {"$ne": True}})
+    target = await db.users.find_one({"id": user_id})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    if target["role"] == "super_admin":
-        remaining = await db.users.count_documents(
-            {"role": "super_admin", "deleted": {"$ne": True}, "id": {"$ne": user_id}})
-        if remaining == 0:
-            raise HTTPException(status_code=400, detail="Cannot delete the last remaining super admin")
-    original_name = target["name"]
-    await db.users.update_one({"id": user_id}, {"$set": {
-        "deleted": True,
-        "is_active": False,
-        "name": f"Deleted user ({original_name})",
-        "email": f"deleted-{user_id}@removed.dotindot.in",
-        "password_hash": "",
-        "permission_overrides": {},
-        "assigned_branches": [],
-        "deleted_at": datetime.now(timezone.utc).isoformat(),
-        "deleted_by": user["id"],
-    }})
-    await log_activity(user, "user_deleted", "user", user_id, original_name)
-    return {"ok": True, "message": f"{original_name} permanently deleted. Historical records keep the name."}
+    from routes_records import hard_delete
+    await hard_delete("users", target, user, action="user_deleted")
+    return {"ok": True, "message": f"{target['name']} permanently deleted. Their assignments are now Unassigned (recoverable 24h)."}

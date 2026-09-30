@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Trash2, Pencil, BellRing, Cpu } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 
 const EMPTY = { name: "", vendor: "", cost: "", billing_cycle: "monthly", next_renewal_date: "", owner: "", is_ai: false, status: "active" };
 
@@ -61,6 +62,7 @@ export default function SubscriptionsPage() {
   const alertSubs = data.subscriptions.filter((s) => s.renewal_alert);
   const byVendor = data.subscriptions.filter((s) => s.status === "active").map((s) => ({ name: s.name, value: s.monthly_equivalent }));
 
+  const del = useRecordDelete({ coll: "subscriptions", permKey: "finance.delete", rows: data.subscriptions, onDeleted: () => load() });
   return (
     <FinanceLayout
       title="Subscriptions"
@@ -112,7 +114,7 @@ export default function SubscriptionsPage() {
       <Card className="border-gray-200/80 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Tool</TableHead><TableHead>Owner</TableHead><TableHead>Cycle</TableHead>
               <TableHead className="text-right">Cost</TableHead><TableHead className="text-right">Monthly eq.</TableHead>
               <TableHead>Next renewal</TableHead><TableHead>Status</TableHead><TableHead />
@@ -120,7 +122,7 @@ export default function SubscriptionsPage() {
           </TableHeader>
           <TableBody>
             {data.subscriptions.map((s) => (
-              <TableRow key={s.id} data-testid={`subscription-row-${s.id}`}>
+              <TableRow key={s.id} data-testid={`subscription-row-${s.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={s} /></TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {s.is_ai && <Cpu className="h-3.5 w-3.5 text-[#F26B21]" />}

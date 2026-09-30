@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR, apiError } from "@/lib/api";
 import SalesLayout from "@/components/SalesLayout";
 import ExportMenu from "@/components/ExportMenu";
@@ -65,6 +66,7 @@ export default function TargetsPage() {
     catch (e) { toast.error(apiError(e)); }
   };
 
+  const del = useRecordDelete({ coll: "targets", permKey: "sales.delete", rows: targets, onDeleted: () => load() });
   return (
     <SalesLayout
       title="Targets vs Actuals"
@@ -93,9 +95,10 @@ export default function TargetsPage() {
 
       <div className="space-y-3" data-testid="targets-list">
         {targets.length === 0 && <p className="text-sm text-gray-400">No targets for this period.</p>}
+        {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {targets.map((t) => (
           <Card key={t.id} className="border-gray-200/80" data-testid={`target-row-${t.id}`}>
-            <CardContent className="p-4">
+            <CardContent className="p-4"><div className="flex justify-end -mb-6 relative z-10"><RowDeleteControls kit={del} row={t} /></div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-gray-800">{t.user_name}</span>

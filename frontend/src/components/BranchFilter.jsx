@@ -12,6 +12,11 @@ export const BranchFilter = ({ value, onChange, testid = "branch-filter", classN
     if (cache) return;
     api.get("/locations/branch-options").then((r) => { cache = r.data; setBranches(r.data); }).catch(() => {});
   }, []);
+  useEffect(() => {
+    const clear = () => { cache = null; api.get("/locations/branch-options").then((r) => { cache = r.data; setBranches(r.data); }).catch(() => {}); };
+    window.addEventListener("records-changed", clear);
+    return () => window.removeEventListener("records-changed", clear);
+  }, []);
   return (
     <Select value={value || "all"} onValueChange={onChange}>
       <SelectTrigger className={className} data-testid={testid}>

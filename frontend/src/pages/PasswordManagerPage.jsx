@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { apiError, formatINR } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export default function PasswordManagerPage() {
   const [revealTarget, setRevealTarget] = useState(null); // {entry, mode}
   const [revealed, setRevealed] = useState({}); // id -> {password, until}
 
+  const del = useRecordDelete({ coll: "password_entries", permKey: "password_manager.delete", rows, onDeleted: () => load() });
   const load = useCallback(() => {
     const params = {};
     if (filters.twofa !== "all") params.twofa = filters.twofa;
@@ -112,7 +114,7 @@ export default function PasswordManagerPage() {
 
       <Card className="border-gray-200/80 shadow-sm overflow-hidden"><div className="overflow-x-auto"><Table>
         <TableHeader><TableRow className="bg-gray-50/70">
-          <TableHead>Tool</TableHead><TableHead>Username</TableHead><TableHead>Password</TableHead><TableHead>2FA</TableHead><TableHead>Change status</TableHead><TableHead>Renewal</TableHead><TableHead>Owner</TableHead><TableHead className="text-right">Actions</TableHead>
+          <TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead><TableHead>Tool</TableHead><TableHead>Username</TableHead><TableHead>Password</TableHead><TableHead>2FA</TableHead><TableHead>Change status</TableHead><TableHead>Renewal</TableHead><TableHead>Owner</TableHead><TableHead className="text-right">Actions</TableHead>
         </TableRow></TableHeader>
         <TableBody>
           {rows.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-10 text-sm text-gray-400">No entries match.</TableCell></TableRow>}
@@ -120,7 +122,7 @@ export default function PasswordManagerPage() {
             const st = STATUS[e.change_status] || STATUS.unknown;
             const rv = revealed[e.id];
             return (
-              <TableRow key={e.id} data-testid={`pw-row-${e.id}`}>
+              <TableRow key={e.id} data-testid={`pw-row-${e.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={e} /></TableCell>
                 <TableCell><div className="font-semibold text-gray-900">{e.name}</div>{e.login_url && <a href={e.login_url} target="_blank" rel="noreferrer" className="text-xs text-[#F26B21] hover:underline">{e.login_url.replace(/^https?:\/\//, "")}</a>}{e.plan && <div className="text-[11px] text-gray-400">{e.plan}{e.cost ? ` · ${formatINR(e.cost)}/yr` : ""}</div>}</TableCell>
                 <TableCell className="text-sm text-gray-700 font-mono">{e.username}</TableCell>
                 <TableCell>
@@ -145,7 +147,7 @@ export default function PasswordManagerPage() {
                 <TableCell>{e.twofa_enabled ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1"><ShieldCheck className="h-3 w-3" />{(e.twofa_method || "on").toUpperCase()}</Badge> : <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 gap-1" data-testid={`pw-no2fa-${e.id}`}><ShieldAlert className="h-3 w-3" /> Off</Badge>}</TableCell>
                 <TableCell><Badge variant="outline" className={st.cls} data-testid={`pw-status-${e.id}`}>{st.label}</Badge>{e.change_due_date && <div className="text-[11px] text-gray-400 mt-0.5">due {e.change_due_date}</div>}</TableCell>
                 <TableCell className="text-sm text-gray-600">{e.renewal_date || "—"}</TableCell>
-                <TableCell className="text-sm text-gray-600">{e.owner_name || "—"}{e.branch_name && <div className="text-[11px] text-gray-400">{e.branch_name}</div>}</TableCell>
+                <TableCell className="text-sm text-gray-600">{e.owner_name || <Badge variant="outline" className="bg-gray-50 text-gray-500 border-dashed text-[10px]" data-testid={`pw-unassigned-${e.id}`}>Unassigned</Badge>}{e.branch_name && <div className="text-[11px] text-gray-400">{e.branch_name}</div>}</TableCell>
                 <TableCell className="text-right whitespace-nowrap">
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(e)} data-testid={`pw-edit-${e.id}`}><Pencil className="h-3.5 w-3.5 text-gray-500" /></Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => remove(e)} data-testid={`pw-delete-${e.id}`}><Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" /></Button>

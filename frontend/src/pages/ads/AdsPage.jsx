@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR, apiError } from "@/lib/api";
 import ExportMenu from "@/components/ExportMenu";
 import { labelize, CHART_COLORS } from "@/components/Badges";
@@ -145,6 +146,7 @@ export default function AdsPage() {
 
   const t = overview?.totals;
 
+  const del = useRecordDelete({ coll: "ad_campaigns", permKey: "ads.delete", rows, onDeleted: () => load() });
   return (
     <div className="space-y-6 max-w-7xl" data-testid="ads-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -242,7 +244,7 @@ export default function AdsPage() {
       <Card className="border-gray-200/80 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Campaign</TableHead><TableHead>Platform</TableHead><TableHead>Status</TableHead>
               <TableHead className="text-right">Budget</TableHead><TableHead className="text-right">Spend</TableHead>
               <TableHead className="text-right">Revenue</TableHead><TableHead className="text-right">ROAS</TableHead>
@@ -254,7 +256,7 @@ export default function AdsPage() {
               <TableRow><TableCell colSpan={8} className="text-center py-10 text-sm text-gray-400"><Megaphone className="h-6 w-6 mx-auto mb-2 text-gray-300" />No campaigns match these filters.</TableCell></TableRow>
             )}
             {rows.map((c) => (
-              <TableRow key={c.id} className="cursor-pointer hover:bg-orange-50/40" onClick={() => navigate(`/ads/${c.id}`)} data-testid={`campaign-row-${c.id}`}>
+              <TableRow key={c.id} className="cursor-pointer hover:bg-orange-50/40" onClick={() => navigate(`/ads/${c.id}`)} data-testid={`campaign-row-${c.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={c} /></TableCell>
                 <TableCell>
                   <div className="font-semibold text-gray-900 text-sm">{c.name}</div>
                   <div className="text-[11px] text-gray-400">{c.client_name || "Internal"}</div>

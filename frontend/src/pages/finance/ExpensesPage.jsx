@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Check, X, Banknote, Paperclip, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 
 const TABS = ["submitted", "approved", "paid", "rejected", "all"];
 
@@ -38,6 +39,7 @@ export default function ExpensesPage() {
     try { await openReceipt(path); } catch (e) { toast.error("Could not open receipt"); }
   };
 
+  const del = useRecordDelete({ coll: "expenses", permKey: "finance.delete", rows: rows, onDeleted: () => load() });
   return (
     <FinanceLayout
       title="Expenses"
@@ -64,7 +66,7 @@ export default function ExpensesPage() {
       <Card className="border-gray-200/80 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead>Description</TableHead>
               <TableHead>Submitted by</TableHead><TableHead>Receipt</TableHead><TableHead className="text-right">Amount</TableHead>
               <TableHead>Status</TableHead><TableHead>Actions</TableHead>
@@ -74,7 +76,7 @@ export default function ExpensesPage() {
             {rows.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center py-10 text-sm text-gray-400">No {tab === "all" ? "" : labelize(tab).toLowerCase() + " "}expenses.</TableCell></TableRow>
             ) : rows.map((e) => (
-              <TableRow key={e.id} data-testid={`expense-row-${e.id}`}>
+              <TableRow key={e.id} data-testid={`expense-row-${e.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={e} /></TableCell>
                 <TableCell className="text-sm text-gray-600 whitespace-nowrap">{e.date}</TableCell>
                 <TableCell className="text-sm text-gray-700">{labelize(e.category)}{e.ai_tool ? ` · ${e.ai_tool}` : ""}</TableCell>
                 <TableCell className="text-sm text-gray-800 max-w-[240px] truncate">{e.description}</TableCell>

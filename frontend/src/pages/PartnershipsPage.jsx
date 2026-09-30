@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR, apiError } from "@/lib/api";
 import { labelize } from "@/components/Badges";
 import ExportMenu from "@/components/ExportMenu";
@@ -124,6 +125,7 @@ export default function PartnershipsPage() {
     });
   };
 
+  const del = useRecordDelete({ coll: "partnerships", permKey: "partnerships.delete", rows: partners || [], onDeleted: () => load() });
   if (!partners)
     return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
@@ -174,9 +176,10 @@ export default function PartnershipsPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {partners.map((p) => (
           <Card key={p.id} className="border-gray-200/80 shadow-sm" data-testid={`partnership-card-${p.id}`}>
-            <CardContent className="p-5">
+            <CardContent className="p-5"><div className="flex justify-end -mb-6 relative z-10"><RowDeleteControls kit={del} row={p} /></div>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">

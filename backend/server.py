@@ -10,11 +10,6 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from database import db, client
-from seed import seed_database
-from seed_finance import seed_finance
-from seed_sales import seed_sales
-from seed_phase4 import seed_phase4
-from seed_v2 import seed_v2
 from storage import init_storage
 from scheduler import start_scheduler, stop_scheduler
 from permissions import permission_middleware
@@ -39,7 +34,9 @@ from routes_social import router as social_router
 from routes_influencers import router as influencers_router
 from routes_hud import router as hud_router
 from routes_workspace import router as workspace_router
-from routes_passwords import router as passwords_router, seed_password_entries
+from routes_passwords import router as passwords_router
+from routes_records import router as records_router
+from bootstrap import ensure_super_admin
 from routes_locations import repair_coordinates
 from routes_dashboard import router as dashboard_router
 
@@ -52,7 +49,7 @@ app = FastAPI(
 for r in (auth_router, users_router, clients_router, projects_router, misc_router, finance_router, sales_router, ceo_router,
           employees_router, logs_router, partnerships_router, locations_router, exports_router, reports_router,
           access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router,
-          passwords_router, dashboard_router):
+          passwords_router, dashboard_router, records_router):
     app.include_router(r, prefix="/api")
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
@@ -106,14 +103,10 @@ async def startup():
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
     if removed.deleted_count:
         logger.info(f"Removed {removed.deleted_count} stale test users (@dotindot.test)")
-    await seed_database()
-    await seed_finance()
-    await seed_sales()
-    await seed_phase4()
-    await seed_v2()
+    # Demo seeding removed (v2.5): only a minimal super_admin guard so a fresh deploy is usable.
+    await ensure_super_admin()
     from permissions import load_role_defaults
     await load_role_defaults()
-    await seed_password_entries()
     await repair_coordinates()
     start_scheduler()
     try:
@@ -121,7 +114,7 @@ async def startup():
         logger.info("Object storage initialized")
     except Exception as e:
         logger.error(f"Object storage init failed (receipt uploads unavailable): {e}")
-    logger.info("Startup complete: indexes ensured, seed verified")
+    logger.info("Startup complete: indexes ensured, no demo seeding")
 
 
 @app.on_event("shutdown")

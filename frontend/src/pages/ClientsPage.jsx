@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api from "@/lib/api";
 import {
   ClientStatusBadge, HealthBadge, labelize, CHART_COLORS,
@@ -74,6 +75,7 @@ export default function ClientsPage() {
   });
   if (search.trim()) exportParams.search = search.trim();
 
+  const del = useRecordDelete({ coll: "clients", permKey: "clients.delete", rows: clients, onDeleted: () => load() });
   return (
     <div className="space-y-6 max-w-7xl" data-testid="clients-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -150,7 +152,7 @@ export default function ClientsPage() {
       <Card className="border-gray-200/80 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Industry</TableHead>
               <TableHead>Service</TableHead>
@@ -168,7 +170,7 @@ export default function ClientsPage() {
               <TableRow><TableCell colSpan={8} className="text-center py-10 text-sm text-gray-400">No clients match these filters.</TableCell></TableRow>
             ) : (
               clients.map((c) => (
-                <TableRow key={c.id} onClick={() => navigate(`/clients/${c.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`client-row-${c.id}`}>
+                <TableRow key={c.id} onClick={() => navigate(`/clients/${c.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`client-row-${c.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={c} /></TableCell>
                   <TableCell>
                     <div className="font-semibold text-gray-900">{c.name}</div>
                     <div className="text-xs text-gray-400">{c.company}</div>

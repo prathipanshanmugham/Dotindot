@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import { useAuth } from "@/context/AuthContext";
 import api, { apiError } from "@/lib/api";
 import ExportMenu from "@/components/ExportMenu";
@@ -166,6 +167,7 @@ export default function SocialPage() {
     }
   };
 
+  const del = useRecordDelete({ coll: "social_posts", permKey: "social.delete", rows: posts, onDeleted: () => load() });
   return (
     <div className="space-y-5 max-w-7xl" data-testid="social-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -270,7 +272,7 @@ export default function SocialPage() {
         <Card className="border-gray-200/80 shadow-sm overflow-hidden" data-testid="social-list">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50/70">
+              <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
                 <TableHead>Scheduled</TableHead><TableHead>Client</TableHead><TableHead>Platform</TableHead>
                 <TableHead>Type</TableHead><TableHead>Caption</TableHead><TableHead>Assigned</TableHead>
                 <TableHead>Status</TableHead>{canWrite && <TableHead />}
@@ -281,7 +283,7 @@ export default function SocialPage() {
                 <TableRow><TableCell colSpan={8} className="text-center py-10 text-sm text-gray-400">No posts scheduled for this month.</TableCell></TableRow>
               )}
               {posts.map((p) => (
-                <TableRow key={p.id} className="cursor-pointer hover:bg-orange-50/40" onClick={() => canWrite && openEdit(p)} data-testid={`post-row-${p.id}`}>
+                <TableRow key={p.id} className="cursor-pointer hover:bg-orange-50/40" onClick={() => canWrite && openEdit(p)} data-testid={`post-row-${p.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={p} /></TableCell>
                   <TableCell className="text-sm font-medium">{(p.scheduled_at || "").replace("T", " ").slice(0, 16)}</TableCell>
                   <TableCell className="text-sm">{p.client_name || "Internal"}</TableCell>
                   <TableCell className="text-sm">{labelize(p.platform)}</TableCell>

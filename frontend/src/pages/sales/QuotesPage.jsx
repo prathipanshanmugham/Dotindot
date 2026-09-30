@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR } from "@/lib/api";
 import SalesLayout, { QUOTE_STATUS_STYLES } from "@/components/SalesLayout";
 import ExportMenu from "@/components/ExportMenu";
@@ -30,6 +31,7 @@ export default function QuotesPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const del = useRecordDelete({ coll: "quotes", permKey: "sales.delete", rows: quotes, onDeleted: () => load() });
   return (
     <SalesLayout
       title="Quotes"
@@ -58,7 +60,7 @@ export default function QuotesPage() {
       <Card className="border-gray-200/80 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Number</TableHead><TableHead>Title</TableHead><TableHead>For</TableHead>
               <TableHead>Validity</TableHead><TableHead className="text-right">Total</TableHead><TableHead>Status</TableHead>
             </TableRow>
@@ -67,7 +69,7 @@ export default function QuotesPage() {
             {quotes.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center py-10 text-sm text-gray-400">No quotes.</TableCell></TableRow>
             ) : quotes.map((q) => (
-              <TableRow key={q.id} onClick={() => navigate(`/sales/quotes/${q.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`quote-row-${q.id}`}>
+              <TableRow key={q.id} onClick={() => navigate(`/sales/quotes/${q.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`quote-row-${q.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={q} /></TableCell>
                 <TableCell className="font-mono text-sm font-semibold text-[#F26B21]">{q.number}</TableCell>
                 <TableCell className="text-sm font-semibold text-gray-900 max-w-[280px] truncate">{q.title}</TableCell>
                 <TableCell className="text-sm text-gray-600">{q.lead_name || q.client_name || "—"}</TableCell>

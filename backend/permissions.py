@@ -15,22 +15,23 @@ from database import db
 from auth import get_current_user
 
 PERMISSION_GROUPS = {
-    "Core": ["ceo_dashboard", "clients", "projects"],
+    "Core": ["ceo_dashboard", "clients", "clients.delete", "projects", "projects.delete"],
     "Finance": ["finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
-                "finance.ai_spend", "finance.marketing", "finance.project_profit", "finance.employee_revenue"],
-    "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud"],
-    "Growth": ["ads", "social", "influencers"],
-    "Operations": ["employees", "training", "partnerships", "assets", "assets.delete", "locations"],
-    "System": ["logs", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal"],
+                "finance.ai_spend", "finance.marketing", "finance.project_profit", "finance.employee_revenue", "finance.delete"],
+    "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud", "sales.delete"],
+    "Growth": ["ads", "ads.delete", "social", "social.delete", "influencers", "influencers.delete"],
+    "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete"],
+    "System": ["logs", "logs.delete", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal", "password_manager.delete"],
 }
 
 ALL_KEYS = {k for keys in PERMISSION_GROUPS.values() for k in keys}
+DELETE_KEYS_SET = {k for k in ALL_KEYS if k.endswith(".delete")}
 
-_FINANCE_ALL = set(PERMISSION_GROUPS["Finance"])
+_FINANCE_ALL = set(PERMISSION_GROUPS["Finance"]) - {"finance.delete"}
 
 ROLE_DEFAULTS = {
     "super_admin": set(ALL_KEYS),
-    "admin": set(ALL_KEYS) - {"assets.delete"},
+    "admin": set(ALL_KEYS) - DELETE_KEYS_SET,
     "finance": {"clients", "projects", *_FINANCE_ALL, "sales.pipeline", "sales.quotes", "sales.targets",
                 "employees", "training", "partnerships", "assets", "locations", "reports"},
     "sales": {"clients", "projects", "sales.pipeline", "sales.quotes", "sales.targets", "sales.hud",

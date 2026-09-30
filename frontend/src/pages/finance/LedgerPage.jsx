@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { toast } from "sonner";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 
 const iso = (d) => d.toISOString().slice(0, 10);
 
@@ -98,6 +99,7 @@ export default function LedgerPage() {
     catch (e) { toast.error(apiError(e)); }
   };
 
+  const del = useRecordDelete({ coll: "transactions", permKey: "finance.delete", rows: data.transactions, onDeleted: () => load() });
   return (
     <FinanceLayout
       title="General Ledger"
@@ -189,7 +191,7 @@ export default function LedgerPage() {
       <Card className="border-gray-200/80 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Date</TableHead><TableHead>Type</TableHead><TableHead>Category</TableHead>
               <TableHead>Description</TableHead><TableHead>Client / Project</TableHead><TableHead className="text-right">Amount</TableHead><TableHead />
             </TableRow>
@@ -198,7 +200,7 @@ export default function LedgerPage() {
             {data.transactions.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="text-center py-10 text-sm text-gray-400">No transactions in this range.</TableCell></TableRow>
             ) : data.transactions.slice(0, 200).map((x) => (
-              <TableRow key={x.id} data-testid={`ledger-row-${x.id}`}>
+              <TableRow key={x.id} data-testid={`ledger-row-${x.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={x} /></TableCell>
                 <TableCell className="text-sm text-gray-600 whitespace-nowrap">{x.date}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={x.type === "income" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"}>

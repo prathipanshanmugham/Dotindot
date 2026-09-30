@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR, apiError } from "@/lib/api";
 import ExportMenu from "@/components/ExportMenu";
 import { labelize } from "@/components/Badges";
@@ -93,6 +94,7 @@ export default function InfluencersPage() {
     }
   };
 
+  const del = useRecordDelete({ coll: "influencers", permKey: "influencers.delete", rows: rows, onDeleted: () => load() });
   return (
     <div className="space-y-6 max-w-7xl" data-testid="influencers-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -144,10 +146,11 @@ export default function InfluencersPage() {
             </CardContent>
           </Card>
         )}
+        {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {rows.map((inf) => (
           <Card key={inf.id} className="border-gray-200/80 shadow-sm cursor-pointer hover:border-orange-300 transition-all"
             onClick={() => navigate(`/influencers/${inf.id}`)} data-testid={`influencer-card-${inf.id}`}>
-            <CardContent className="p-5">
+            <CardContent className="p-5"><div className="flex justify-end -mb-6 relative z-10"><RowDeleteControls kit={del} row={inf} /></div>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-bold text-gray-900 truncate">{inf.name}</div>

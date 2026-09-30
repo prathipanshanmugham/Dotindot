@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { toast } from "sonner";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 
 const CHANNEL_STYLE = {
   meta: "bg-blue-50 text-blue-700 border-blue-200",
@@ -55,6 +56,7 @@ export default function MarketingPage() {
     catch (e) { toast.error(apiError(e)); }
   };
 
+  const del = useRecordDelete({ coll: "campaigns", permKey: "finance.delete", rows: data?.campaigns || [], onDeleted: () => load() });
   if (!data)
     return <FinanceLayout title="Marketing Financials"><div className="h-40 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div></FinanceLayout>;
 
@@ -96,14 +98,14 @@ export default function MarketingPage() {
       <Card className="border-gray-200/80 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Campaign</TableHead><TableHead>Channel</TableHead><TableHead>Period</TableHead><TableHead>Client</TableHead>
               <TableHead className="text-right">Spend</TableHead><TableHead className="text-right">Attributed revenue</TableHead><TableHead className="text-right">ROI</TableHead><TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.campaigns.map((c) => (
-              <TableRow key={c.id} data-testid={`campaign-row-${c.id}`}>
+              <TableRow key={c.id} data-testid={`campaign-row-${c.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={c} /></TableCell>
                 <TableCell className="font-semibold text-gray-900 text-sm">{c.name}</TableCell>
                 <TableCell><Badge variant="outline" className={CHANNEL_STYLE[c.channel] || CHANNEL_STYLE.other}>{labelize(c.channel)}</Badge></TableCell>
                 <TableCell className="text-xs text-gray-500">{c.period}</TableCell>

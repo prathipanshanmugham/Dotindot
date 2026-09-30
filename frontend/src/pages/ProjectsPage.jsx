@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR } from "@/lib/api";
 import { ProjectStatusBadge, labelize, PROJECT_STATUSES } from "@/components/Badges";
 import ExportMenu from "@/components/ExportMenu";
@@ -58,6 +59,7 @@ export default function ProjectsPage() {
     return Math.round((items.filter((d) => d.done).length / items.length) * 100);
   };
 
+  const del = useRecordDelete({ coll: "projects", permKey: "projects.delete", rows: projects, onDeleted: () => load() });
   return (
     <div className="space-y-6 max-w-7xl" data-testid="projects-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -129,7 +131,7 @@ export default function ProjectsPage() {
       <Card className="border-gray-200/80 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Project</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Status</TableHead>
@@ -145,7 +147,7 @@ export default function ProjectsPage() {
               <TableRow><TableCell colSpan={6} className="text-center py-10 text-sm text-gray-400">No projects match these filters.</TableCell></TableRow>
             ) : (
               projects.map((p) => (
-                <TableRow key={p.id} onClick={() => navigate(`/projects/${p.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`project-row-${p.id}`}>
+                <TableRow key={p.id} onClick={() => navigate(`/projects/${p.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`project-row-${p.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={p} /></TableCell>
                   <TableCell>
                     <div className="font-semibold text-gray-900">{p.name}</div>
                     <div className="text-xs text-gray-400">{p.location}</div>

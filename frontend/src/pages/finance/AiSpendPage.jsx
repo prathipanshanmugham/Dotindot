@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR } from "@/lib/api";
 import FinanceLayout from "@/components/FinanceLayout";
 import ExportMenu from "@/components/ExportMenu";
@@ -12,10 +13,10 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 export default function AiSpendPage() {
   const [data, setData] = useState(null);
 
-  useEffect(() => {
-    api.get("/finance/ai-spend").then((r) => setData(r.data)).catch(() => {});
-  }, []);
+  const load = () => api.get("/finance/ai-spend").then((r) => setData(r.data)).catch(() => {});
+  useEffect(() => { load(); }, []);
 
+  const del = useRecordDelete({ coll: "transactions", permKey: "finance.delete", rows: data?.transactions || [], onDeleted: () => load() });
   if (!data)
     return <FinanceLayout title="AI Spend"><div className="h-40 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div></FinanceLayout>;
 
@@ -84,14 +85,14 @@ export default function AiSpendPage() {
       <Card className="border-gray-200/80 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70">
+            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Date</TableHead><TableHead>Tool</TableHead><TableHead>Description</TableHead>
               <TableHead>Client / Project</TableHead><TableHead className="text-right">Amount</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.transactions.slice(0, 50).map((x) => (
-              <TableRow key={x.id} data-testid={`ai-tx-row-${x.id}`}>
+              <TableRow key={x.id} data-testid={`ai-tx-row-${x.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={x} /></TableCell>
                 <TableCell className="text-sm text-gray-600 whitespace-nowrap">{x.date}</TableCell>
                 <TableCell><Badge variant="outline" className="bg-[#FFF7ED] text-[#F26B21] border-orange-200">{x.ai_tool || "Other"}</Badge></TableCell>
                 <TableCell className="text-sm text-gray-800">{x.description}</TableCell>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR, apiError } from "@/lib/api";
 import FinanceLayout, { EXPENSE_CATEGORIES } from "@/components/FinanceLayout";
 import ExportMenu from "@/components/ExportMenu";
@@ -55,6 +56,7 @@ export default function BudgetsPage() {
     catch (e) { toast.error(apiError(e)); }
   };
 
+  const del = useRecordDelete({ coll: "budgets", permKey: "finance.delete", rows: report?.rows || [], onDeleted: () => { loadBudgets(); loadReport(); } });
   return (
     <FinanceLayout
       title="Budgets"
@@ -78,9 +80,10 @@ export default function BudgetsPage() {
 
       <div className="space-y-3" data-testid="budget-report">
         {report?.rows?.length === 0 && <p className="text-sm text-gray-400">No budgets defined for {period}. Add one to start tracking.</p>}
+        {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {report?.rows?.map((r) => (
           <Card key={r.id} className={`border ${r.over ? "border-red-300 bg-red-50/40" : "border-gray-200/80"}`} data-testid={`budget-row-${r.category}`}>
-            <CardContent className="p-4">
+            <CardContent className="p-4"><div className="flex justify-end -mb-6 relative z-10"><RowDeleteControls kit={del} row={r} /></div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-gray-800">{labelize(r.category)}</span>

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import api, { formatINR, apiError, daysUntil } from "@/lib/api";
 import SalesLayout, { LEAD_STAGES, LEAD_SOURCES, STAGE_STYLES } from "@/components/SalesLayout";
 import ExportMenu from "@/components/ExportMenu";
@@ -70,6 +71,7 @@ export default function PipelinePage() {
     } catch (e) { toast.error(apiError(e)); } finally { setBusy(false); }
   };
 
+  const del = useRecordDelete({ coll: "leads", permKey: "sales.delete", rows: leads, onDeleted: () => load() });
   return (
     <SalesLayout
       title="Pipeline"
@@ -113,6 +115,7 @@ export default function PipelinePage() {
 
       {/* Kanban — horizontal scroll on mobile, grid on xl */}
       <div className="flex gap-3 overflow-x-auto pb-3 xl:grid xl:grid-cols-6 xl:overflow-visible xl:pb-0" data-testid="pipeline-board">
+        {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {LEAD_STAGES.map((stage) => {
           const col = leads.filter((l) => l.stage === stage);
           const value = col.reduce((s, l) => s + (l.estimated_value || 0), 0);
@@ -131,7 +134,7 @@ export default function PipelinePage() {
                   return (
                     <div key={l.id}
                       className="rounded-lg bg-white border border-gray-200 p-2.5 hover:border-orange-300 hover:shadow-sm transition-all cursor-pointer"
-                      onClick={() => navigate(`/sales/leads/${l.id}`)} data-testid={`lead-card-${l.id}`}>
+                      onClick={() => navigate(`/sales/leads/${l.id}`)} data-testid={`lead-card-${l.id}`}><div className="flex justify-end -mb-5 relative z-10"><RowDeleteControls kit={del} row={l} /></div>
                       <div className="text-sm font-semibold text-gray-900 leading-tight flex items-start gap-1">
                         {overdue && <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />}
                         <span className="truncate">{l.name}</span>
@@ -139,7 +142,7 @@ export default function PipelinePage() {
                       <div className="text-[11px] text-gray-400 truncate">{l.company}</div>
                       <div className="flex items-center justify-between mt-1.5">
                         <span className="font-mono text-xs font-bold text-[#F26B21]">{formatINR(l.estimated_value)}</span>
-                        <span className="text-[10px] text-gray-400">{labelize(l.source)}</span>
+                        <span className="text-[10px] text-gray-400">{labelize(l.source)}{!l.owner_id && <span className="ml-1 rounded border border-dashed border-gray-300 px-1 text-gray-500" data-testid={`lead-unassigned-${l.id}`}>Unassigned</span>}</span>
                       </div>
                       {canWrite && !l.converted_client_id && (
                         <div className="mt-2" onClick={(e) => e.stopPropagation()}>
