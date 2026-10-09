@@ -22,7 +22,7 @@ PERMISSION_GROUPS = {
     "Growth": ["ads", "ads.delete", "social", "social.delete", "influencers", "influencers.delete"],
     "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete",
                    "ai_agents", "ai_agents.manage", "ai_agents.delete", "org_structure", "org_structure.manage", "org_structure.delete",
-                   "daily_reports", "daily_reports.team", "daily_reports.delete"],
+                   "daily_reports", "daily_reports.team", "daily_reports.delete", "holidays.manage"],
     "System": ["logs", "logs.delete", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal", "password_manager.delete"],
 }
 
@@ -60,7 +60,10 @@ _V27 = {"finance.api_credits", "daily_reports", "daily_reports.team", "daily_rep
 V27_NEW_KEYS = {role: (keys & _V27) for role, keys in ROLE_DEFAULTS.items()}
 for _r in V26_NEW_KEYS:
     V26_NEW_KEYS[_r] -= _V27
-ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS)]
+# v2.8: holiday calendar management (timesheets reuse daily_reports / daily_reports.team)
+_V28 = {"holidays.manage"}
+V28_NEW_KEYS = {role: (keys & _V28) for role, keys in ROLE_DEFAULTS.items()}
+ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS), ("role_defaults_v28", V28_NEW_KEYS)]
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
@@ -216,6 +219,7 @@ PATH_PERMISSIONS = [
     ("/api/agents", ("ai_agents",)),
     ("/api/finance/api-credits", ("finance.api_credits",)),
     ("/api/daily", ("daily_reports",)),
+    ("/api/timesheets", ("daily_reports",)),
     ("/api/org", ("org_structure",)),
     ("/api/logs", ("logs",)),
     ("/api/reports", ("reports",)),

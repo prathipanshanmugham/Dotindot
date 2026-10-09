@@ -44,6 +44,8 @@ from routes_org import router as org_router
 from routes_api_credits import router as api_credits_router
 from routes_daily import router as daily_router
 from routes_client_dashboard import router as client_dashboard_router
+from routes_holidays import router as holidays_router
+from routes_timesheets import router as timesheets_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -55,7 +57,7 @@ for r in (auth_router, users_router, clients_router, projects_router, misc_route
           employees_router, logs_router, partnerships_router, locations_router, exports_router, reports_router,
           access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router,
           passwords_router, dashboard_router, records_router, agents_router, org_router,
-          api_credits_router, daily_router, client_dashboard_router):
+          api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router):
     app.include_router(r, prefix="/api")
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
@@ -119,6 +121,11 @@ async def startup():
     await db.daily_reports.create_index("date")
     await db.portal_users.create_index("email", unique=True)
     await db.portal_users.create_index("client_id")
+    await db.holidays.create_index("id", unique=True)
+    await db.holidays.create_index("date")
+    await db.timesheets.create_index("id", unique=True)
+    await db.timesheets.create_index([("user_id", 1), ("week_start", 1)], unique=True)
+    await db.timesheets.create_index([("week_start", 1), ("status", 1)])
     # Ignore-proof cleanup: remove any stale test users (test_*@dotindot.test) on every startup
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
     if removed.deleted_count:

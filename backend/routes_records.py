@@ -27,6 +27,7 @@ DELETE_KEYS = {
     "org_nodes": "org_structure.delete",
     "api_accounts": "finance.delete", "api_credit_txns": "finance.delete",
     "daily_reports": "daily_reports.delete",
+    "timesheets": "daily_reports.delete", "holidays": "holidays.manage",
     "portal_users": "clients.delete",
 }
 

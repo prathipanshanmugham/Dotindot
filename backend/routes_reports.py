@@ -393,6 +393,20 @@ BUILDERS = {
     "location-comparison": tpl_location_comparison,
 }
 
+# v2.8: agency reports (attendance, utilisation, profitability, delivery, renewals, cash flow, lead sources, AI costs)
+from reports_v28 import V28_TEMPLATES, V28_BUILDERS  # noqa: E402
+TEMPLATES.update(V28_TEMPLATES)
+BUILDERS.update(V28_BUILDERS)
+TEMPLATE_GROUPS = {
+    "Money": ["monthly-financial", "cash-flow", "client-profitability", "ai-costs", "renewals"],
+    "Clients & delivery": ["client-status", "project-delivery", "ads-performance"],
+    "Sales": ["sales-pipeline", "lead-sources"],
+    "People": ["attendance", "timesheet-utilisation", "employee-activity"],
+    "Locations": ["location-comparison"],
+}
+_GROUP_OF = {k: g for g, keys in TEMPLATE_GROUPS.items() for k in keys}
+_ORDER = [k for keys in TEMPLATE_GROUPS.values() for k in keys]
+
 
 def _check_template(key: str, user: dict):
     tpl = TEMPLATES.get(key)
@@ -405,8 +419,10 @@ def _check_template(key: str, user: dict):
 
 @router.get("/reports/templates")
 async def list_templates(user: dict = Depends(require_roles(*REPORT_ROLES))):
-    return [{"key": k, "name": t["name"], "description": t["description"]}
-            for k, t in TEMPLATES.items() if user["role"] == "super_admin" or user["role"] in t["roles"]]
+    keys = sorted(TEMPLATES, key=lambda k: _ORDER.index(k) if k in _ORDER else 99)
+    return [{"key": k, "name": TEMPLATES[k]["name"], "description": TEMPLATES[k]["description"], "group": _GROUP_OF.get(k, "Other"),
+             "new": k in V28_TEMPLATES}
+            for k in keys if user["role"] == "super_admin" or user["role"] in TEMPLATES[k]["roles"]]
 
 
 @router.get("/reports/branch-options")

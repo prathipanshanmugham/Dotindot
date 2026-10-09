@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import api, { formatINR } from "@/lib/api";
 import { saveBlobResponse } from "@/components/ExportMenu";
 import { labelize, CHART_COLORS } from "@/components/Badges";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileText, FileSpreadsheet, Play, Sparkles, SlidersHorizontal, MapPin } from "lucide-react";
 
-const iso = (d) => d.toISOString().slice(0, 10);
+const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); // local date, not UTC
 const PRESETS = {
   this_month: () => { const n = new Date(); return [iso(new Date(n.getFullYear(), n.getMonth(), 1)), iso(n)]; },
   last_month: () => { const n = new Date(); return [iso(new Date(n.getFullYear(), n.getMonth() - 1, 1)), iso(new Date(n.getFullYear(), n.getMonth(), 0))]; },
@@ -68,6 +68,16 @@ const ChartCard = ({ chart }) => (
     <CardContent className="h-60 pt-2">
       {!chart.data || chart.data.length === 0 ? (
         <div className="h-full flex items-center justify-center text-sm text-gray-400">No data for this period.</div>
+      ) : chart.type === "line" ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chart.data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke="#F3F4F6" />
+            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6B7280" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={56} tickFormatter={(v) => (Math.abs(v) >= 100000 ? `${(v / 100000).toFixed(1)}L` : Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
+            <Tooltip formatter={(v) => formatINR(v)} />
+            <Line type="monotone" dataKey="value" name="Running total" stroke="#F26B21" strokeWidth={2.5} dot={{ r: 3 }} />
+          </LineChart>
+        </ResponsiveContainer>
       ) : chart.type === "donut" ? (
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -164,6 +174,7 @@ export default function ReportsPage() {
         params: { date_from: range[0], date_to: range[1], branches: selBranches.join(",") || undefined },
       });
       setPreview(data);
+      setTimeout(() => document.querySelector('[data-testid="report-preview"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     } catch (e) {
       toast.error("Could not generate this report");
     } finally {
@@ -279,19 +290,29 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            {templates.map((t) => (
-              <Card
-                key={t.key}
-                className={`cursor-pointer transition-all shadow-sm ${activeKey === t.key ? "border-[#F26B21] ring-1 ring-[#F26B21]/30" : "border-gray-200/80 hover:border-orange-300"}`}
-                onClick={() => setActiveKey(t.key)}
-                data-testid={`template-card-${t.key}`}
-              >
-                <CardContent className="p-4">
-                  <div className="font-semibold text-gray-900 text-sm">{t.name}</div>
-                  <p className="text-xs text-gray-400 mt-1 leading-relaxed">{t.description}</p>
-                </CardContent>
-              </Card>
+          <div className="space-y-4">
+            {[...new Set(templates.map((t) => t.group || "Reports"))].map((g) => (
+              <div key={g} className="space-y-2" data-testid={`template-group-${g}`}>
+                <div className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{g}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                  {templates.filter((t) => (t.group || "Reports") === g).map((t) => (
+                    <Card
+                      key={t.key}
+                      className={`cursor-pointer transition-all shadow-sm ${activeKey === t.key ? "border-[#F26B21] ring-1 ring-[#F26B21]/30" : "border-gray-200/80 hover:border-orange-300"}`}
+                      onClick={() => { setActiveKey(t.key); generate(t.key); }}
+                      data-testid={`template-card-${t.key}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="font-semibold text-gray-900 text-sm">{t.name}</div>
+                          {t.new && <span className="shrink-0 rounded-full bg-[#FFF7ED] border border-orange-200 px-1.5 text-[9px] font-bold uppercase tracking-wide text-[#F26B21]">New</span>}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1 leading-relaxed">{t.description}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 

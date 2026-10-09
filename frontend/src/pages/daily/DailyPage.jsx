@@ -15,7 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MapPin, LogIn, LogOut, Clock, FileText, Plus, Trash2, CheckCircle2, AlertTriangle, MoreHorizontal, Building2, Home, Car, Coffee, Plane, Users, Navigation } from "lucide-react";
+import { MapPin, LogIn, LogOut, Clock, FileText, Plus, Trash2, CheckCircle2, AlertTriangle, MoreHorizontal, Building2, Home, Car, Coffee, Plane, Users, Navigation, CalendarDays, Sheet, ClipboardCheck, PartyPopper, IndianRupee, LayoutGrid, Settings2 } from "lucide-react";
+import HolidayCalendar, { UpcomingHolidays } from "@/pages/daily/HolidayCalendar";
+import { MyTimesheet, TimesheetApprovals } from "@/pages/daily/TimesheetTab";
 
 const STATUS_META = {
   office: { label: "In office", short: "Office", icon: Building2, cls: "bg-emerald-50 text-emerald-700 border-emerald-200", cell: "bg-emerald-500", letter: "P" },
@@ -28,6 +30,7 @@ const STATUS_META = {
   not_checked_in: { label: "Not checked in", short: "Missing", cls: "bg-red-50 text-red-700 border-red-200", cell: "bg-red-200", letter: "–" },
   pending: { label: "Not in yet", short: "Not in yet", cls: "bg-gray-50 text-gray-500 border-gray-200" },
   off: { label: "Weekly off", short: "Off", cls: "bg-gray-50 text-gray-400 border-gray-200" },
+  holiday: { label: "Holiday", short: "Holiday", cls: "bg-rose-50 text-rose-700 border-rose-200", cell: "bg-rose-300", letter: "H" },
   missing: { cell: "bg-red-100", letter: "·" },
 };
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -128,6 +131,11 @@ function MyDay() {
               {rec?.status && <StatePill state={rec.late ? "late" : rec.status} record={rec} testid="my-day-state" />}
             </div>
 
+            {isToday && d.holiday && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-800 flex items-center gap-2" data-testid="my-day-holiday">
+                <PartyPopper className="h-4 w-4 shrink-0" /><span><span className="font-semibold">{d.holiday.name}</span> — it's a holiday. Check in only if you're working today.</span>
+              </div>
+            )}
             {!isToday ? (
               <Button variant="outline" className="w-full" onClick={() => { setReportDate(null); load(); }}>Back to today</Button>
             ) : !checkedIn ? (
@@ -167,6 +175,9 @@ function MyDay() {
           </CardContent>
         </Card>
 
+        {d.upcoming_holidays?.length > 0 && (
+          <Card className="border-gray-200/80 shadow-sm"><CardContent className="p-4"><UpcomingHolidays items={d.upcoming_holidays.slice(0, 3)} testid="my-day-upcoming-holidays" /></CardContent></Card>
+        )}
         <Card className="border-gray-200/80 shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-700">Last 2 weeks</CardTitle></CardHeader>
           <CardContent className="space-y-1.5" data-testid="my-history">
@@ -305,6 +316,7 @@ function TeamToday({ branchOptions }) {
           <SelectContent><SelectItem value="all">All locations</SelectItem>{branchOptions.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
         </Select>
         {d.weekly_off && <span className="text-xs text-gray-500">Weekly off day</span>}
+        {d.holidays?.length > 0 && <span className="text-xs text-rose-700 inline-flex items-center gap-1"><PartyPopper className="h-3.5 w-3.5" />{d.holidays.map((h) => h.name).join(", ")}</span>}
         {sm.off_site > 0 && <span className="text-xs text-amber-700 sm:ml-auto flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{sm.off_site} checked in "office" away from their branch</span>}
       </div>
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3" data-testid="team-tiles">
@@ -371,7 +383,7 @@ function AttendanceMonth({ branchOptions }) {
     api.get("/daily/attendance", { params }).then((r) => { setD(r.data); if (!month) setMonth(r.data.month); }).catch((e) => toast.error(apiError(e)));
   }, [month, branch]);
   if (!d) return <div className="h-40 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
-  const legend = ["office", "wfh", "field", "half_day", "late", "leave", "absent", "missing"];
+  const legend = ["office", "wfh", "field", "half_day", "late", "leave", "absent", "holiday", "missing"];
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -431,7 +443,8 @@ function AttendanceSettings() {
   const save = async () => {
     setBusy(true);
     try { const { data } = await api.put("/daily/settings", { work_start: s.work_start, work_end: s.work_end, late_grace_min: Number(s.late_grace_min) || 0,
-      geofence_m: Number(s.geofence_m) || 300, report_due: s.report_due, weekly_off: s.weekly_off, require_location_for_office: s.require_location_for_office });
+      geofence_m: Number(s.geofence_m) || 300, report_due: s.report_due, weekly_off: s.weekly_off, require_location_for_office: s.require_location_for_office,
+      std_hours_per_day: Number(s.std_hours_per_day) || 8, timesheet_approval: !!s.timesheet_approval });
       setS(data); toast.success("Attendance settings saved"); }
     catch (e) { toast.error(apiError(e)); } finally { setBusy(false); }
   };
@@ -444,6 +457,7 @@ function AttendanceSettings() {
           <div className="space-y-1"><Label>Grace (minutes)</Label><Input type="number" min="0" value={s.late_grace_min} onChange={(e) => set("late_grace_min", e.target.value)} /></div>
           <div className="space-y-1"><Label>Report due by</Label><Input type="time" value={s.report_due} onChange={(e) => set("report_due", e.target.value)} /></div>
           <div className="space-y-1"><Label>On-site radius (m)</Label><Input type="number" min="20" value={s.geofence_m} onChange={(e) => set("geofence_m", e.target.value)} data-testid="set-geofence" /></div>
+          <div className="space-y-1"><Label>Hours per working day</Label><Input type="number" min="1" max="16" step="0.5" value={s.std_hours_per_day ?? 8} onChange={(e) => set("std_hours_per_day", e.target.value)} data-testid="set-std-hours" /></div>
         </div>
         <div className="space-y-1.5"><Label>Weekly off</Label>
           <div className="flex flex-wrap gap-1.5">{WEEKDAYS.map((w, i) => (
@@ -455,8 +469,47 @@ function AttendanceSettings() {
           <div><div className="text-sm font-medium text-gray-800">Require location for "In office"</div><div className="text-xs text-gray-500">People can't check in at the office with location turned off.</div></div>
           <Switch checked={!!s.require_location_for_office} onCheckedChange={(v) => set("require_location_for_office", v)} />
         </label>
+        <label className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2.5">
+          <div><div className="text-sm font-medium text-gray-800">Timesheets need manager approval</div><div className="text-xs text-gray-500">Turn off to approve weekly timesheets automatically when they're submitted.</div></div>
+          <Switch checked={s.timesheet_approval !== false} onCheckedChange={(v) => set("timesheet_approval", v)} data-testid="set-ts-approval" />
+        </label>
         <p className="text-xs text-gray-500">Branch locations come from <Link to="/locations" className="text-[#F26B21] font-medium">Locations</Link>. Drop each branch's pin precisely so on-site checks are accurate.</p>
         <Button className="bg-[#F26B21] hover:bg-[#d95b16] text-white" disabled={busy} onClick={save} data-testid="settings-save">Save settings</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CostRates() {
+  const [d, setD] = useState(null);
+  const [rates, setRates] = useState({});
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api.get("/timesheets/cost-rates").then((r) => { setD(r.data); setRates(r.data.rates || {}); }).catch(() => {}); }, []);
+  if (!d) return null;
+  const save = async () => {
+    setBusy(true);
+    try {
+      const body = { rates: Object.fromEntries(Object.entries(rates).map(([k, v]) => [k, Number(v) || 0])), per_user: d.per_user || {} };
+      const { data } = await api.put("/timesheets/cost-rates", body);
+      setRates(data.rates); toast.success("Cost rates saved");
+    } catch (e) { toast.error(apiError(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Card className="border-gray-200/80 max-w-2xl" data-testid="cost-rates">
+      <CardHeader className="pb-2"><CardTitle className="text-base font-semibold flex items-center gap-2"><IndianRupee className="h-4 w-4 text-[#F26B21]" />Team cost per hour</CardTitle>
+        <p className="text-xs text-gray-500">Used by the Client Profitability and Utilisation reports to turn timesheet hours into cost. Only admins and finance can see these.</p></CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {d.roles.map((r) => (
+            <div key={r.value} className="flex items-center gap-2">
+              <Label className="flex-1 text-sm font-normal text-gray-700">{r.label}</Label>
+              <div className="relative w-32"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">₹</span>
+                <Input type="number" min="0" disabled={!d.can_edit} value={rates[r.value] ?? ""} onChange={(e) => setRates((x) => ({ ...x, [r.value]: e.target.value }))} className="pl-6 h-9" placeholder="0" data-testid={`rate-${r.value}`} /></div>
+              <span className="text-xs text-gray-400">/h</span>
+            </div>
+          ))}
+        </div>
+        {d.can_edit && <Button className="bg-[#F26B21] hover:bg-[#d95b16] text-white" disabled={busy} onClick={save} data-testid="cost-rates-save">Save cost rates</Button>}
       </CardContent>
     </Card>
   );
@@ -470,23 +523,28 @@ export default function DailyPage() {
   const isAdmin = ["super_admin", "admin"].includes(user?.role);
   const [branchOptions, setBranchOptions] = useState([]);
   useEffect(() => { if (isTeam) api.get("/locations/branch-options").then((r) => setBranchOptions(r.data)).catch(() => {}); }, [isTeam]);
-  const tabs = useMemo(() => [["me", "My day"], ...(isTeam ? [["team", "Team today"], ["attendance", "Attendance"]] : []), ...(isAdmin ? [["settings", "Settings"]] : [])], [isTeam, isAdmin]);
+  const tabs = useMemo(() => [["me", "My day"], ["timesheet", "Timesheet"], ["calendar", "Holidays"],
+    ...(isTeam ? [["team", "Team today"], ["attendance", "Attendance"], ["approvals", "Approvals"]] : []), ...(isAdmin ? [["settings", "Settings"]] : [])], [isTeam, isAdmin]);
+  const TAB_ICON = { me: Clock, timesheet: Sheet, calendar: CalendarDays, team: Users, attendance: LayoutGrid, approvals: ClipboardCheck, settings: Settings2 };
   const requested = params.get("tab") || (user?.role === "super_admin" && isTeam ? "team" : "me");
   const tab = tabs.some(([k]) => k === requested) ? requested : "me";
   return (
     <div className="space-y-5 max-w-7xl" data-testid="daily-page">
       <div className="min-w-0">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Daily Reporting</h1>
-        <p className="text-sm text-gray-500 mt-1">{isTeam ? "Check-ins, attendance by location and end-of-day reports." : "Check in when you start, and file a short report before you leave."}</p>
+        <p className="text-sm text-gray-500 mt-1">{isTeam ? "Check-ins, timesheets, holidays and attendance by location." : "Check in, fill your weekly timesheet and see upcoming holidays."}</p>
       </div>
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v })}>
         <TabsList className={`bg-white border border-gray-200 h-auto flex-wrap justify-start ${tabs.length < 2 ? "hidden" : ""}`}>
-          {tabs.map(([k, l]) => <TabsTrigger key={k} value={k} className="data-[state=active]:bg-[#FFF7ED] data-[state=active]:text-[#F26B21]" data-testid={`daily-tab-${k}`}>{k === "team" && <Users className="h-3.5 w-3.5 mr-1.5" />}{k === "me" && <Clock className="h-3.5 w-3.5 mr-1.5" />}{l}</TabsTrigger>)}
+          {tabs.map(([k, l]) => { const I = TAB_ICON[k]; return <TabsTrigger key={k} value={k} className="data-[state=active]:bg-[#FFF7ED] data-[state=active]:text-[#F26B21]" data-testid={`daily-tab-${k}`}>{I && <I className="h-3.5 w-3.5 mr-1.5" />}{l}</TabsTrigger>; })}
         </TabsList>
         <TabsContent value="me" className="pt-2"><MyDay /></TabsContent>
+        <TabsContent value="timesheet" className="pt-2">{tab === "timesheet" && <MyTimesheet />}</TabsContent>
+        <TabsContent value="calendar" className="pt-2">{tab === "calendar" && <HolidayCalendar />}</TabsContent>
+        {isTeam && <TabsContent value="approvals" className="pt-2">{tab === "approvals" && <TimesheetApprovals branchOptions={branchOptions} />}</TabsContent>}
         {isTeam && <TabsContent value="team" className="pt-2"><TeamToday branchOptions={branchOptions} /></TabsContent>}
         {isTeam && <TabsContent value="attendance" className="pt-2"><AttendanceMonth branchOptions={branchOptions} /></TabsContent>}
-        {isAdmin && <TabsContent value="settings" className="pt-2"><AttendanceSettings /></TabsContent>}
+        {isAdmin && <TabsContent value="settings" className="pt-2 space-y-4"><AttendanceSettings /><CostRates /></TabsContent>}
       </Tabs>
     </div>
   );

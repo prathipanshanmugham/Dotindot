@@ -85,6 +85,7 @@ class NodeIn(BaseModel):
     description: Optional[str] = ""
     color: Optional[str] = None
     order: int = 0
+    branch_id: Optional[str] = None  # v2.8: location this box belongs to (None = company-wide)
 
 
 class NodeUpdate(BaseModel):
@@ -97,6 +98,7 @@ class NodeUpdate(BaseModel):
     description: Optional[str] = None
     color: Optional[str] = None
     order: Optional[int] = None
+    branch_id: Optional[str] = None
 
 
 class BootstrapBody(BaseModel):
@@ -110,8 +112,29 @@ def _need(user, key, msg):
 
 async def _people_index():
     rows = await db.users.find({"is_active": {"$ne": False}}, {"_id": 0, "id": 1, "name": 1, "role": 1, "email": 1,
-                                                               "designation": 1, "department": 1, "branch_id": 1}).to_list(2000)
+                                                               "designation": 1, "department": 1, "branch_id": 1,
+                                                               "branch_assignments": 1}).to_list(2000)
+    for u in rows:
+        # home location: explicit branch, else the first branch assignment
+        if not u.get("branch_id"):
+            u["branch_id"] = next((a.get("branch_id") for a in u.get("branch_assignments") or [] if a.get("branch_id")), None)
+        u.pop("branch_assignments", None)
     return {u["id"]: u for u in rows}
+
+
+async def _branches_for_chart(people: dict):
+    rows = await db.branches.find({}, {"_id": 0, "id": 1, "name": 1, "city": 1, "country": 1, "status": 1,
+                                       "head_name": 1, "manager_id": 1}).sort("name", 1).to_list(100)
+    for b in rows:
+        b["headcount"] = sum(1 for p in people.values() if p.get("branch_id") == b["id"])
+        if b.get("manager_id") and b["manager_id"] in people:
+            b["head_name"] = people[b["manager_id"]]["name"]
+    return rows
+
+
+async def _check_branch(branch_id: Optional[str]):
+    if branch_id and not await db.branches.find_one({"id": branch_id}):
+        raise HTTPException(status_code=400, detail="The selected location doesn't exist")
 
 
 @router.get("/org/nodes")
@@ -125,6 +148,7 @@ async def list_nodes(user: dict = Depends(get_current_user)):
     unassigned = [p for pid, p in people.items() if pid not in placed]
     return {
         "nodes": nodes,
+        "branches": await _branches_for_chart(people),
         "unassigned": sorted(unassigned, key=lambda p: p.get("name", "")),
         "kinds": KINDS,
         "can_manage": has_permission(user, "org_structure.manage"),
@@ -175,6 +199,7 @@ async def create_node(body: NodeIn, user: dict = Depends(get_current_user)):
     if body.kind not in KINDS:
         raise HTTPException(status_code=400, detail=f"Kind must be one of: {', '.join(KINDS)}")
     await _check_parent(None, body.parent_id)
+    await _check_branch(body.branch_id)
     doc = {"id": str(uuid.uuid4()), **body.model_dump(), "created_at": _now(), "updated_at": _now(), "created_by": user["id"]}
     doc["responsibilities"] = [r.strip() for r in doc["responsibilities"] if r and r.strip()]
     doc["kpis"] = [k.strip() for k in doc["kpis"] if k and k.strip()]
@@ -195,6 +220,9 @@ async def update_node(node_id: str, body: NodeUpdate, user: dict = Depends(get_c
         raise HTTPException(status_code=400, detail=f"Kind must be one of: {', '.join(KINDS)}")
     if "parent_id" in updates:
         await _check_parent(node_id, updates["parent_id"])
+    if "branch_id" in updates:
+        updates["branch_id"] = updates["branch_id"] or None
+        await _check_branch(updates["branch_id"])
     for k in ("responsibilities", "kpis"):
         if k in updates and updates[k] is not None:
             updates[k] = [r.strip() for r in updates[k] if r and r.strip()]

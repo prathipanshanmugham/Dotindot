@@ -28,7 +28,9 @@ router = APIRouter()
 STATUSES = ["office", "wfh", "field", "half_day", "leave", "absent"]
 PRESENT = {"office", "wfh", "field", "half_day"}
 DEFAULT_SETTINGS = {"id": "daily", "work_start": "09:30", "work_end": "18:30", "late_grace_min": 10, "geofence_m": 300,
-                    "report_due": "19:00", "timezone": "Asia/Kolkata", "weekly_off": [6], "require_location_for_office": False}
+                    "report_due": "19:00", "timezone": "Asia/Kolkata", "weekly_off": [6], "require_location_for_office": False,
+                    # v2.8 timesheets
+                    "std_hours_per_day": 8, "timesheet_approval": True}
 
 
 def _now_utc():
@@ -139,6 +141,8 @@ class SettingsIn(BaseModel):
     timezone: Optional[str] = None
     weekly_off: Optional[List[int]] = None
     require_location_for_office: Optional[bool] = None
+    std_hours_per_day: Optional[float] = None
+    timesheet_approval: Optional[bool] = None
 
 
 def _is_team(user):
@@ -190,6 +194,8 @@ async def update_settings(body: SettingsIn, user: dict = Depends(get_current_use
                 assert 0 <= int(h) < 24 and 0 <= int(m) < 60
             except Exception:
                 raise HTTPException(status_code=400, detail=f"{k} must be HH:MM")
+    if "std_hours_per_day" in u and not (1 <= float(u["std_hours_per_day"]) <= 16):
+        raise HTTPException(status_code=400, detail="Standard hours per day must be between 1 and 16")
     if "geofence_m" in u and not (20 <= u["geofence_m"] <= 20000):
         raise HTTPException(status_code=400, detail="Geofence radius must be between 20 m and 20 km")
     await db.settings.update_one({"id": "daily"}, {"$set": {"id": "daily", **u}}, upsert=True)
@@ -207,7 +213,14 @@ async def my_day(date_: Optional[str] = Query(None, alias="date"), user: dict = 
     history = await db.daily_reports.find({"user_id": user["id"], "date": {"$gte": start}}, {"_id": 0}).sort("date", -1).to_list(30)
     branches = await _branches()
     home = _home_branch(user)
+    from routes_holidays import holidays_between, holiday_for, _enrich, _branch_names
+    names = await _branch_names()
+    hols = await holidays_between(min(today, d), (date.fromisoformat(today) + timedelta(days=120)).isoformat())
+    upcoming = [_enrich(dict(h), names) for h in hols
+                if h["date"] >= today and (not h.get("branch_ids") or (home and home in h["branch_ids"]))][:4]
+    hol_today = holiday_for(hols, d, home)
     return {"date": d, "today": today, "record": rec, "history": history, "settings": s,
+            "holiday": _enrich(dict(hol_today), names) if hol_today else None, "upcoming_holidays": upcoming,
             "home_branch": next((b for b in branches if b["id"] == home), None),
             "branches": branches, "statuses": STATUSES, "is_team": _is_team(user)}
 
@@ -320,14 +333,20 @@ async def team_day(date_: Optional[str] = Query(None, alias="date"), branch: Opt
     branches = {b["id"]: b for b in await _branches()}
     groups = {}
     counts = {"people": len(people), "office": 0, "wfh": 0, "field": 0, "half_day": 0, "leave": 0, "absent": 0,
-              "late": 0, "not_checked_in": 0, "pending": 0, "reports_submitted": 0, "off_site": 0}
+              "late": 0, "not_checked_in": 0, "pending": 0, "reports_submitted": 0, "off_site": 0, "holiday": 0}
     weekday_off = date.fromisoformat(d).weekday() in (s.get("weekly_off") or [])
+    from routes_holidays import holidays_between, holiday_for
+    day_hols = await holidays_between(d, d)
     for p in people:
         r = recs.get(p["id"])
-        st = "off" if weekday_off and not (r and r.get("status")) else _state(r, s, d, today, local.hour * 60 + local.minute)
+        hol = holiday_for(day_hols, d, _home_branch(p))
+        if not (r and r.get("status")) and hol:
+            st = "holiday"
+        else:
+            st = "off" if weekday_off and not (r and r.get("status")) else _state(r, s, d, today, local.hour * 60 + local.minute)
         if r and r.get("status") in counts:
             counts[r["status"]] += 1
-        if st in ("late", "not_checked_in", "pending"):
+        if st in ("late", "not_checked_in", "pending", "holiday"):
             counts[st] += 1
         if r and (r.get("report") or {}).get("submitted"):
             counts["reports_submitted"] += 1
@@ -344,7 +363,7 @@ async def team_day(date_: Optional[str] = Query(None, alias="date"), branch: Opt
     for g in groups.values():
         g["people"].sort(key=lambda x: x["user"]["name"])
         g["rate"] = round(100 * g["present"] / len(g["people"])) if g["people"] else 0
-    return {"date": d, "today": today, "weekly_off": weekday_off, "settings": s,
+    return {"date": d, "today": today, "weekly_off": weekday_off, "settings": s, "holidays": day_hols,
             "summary": {**counts, "present": present, "rate": round(100 * present / len(people)) if people else 0},
             "branches": sorted(groups.values(), key=lambda g: (g["branch_id"] is None, g["name"]))}
 
@@ -369,10 +388,15 @@ async def attendance_month(month: Optional[str] = None, branch: Optional[str] = 
     off = set(s.get("weekly_off") or [])
     working = [d for d in days if d.weekday() not in off and d <= today]
     branches = {b["id"]: b["name"] for b in await _branches()}
+    from routes_holidays import holidays_between, holiday_for
+    month_hols = await holidays_between(first.isoformat(), (nxt - timedelta(days=1)).isoformat())
     rows = []
     for p in sorted(people, key=lambda x: x["name"]):
-        cells, tot = [], {"present": 0, "late": 0, "wfh": 0, "leave": 0, "absent": 0, "half_day": 0, "reports": 0, "hours": 0.0}
+        cells, tot = [], {"present": 0, "late": 0, "wfh": 0, "leave": 0, "absent": 0, "half_day": 0, "reports": 0, "hours": 0.0, "holidays": 0}
         ins = []
+        pb = _home_branch(p)
+        hol_days = {d.isoformat() for d in days if holiday_for(month_hols, d.isoformat(), pb)}
+        working_p = [d for d in working if d.isoformat() not in hol_days]
         for d in days:
             r = by.get((p["id"], d.isoformat()))
             code = None
@@ -390,6 +414,10 @@ async def attendance_month(month: Optional[str] = None, branch: Optional[str] = 
                 if r.get("check_in_local"):
                     ins.append(_hm_to_min(r["check_in_local"]))
                 tot["hours"] += float(r.get("hours") or 0)
+            elif d.isoformat() in hol_days:
+                code = "holiday"
+                if d <= today and d.weekday() not in off:
+                    tot["holidays"] += 1
             elif d.weekday() in off:
                 code = "off"
             elif d <= today:
@@ -401,15 +429,17 @@ async def attendance_month(month: Optional[str] = None, branch: Optional[str] = 
         rows.append({"user": {"id": p["id"], "name": p["name"], "designation": p.get("designation")},
                      "branch": branches.get(_home_branch(p), "No branch"), "cells": cells,
                      "totals": {**tot, "hours": round(tot["hours"], 1),
-                                "rate": round(100 * tot["present"] / len(working)) if working else None,
+                                "rate": min(100, round(100 * tot["present"] / len(working_p))) if working_p else None,
+                                "working_days": len(working_p),
                                 "avg_check_in": f"{int(avg_in // 60):02d}:{int(avg_in % 60):02d}" if avg_in is not None else None}})
     by_branch = {}
     for r in rows:
         b = by_branch.setdefault(r["branch"], {"name": r["branch"], "present": 0.0, "possible": 0})
         b["present"] += r["totals"]["present"]
-        b["possible"] += len(working)
+        b["possible"] += r["totals"]["working_days"]
     return {"month": m, "days": [d.isoformat() for d in days], "working_days": len(working), "rows": rows,
-            "by_branch": [{"name": b["name"], "rate": round(100 * b["present"] / b["possible"]) if b["possible"] else 0} for b in by_branch.values()],
+            "by_branch": [{"name": b["name"], "rate": min(100, round(100 * b["present"] / b["possible"])) if b["possible"] else 0} for b in by_branch.values()],
+            "holidays": month_hols,
             "statuses": STATUSES}
 
 
@@ -470,14 +500,16 @@ async def daily_alerts(user: dict):
     d = local.date().isoformat()
     mins = local.hour * 60 + local.minute
     items = []
-    if _attendee(user) and has_permission(user, "daily_reports"):
+    from routes_holidays import holidays_between, holiday_for
+    today_hols = await holidays_between(d, d)
+    if _attendee(user) and has_permission(user, "daily_reports") and not holiday_for(today_hols, d, _home_branch(user)):
         rec = await _get_record(user["id"], d)
         if (not rec or not rec.get("status")) and mins > _hm_to_min(s["work_start"]) + 30:
             items.append({"kind": "daily", "title": "You haven't checked in today", "sub": f"Office starts {s['work_start']}", "link": "/daily", "date": d})
         elif rec and rec.get("status") in PRESENT and not (rec.get("report") or {}).get("submitted") and mins > _hm_to_min(s["report_due"]):
             items.append({"kind": "daily", "title": "Daily report not submitted", "sub": f"Due by {s['report_due']}", "link": "/daily", "date": d})
     if _is_team(user) and mins > _hm_to_min(s["work_start"]) + 60:
-        people = await _team_people(user, None)
+        people = [p for p in await _team_people(user, None) if not holiday_for(today_hols, d, _home_branch(p))]
         done = await db.daily_reports.count_documents({"date": d, "user_id": {"$in": [p["id"] for p in people]}, "status": {"$ne": None}})
         missing = len(people) - done
         if missing > 0:

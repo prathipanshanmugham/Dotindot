@@ -316,29 +316,54 @@ async def fetch_ai_agents(p, user):
 
 
 async def fetch_org_structure(p, user):
+    from routes_org import _people_index
     nodes = await db.org_nodes.find({}, {"_id": 0}).sort("order", 1).to_list(3000)
-    people = {u["id"]: u["name"] for u in await db.users.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(2000)}
+    people = await _people_index()
+    bnames = {b["id"]: b["name"] for b in await db.branches.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(100)}
     by_id = {n["id"]: n for n in nodes}
+    loc = p.get("branch")
+    title = "Organisation Structure"
+    if loc:
+        # keep boxes tagged to this location or holding someone based there, plus everything above them
+        keep = set()
+        for n in nodes:
+            if n.get("branch_id") == loc or any(people.get(x, {}).get("branch_id") == loc for x in n.get("person_ids") or []):
+                cur = n
+                while cur and cur["id"] not in keep:
+                    keep.add(cur["id"])
+                    cur = by_id.get(cur.get("parent_id"))
+        nodes = [n for n in nodes if n["id"] in keep]
+        title = f"Organisation Structure — {bnames.get(loc, 'Location')}"
     children = {}
     for n in nodes:
-        children.setdefault(n.get("parent_id"), []).append(n)
+        children.setdefault(n.get("parent_id") if n.get("parent_id") in by_id else None, []).append(n)
     rows = []
+
+    def who(n):
+        ids = [x for x in n.get("person_ids") or [] if x in people]
+        if loc and n.get("parent_id"):
+            ids = [x for x in ids if people[x].get("branch_id") == loc]
+        return ", ".join(people[x]["name"] + ("" if loc else f" ({bnames.get(people[x].get('branch_id'), '—')})") for x in ids) or "—"
 
     def walk(parent_id, depth):
         for n in children.get(parent_id, []):
             parent = by_id.get(n.get("parent_id"))
             rows.append({"title": ("    " * depth) + n["title"], "kind": n.get("kind"),
-                         "people": ", ".join(people[x] for x in n.get("person_ids", []) if x in people) or "—",
+                         "location": bnames.get(n.get("branch_id"), "All locations"),
+                         "people": who(n),
                          "reports_to": parent["title"] if parent else "—",
                          "responsibilities": "; ".join(n.get("responsibilities") or []),
                          "kpis": "; ".join(n.get("kpis") or [])})
             walk(n["id"], depth + 1)
     walk(None, 0)
-    cols = [("title", "Role / department", "text"), ("kind", "Type", "text"), ("people", "People", "text"),
+    cols = [("title", "Role / department", "text"), ("kind", "Type", "text"), ("location", "Location", "text"), ("people", "People", "text"),
             ("reports_to", "Reports to", "text"), ("responsibilities", "Responsibilities", "text"), ("kpis", "KPIs", "text")]
-    return "Organisation Structure", cols, rows, [
+    placed = {x for n in nodes for x in n.get("person_ids", [])}
+    if loc:
+        placed = {x for x in placed if people.get(x, {}).get("branch_id") == loc}
+    return title, cols, rows, [
         {"label": "Roles & departments", "value": len(rows)},
-        {"label": "People placed", "value": len({x for n in nodes for x in n.get("person_ids", [])})}]
+        {"label": "People placed", "value": len(placed)}]
 
 
 async def fetch_api_credits(p, user):
@@ -360,6 +385,36 @@ async def fetch_api_credits(p, user):
         {"label": "Prepaid balance", "value": round(sum(a["balance_inr"] or 0 for a in accts if a.get("status") == "active")), "money": True},
         {"label": "Used this month", "value": round(sum(a["used_mtd_inr"] for a in accts)), "money": True},
         {"label": "Low balance", "value": sum(1 for a in accts if a["low_balance"])}]
+
+
+async def fetch_holidays(p, user):
+    from routes_holidays import list_holidays
+    rows = await list_holidays(year=int(p["year"]) if p.get("year") else None, branch=p.get("branch"), user=user)
+    for r in rows:
+        r["where"] = ", ".join(r["locations"])
+        r["day_off_label"] = "Yes" if r["day_off"] else "Optional"
+    cols = [("date", "Date", "text"), ("weekday", "Day", "text"), ("name", "Holiday", "text"), ("type_label", "Type", "text"),
+            ("where", "Locations", "text"), ("day_off_label", "Day off", "text"), ("notes", "Notes", "text")]
+    year = p.get("year") or str(_today().year)
+    return f"Holiday Calendar {year}", cols, rows, [{"label": "Holidays", "value": len(rows)},
+                                                    {"label": "Days off", "value": sum(1 for r in rows if r["day_off"])}]
+
+
+async def fetch_timesheets(p, user):
+    from routes_timesheets import team_sheets
+    d = await team_sheets(week=p.get("week"), status=p.get("status"), branch=p.get("branch"), user=user)
+    rows = [{"name": r["user"]["name"], "branch": r["branch"], "status": r["status"].replace("_", " ").title(), "days_present": r["days_present"],
+             "days_leave": r["days_leave"], "work_hours": r["work_hours"], "billable_hours": r["billable_hours"],
+             "billable_pct": f"{round(100 * r['billable_hours'] / r['work_hours'])}%" if r["work_hours"] else "—",
+             "submitted": (r["submitted_at"] or "")[:16].replace("T", " ") or "—"} for r in d["rows"]]
+    cols = [("name", "Person", "text"), ("branch", "Location", "text"), ("status", "Status", "text"), ("days_present", "Days present", "num"),
+            ("days_leave", "Leave", "num"), ("work_hours", "Hours", "num"), ("billable_hours", "Billable hours", "num"),
+            ("billable_pct", "Billable %", "text"), ("submitted", "Submitted (UTC)", "text")]
+    c = d["counts"]
+    return f"Timesheets — week of {d['week_start']}", cols, rows, [
+        {"label": "Approved", "value": c.get("approved", 0)}, {"label": "Waiting", "value": c.get("submitted", 0)},
+        {"label": "Not submitted", "value": c.get("not_started", 0) + c.get("draft", 0) + c.get("rejected", 0)},
+        {"label": "Hours logged", "value": round(sum(r["work_hours"] for r in d["rows"]), 1)}]
 
 
 async def fetch_attendance(p, user):
@@ -503,6 +558,8 @@ DATASETS = {
     "org-structure": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_org_structure},
     "api-credits": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_api_credits},
     "attendance": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_attendance},
+    "holidays": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_holidays},
+    "timesheets": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_timesheets},
 }
 
 MEDIA = {

@@ -140,6 +140,8 @@ async def notifications(user: dict = Depends(get_current_user)):
         items.extend(await api_credit_alerts())
     from routes_daily import daily_alerts
     items.extend(await daily_alerts(user))
+    from routes_timesheets import timesheet_alerts
+    items.extend(await timesheet_alerts(user))
 
     items.sort(key=lambda x: x["date"])
     return {"items": items, "count": len(items)}

@@ -47,6 +47,8 @@ COLLECTIONS = {
     "api_credit_txns": {"label": "API Credit Entries", "search": ["note", "kind"]},
     "daily_reports": {"label": "Daily Reports & Attendance", "search": ["user_name", "date"]},
     "portal_users": {"label": "Client Portal Logins", "search": ["name", "email"]},
+    "holidays": {"label": "Holidays", "search": ["name", "date"]},
+    "timesheets": {"label": "Timesheets", "search": ["user_name", "week_start"]},
 }
 
 # child collection, foreign-key field, cascade mode: delete | unset | pull(array)
@@ -57,12 +59,13 @@ DEPS = {
                 ("quotes", "client_id", "unset")],
     "projects": [("transactions", "project_id", "unset"), ("expenses", "project_id", "unset"), ("api_credit_txns", "project_id", "unset")],
     "leads": [("quotes", "lead_id", "unset"), ("lead_activities", "lead_id", "delete")],
-    "branches": [("clients", "branch_id", "unset"), ("leads", "branch_id", "unset"), ("users", "branch_id", "unset")],
+    "branches": [("clients", "branch_id", "unset"), ("leads", "branch_id", "unset"), ("users", "branch_id", "unset"),
+                 ("org_nodes", "branch_id", "unset"), ("holidays", "branch_ids", "pull")],
     "users": [("projects", "team_member_ids", "pull"), ("training_assignments", "user_id", "delete"),
               ("leads", "owner_id", "unset"), ("assets", "assigned_to", "unset"), ("password_entries", "owner_id", "unset"),
               ("clients", "account_manager_id", "unset"), ("branches", "manager_id", "unset"), ("targets", "user_id", "delete"),
               ("ai_agents", "assignee_ids", "pull"), ("ai_agents", "owner_id", "unset"), ("org_nodes", "person_ids", "pull"),
-              ("daily_reports", "user_id", "delete"), ("api_accounts", "owner_id", "unset")],
+              ("daily_reports", "user_id", "delete"), ("api_accounts", "owner_id", "unset"), ("timesheets", "user_id", "delete")],
     "campaigns": [("transactions", "campaign_id", "unset")],
     "subscriptions": [("transactions", "subscription_id", "unset")],
     "ad_campaigns": [("transactions", "campaign_id", "unset")],
