@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { formatINR } from "@/lib/api";
 import { labelize } from "@/components/Badges";
-import { DotindotMark } from "@/components/DotindotLogo";
+import { DotindotMark, DotindotWordmark } from "@/components/DotindotLogo";
 import { X, Trophy, TrendingUp, Building2, PartyPopper } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import confetti from "canvas-confetti";
@@ -11,7 +11,7 @@ const REFRESH_MS = 15000;
 const ROTATE_MS = 12000;
 const SPLASH_MS = 8000;
 const PANELS = ["Pipeline", "Leaderboard", "Month Pulse"];
-const BAR_COLORS = ["#FBA834", "#F26B21", "#38BDF8", "#A78BFA", "#34D399", "#F87171"];
+const BAR_COLORS = ["#FFAD42", "#F26B21", "#38BDF8", "#A78BFA", "#34D399", "#F87171"];
 
 const bigINR = (n) => {
   const v = Number(n || 0);
@@ -30,7 +30,7 @@ export default function SalesHudPage() {
 
   const fireConfetti = useCallback(() => {
     const end = Date.now() + 4000;
-    const colors = ["#F26B21", "#FBA834", "#ffffff", "#34D399"];
+    const colors = ["#F26B21", "#FFAD42", "#ffffff", "#34D399"];
     (function frame() {
       confetti({ particleCount: 6, angle: 60, spread: 70, origin: { x: 0, y: 0.7 }, colors, zIndex: 300 });
       confetti({ particleCount: 6, angle: 120, spread: 70, origin: { x: 1, y: 0.7 }, colors, zIndex: 300 });
@@ -82,9 +82,9 @@ export default function SalesHudPage() {
       {splash && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[#080B12]/85 backdrop-blur-sm" data-testid="hud-deal-won-splash" onClick={() => setSplash(null)}>
           <div className="text-center px-8" style={{ animation: "hud-splash-in .5s cubic-bezier(.2,.8,.2,1)" }}>
-            <PartyPopper className="mx-auto h-16 w-16 text-[#FBA834]" />
+            <PartyPopper className="mx-auto h-16 w-16 text-[#FFAD42]" />
             <div className="mt-4 text-xs font-bold uppercase tracking-[0.5em] text-[#F26B21]">Deal won</div>
-            <div className="mt-2 text-5xl sm:text-7xl font-extrabold tracking-tight bg-gradient-to-r from-[#F26B21] to-[#FBA834] bg-clip-text text-transparent" data-testid="hud-splash-name">{splash.name}</div>
+            <div className="mt-2 text-5xl sm:text-7xl font-extrabold tracking-tight bg-gradient-to-r from-[#FE7A18] to-[#FFAD42] bg-clip-text text-transparent" data-testid="hud-splash-name">{splash.name}</div>
             <div className="mt-4 font-mono text-4xl sm:text-5xl font-extrabold text-white" data-testid="hud-splash-value">{bigINR(splash.value)}</div>
             {splash.owner && <div className="mt-3 text-lg text-white/60">closed by <span className="font-bold text-white">{splash.owner}</span></div>}
           </div>
@@ -95,7 +95,7 @@ export default function SalesHudPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 pt-5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <DotindotMark size={30} />
-          <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-[#F26B21] to-[#FBA834] bg-clip-text text-transparent">dotindot.</span>
+          <DotindotWordmark height={20} />
           <span className="text-xs font-bold uppercase tracking-[0.3em] text-white/40 sm:ml-3">Sales View · {d.month}</span>
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -122,12 +122,12 @@ export default function SalesHudPage() {
               </div>
             </div>
             <div className="text-right">
-              <div className={`text-5xl font-extrabold font-mono ${onTrack ? "text-emerald-400" : "text-[#FBA834]"}`} data-testid="hud-pct">{d.target.pct}%</div>
+              <div className={`text-5xl font-extrabold font-mono ${onTrack ? "text-emerald-400" : "text-[#FFAD42]"}`} data-testid="hud-pct">{d.target.pct}%</div>
               <div className="text-xs text-white/40 uppercase tracking-widest mt-1">{onTrack ? "Target smashed" : "of monthly target"}</div>
             </div>
           </div>
           <div className="mt-5 h-4 rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-[#F26B21] to-[#FBA834] transition-all duration-1000" style={{ width: `${pct}%` }} data-testid="hud-progress-bar" />
+            <div className="h-full rounded-full bg-gradient-to-r from-[#FE7A18] to-[#FFAD42] transition-all duration-1000" style={{ width: `${pct}%` }} data-testid="hud-progress-bar" />
           </div>
         </div>
       </div>
@@ -165,11 +165,11 @@ export default function SalesHudPage() {
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-5 items-center" data-testid="hud-leaderboard-panel">
               {d.leaderboard.length === 0 && <div className="col-span-3 text-center text-white/40 text-lg">No wins recorded this month yet — go close something.</div>}
               {d.leaderboard.map((l, i) => (
-                <div key={l.name} className={`rounded-3xl border p-6 text-center ${i === 0 ? "border-[#FBA834]/60 bg-gradient-to-b from-[#F26B21]/15 to-transparent" : "border-white/10 bg-white/[0.03]"}`}
+                <div key={l.name} className={`rounded-3xl border p-6 text-center ${i === 0 ? "border-[#FFAD42]/60 bg-gradient-to-b from-[#F26B21]/15 to-transparent" : "border-white/10 bg-white/[0.03]"}`}
                   data-testid={`hud-leader-${i}`}>
-                  <Trophy className={`mx-auto h-8 w-8 ${i === 0 ? "text-[#FBA834]" : i === 1 ? "text-slate-300" : "text-amber-700"}`} />
+                  <Trophy className={`mx-auto h-8 w-8 ${i === 0 ? "text-[#FFAD42]" : i === 1 ? "text-slate-300" : "text-amber-700"}`} />
                   <div className="mt-3 text-xl font-extrabold">{l.name}</div>
-                  <div className="mt-1 font-mono text-3xl font-extrabold text-[#FBA834]">{bigINR(l.value)}</div>
+                  <div className="mt-1 font-mono text-3xl font-extrabold text-[#FFAD42]">{bigINR(l.value)}</div>
                   <div className="text-[11px] uppercase tracking-widest text-white/40 mt-1">won this month</div>
                 </div>
               ))}
@@ -187,7 +187,7 @@ export default function SalesHudPage() {
                 <div key={m.label} className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-center">
                   <m.icon className="mx-auto h-7 w-7 text-[#F26B21]" />
                   <div className="mt-3 font-mono text-3xl font-extrabold">{m.value}</div>
-                  {m.sub && <div className="font-mono text-sm text-[#FBA834]">{m.sub}</div>}
+                  {m.sub && <div className="font-mono text-sm text-[#FFAD42]">{m.sub}</div>}
                   <div className="text-[11px] uppercase tracking-widest text-white/40 mt-1">{m.label}</div>
                 </div>
               ))}

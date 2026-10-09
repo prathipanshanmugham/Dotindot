@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiError } from "@/lib/api";
-import { DotindotLogo, DotindotMark } from "@/components/DotindotLogo";
+import { DotindotMark, DotindotWordmark } from "@/components/DotindotLogo";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,12 +34,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex bg-white">
       {/* Brand panel */}
-      <div className="hidden lg:flex w-[45%] flex-col justify-between p-12 bg-gradient-to-br from-[#F26B21] to-[#FBA834] relative overflow-hidden">
-        <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10" />
-        <div className="absolute -left-16 bottom-10 h-64 w-64 rounded-full bg-white/10" />
-        <div className="flex items-center gap-3 relative">
-          <DotindotMark size={40} light />
-          <span className="text-2xl font-extrabold text-white tracking-tight">dotindot.</span>
+      <div className="hidden lg:flex w-[45%] flex-col justify-between p-12 bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] relative overflow-hidden">
+        <div className="absolute -right-20 -bottom-24 opacity-[0.13] pointer-events-none" aria-hidden="true"><DotindotMark size={460} light title="" /></div>
+        <div className="relative" data-testid="login-brand">
+          <DotindotWordmark height={38} light />
         </div>
         <div className="relative">
           <h1 className="text-4xl sm:text-5xl font-extrabold text-white leading-tight tracking-tight">
@@ -56,7 +54,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-8">
-            <DotindotLogo size={34} textClass="text-2xl" />
+            <DotindotWordmark height={32} />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Sign in to your workspace</h2>
           <p className="text-sm text-gray-500 mt-1 mb-8">Use your dotindot team credentials.</p>

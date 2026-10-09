@@ -64,7 +64,7 @@ export default function AiSpendPage() {
                 <XAxis type="number" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={95} />
                 <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: "#FFF7ED" }} />
-                <Bar dataKey="value" fill="#FBA834" radius={[0, 5, 5, 0]} maxBarSize={22} />
+                <Bar dataKey="value" fill="#FFAD42" radius={[0, 5, 5, 0]} maxBarSize={22} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

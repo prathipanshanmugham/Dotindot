@@ -55,7 +55,7 @@ V28_TEMPLATES = {
 }
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-nice = lambda s: (s or "—").replace("_", " ").title()
+nice = lambda s: {"ai": "AI"}.get(s, (s or "—").replace("_", " ").title())
 
 
 def _today():
@@ -523,6 +523,7 @@ async def tpl_cash_flow(date_from, date_to, branch_ids=None):
     best = max(rows, key=lambda r: r["net"]) if rows else None
     return {
         "title": "Cash Flow Trend",
+        "period_override": f"{start.isoformat()} → {end.isoformat()}",
         "summary": [
             {"label": "Income", "value": inc, "money": True},
             {"label": "Expenses", "value": out, "money": True},

@@ -54,7 +54,7 @@ export default function DashboardPage() {
               {isEmployee ? " Here's a snapshot of your assigned projects." : " Here's what's happening at dotindot today."}
             </p>
           </div>
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#F26B21] to-[#FBA834] flex items-center justify-center text-white text-xl font-extrabold">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] flex items-center justify-center text-white text-xl font-extrabold">
             {user.name[0]}
           </div>
         </CardContent>

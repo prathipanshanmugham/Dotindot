@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
-import { DotindotLogo } from "@/components/DotindotLogo";
+import { DotindotWordmark } from "@/components/DotindotLogo";
 import NotificationsBell from "@/components/NotificationsBell";
 import { RoleBadge, ROLE_LABELS, labelize } from "@/components/Badges";
 import { Input } from "@/components/ui/input";
@@ -169,8 +169,8 @@ const SidebarInner = ({ user, hasPerm, onNavigate }) => {
   return (
     <>
       <div className="h-16 flex items-center px-5 border-b border-gray-100 shrink-0">
-        <DotindotLogo size={30} textClass="text-lg" />
-        <Badge variant="outline" className="ml-2 text-[9px] px-1.5 border-gray-200 text-gray-400">Ops v2</Badge>
+        <NavLink to="/dashboard" onClick={onNavigate} aria-label="dotindot home" className="flex items-center"><DotindotWordmark height={24} /></NavLink>
+        <Badge variant="outline" className="ml-2.5 text-[9px] px-1.5 border-gray-200 text-gray-400">Ops</Badge>
       </div>
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
         {NAV.map((section) => {
@@ -207,7 +207,7 @@ const SidebarInner = ({ user, hasPerm, onNavigate }) => {
       </nav>
       <div className="p-3 border-t border-gray-100 shrink-0">
         <div className="flex items-center gap-2.5 px-2 py-1.5">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-xs font-bold flex items-center justify-center">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-xs font-bold flex items-center justify-center">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
@@ -268,6 +268,7 @@ export default function AppLayout({ children }) {
           >
             <Menu className="h-5 w-5" />
           </button>
+          <NavLink to="/dashboard" className="sm:hidden flex items-center" aria-label="dotindot home" data-testid="mobile-brand"><DotindotWordmark height={20} /></NavLink>
           <div className="hidden sm:block flex-1 max-w-md">
             <GlobalSearch />
           </div>
@@ -288,7 +289,7 @@ export default function AppLayout({ children }) {
                   data-testid="user-menu-trigger"
                   className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-gray-50 transition-colors"
                 >
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-xs font-bold flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-xs font-bold flex items-center justify-center">
                     {initials}
                   </div>
                   <ChevronDown className="h-3.5 w-3.5 text-gray-400" />

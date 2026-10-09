@@ -117,7 +117,7 @@ export default function ClientsPage() {
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} width={24} />
                 <Tooltip cursor={{ fill: "#FFF7ED" }} />
-                <Bar dataKey="value" fill="#FBA834" radius={[6, 6, 0, 0]} maxBarSize={42} />
+                <Bar dataKey="value" fill="#FFAD42" radius={[6, 6, 0, 0]} maxBarSize={42} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

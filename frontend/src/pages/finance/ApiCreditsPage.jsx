@@ -515,7 +515,7 @@ export default function ApiCreditsPage() {
                     <XAxis type="number" tick={{ fontSize: 9, fill: "#6B7280" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={118} />
                     <Tooltip formatter={(v) => [inrR(v), "Usage"]} cursor={{ fill: "#FFF7ED" }} />
-                    <Bar dataKey="value" fill="#FBA834" radius={[0, 5, 5, 0]} maxBarSize={18} />
+                    <Bar dataKey="value" fill="#FFAD42" radius={[0, 5, 5, 0]} maxBarSize={18} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

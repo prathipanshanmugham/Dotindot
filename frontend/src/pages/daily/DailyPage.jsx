@@ -340,7 +340,7 @@ function TeamToday({ branchOptions }) {
             <CardContent className="divide-y divide-gray-100 p-0 pb-1">
               {g.people.map(({ user: u, state, record: r }) => (
                 <div key={u.id} className="flex items-center gap-3 px-4 sm:px-6 py-2.5" data-testid={`team-row-${u.id}`}>
-                  <span className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-[10px] font-bold flex items-center justify-center shrink-0">{initials(u.name)}</span>
+                  <span className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-[10px] font-bold flex items-center justify-center shrink-0">{initials(u.name)}</span>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-gray-900 truncate">{u.name}</div>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">

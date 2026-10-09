@@ -5,7 +5,7 @@ import portalApi, { PORTAL_TOKEN } from "@/lib/portalApi";
 import { apiError } from "@/lib/api";
 import { saveBlobResponse } from "@/components/ExportMenu";
 import ClientDashboardView, { PeriodBar, DEFAULT_PERIODS, blobErrorText } from "@/components/ClientDashboardView";
-import { DotindotLogo, DotindotMark } from "@/components/DotindotLogo";
+import { DotindotMark, DotindotWordmark, DotindotStacked } from "@/components/DotindotLogo";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ export function PortalLoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FFF7ED] via-white to-white p-6" data-testid="portal-login-page">
       <div className="w-full max-w-sm">
-        <div className="mb-8"><DotindotLogo size={34} textClass="text-2xl" /></div>
+        <div className="mb-8"><DotindotStacked width={150} /></div>
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Client portal</h1>
         <p className="text-sm text-gray-500 mt-1 mb-7">See your projects, campaign results and payments, and download your monthly report.</p>
         <form onSubmit={submit} className="space-y-4">
@@ -113,8 +113,8 @@ export function PortalDashboardPage() {
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200/70">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <DotindotMark size={28} />
-            <span className="font-extrabold tracking-tight text-gray-900 hidden sm:inline">dotindot.</span>
+            <DotindotMark size={26} className="sm:hidden" />
+            <DotindotWordmark height={20} className="hidden sm:block" />
             <span className="text-gray-300 hidden sm:inline">/</span>
             <span className="text-sm font-semibold text-gray-700 truncate" data-testid="portal-client-name">{me?.client_name || d?.client?.name || ""}</span>
           </div>

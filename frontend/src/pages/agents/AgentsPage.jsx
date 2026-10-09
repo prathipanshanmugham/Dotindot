@@ -220,7 +220,7 @@ export default function AgentsPage() {
                         <XAxis type="number" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} />
                         <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={112} />
                         <Tooltip formatter={(v) => [`${v} h`, "Hours saved"]} cursor={{ fill: "#FFF7ED" }} />
-                        <Bar dataKey="hours" fill="#FBA834" radius={[0, 5, 5, 0]} maxBarSize={18} />
+                        <Bar dataKey="hours" fill="#FFAD42" radius={[0, 5, 5, 0]} maxBarSize={18} />
                       </BarChart>
                     </ResponsiveContainer>
                   </CardContent>

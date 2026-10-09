@@ -182,7 +182,7 @@ export default function AccessControlPage() {
               <CardContent className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-sm font-bold flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-sm font-bold flex items-center justify-center">
                       {selected.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}
                     </div>
                     <div>

@@ -1,26 +1,54 @@
-export const DotindotMark = ({ size = 36, light = false }) => (
-  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="dotGrad" x1="0" y1="48" x2="48" y2="0" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#F26B21" />
-        <stop offset="1" stopColor="#FBA834" />
-      </linearGradient>
-    </defs>
-    <path
-      d="M12 3H23C35.15 3 45 12.4 45 24C45 35.6 35.15 45 23 45H12C8.7 45 6 42.3 6 39V9C6 5.7 8.7 3 12 3Z"
-      fill={light ? "#FFFFFF" : "url(#dotGrad)"}
-    />
-    <circle cx="25" cy="24" r="6.5" fill={light ? "#F26B21" : "white"} />
-  </svg>
-);
+import { useId } from "react";
+import { BRAND, MARK_PATH, MARK_VIEWBOX, WORDMARK_DOT, WORDMARK_LETTERS, WORDMARK_TRANSFORM, WORDMARK_VIEWBOX } from "@/components/brandPaths";
 
-export const DotindotLogo = ({ size = 32, textClass = "text-xl" }) => (
-  <div className="flex items-center gap-2.5 select-none" data-testid="dotindot-logo">
-    <DotindotMark size={size} />
-    <span
-      className={`${textClass} font-extrabold tracking-tight bg-gradient-to-r from-[#F26B21] to-[#FBA834] bg-clip-text text-transparent`}
-    >
-      dotindot.
-    </span>
+/** The "D" mark. `size` is the height in px; `light` renders it white for orange/dark backgrounds. */
+export const DotindotMark = ({ size = 36, light = false, className = "", title = "dotindot" }) => {
+  const [w, h] = MARK_VIEWBOX;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} height={size} width={(size * w) / h} className={`shrink-0 ${className}`} role="img" aria-label={title} data-testid="dotindot-mark">
+      <path fillRule="evenodd" fill={light ? "#FFFFFF" : BRAND.mark} d={MARK_PATH} />
+    </svg>
+  );
+};
+
+/** The "dotindot." wordmark. `height` in px; `light` renders it white. */
+export const DotindotWordmark = ({ height = 24, light = false, className = "", title = "dotindot." }) => {
+  const id = useId().replace(/:/g, "");
+  const [w, h] = WORDMARK_VIEWBOX;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} height={height} width={(height * w) / h} className={`shrink-0 ${className}`} role="img" aria-label={title} data-testid="dotindot-wordmark">
+      {!light && (
+        <defs>
+          <linearGradient id={`wm-${id}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor={BRAND.wordFrom} />
+            <stop offset="1" stopColor={BRAND.wordTo} />
+          </linearGradient>
+        </defs>
+      )}
+      <g transform={WORDMARK_TRANSFORM}>
+        <path fill={light ? "#FFFFFF" : `url(#wm-${id})`} d={WORDMARK_LETTERS} />
+        <path fill={light ? "#FFFFFF" : BRAND.dot} d={WORDMARK_DOT} />
+      </g>
+    </svg>
+  );
+};
+
+/** Stacked lockup (mark above wordmark), as supplied. `width` in px. */
+export const DotindotStacked = ({ width = 160, light = false, className = "" }) => {
+  const [ww, wh] = WORDMARK_VIEWBOX;
+  const [mw, mh] = MARK_VIEWBOX;
+  const k = width / ww;
+  return (
+    <div className={`inline-flex flex-col items-center ${className}`} style={{ width, gap: 24 * k }} data-testid="dotindot-logo-stacked">
+      <DotindotMark size={mh * k} light={light} />
+      <DotindotWordmark height={wh * k} light={light} />
+    </div>
+  );
+};
+
+/** Default logo used across the app — the wordmark. `size` kept for older call sites (≈ wordmark height × 1.3). */
+export const DotindotLogo = ({ size, height, light = false, className = "" }) => (
+  <div className={`flex items-center select-none ${className}`} data-testid="dotindot-logo">
+    <DotindotWordmark height={height || Math.round((size || 32) * 0.72)} light={light} />
   </div>
 );

@@ -447,7 +447,8 @@ async def generate_template(key: str, date_from: Optional[str] = None, date_to: 
     data = await BUILDERS[key](df, dt, **kwargs)
     bn = await _branch_names(branch_ids)
     data["branch_filter"] = bn
-    data["period"] = f"{df} → {dt}" + (f" · Branches: {bn}" if bn else "")
+    data["period"] = data.pop("period_override", None) or f"{df} → {dt}"
+    data["period"] += f" · Branches: {bn}" if bn else ""
     data["sections"] = [{"title": s["title"],
                          "columns": [{"key": c[0], "label": c[1], "fmt": c[2]} for c in s["columns"]],
                          "rows": s["rows"]} for s in data["sections"]]
@@ -469,7 +470,7 @@ async def export_template(key: str, format: str = "pdf", date_from: Optional[str
         kwargs.update({"client_id": client_id, "variant": variant})
     data = await BUILDERS[key](df, dt, **kwargs)
     bn = await _branch_names(branch_ids)
-    subtitle = f"Period: {df} → {dt}" + (f" · Branches: {bn}" if bn else "")
+    subtitle = f"Period: {data.pop('period_override', None) or f'{df} → {dt}'}" + (f" · Branches: {bn}" if bn else "")
     if format == "pdf":
         blob = build_pdf(data["title"], subtitle, data["sections"], summary=data["summary"], generated_by=user.get("name", ""))
     else:

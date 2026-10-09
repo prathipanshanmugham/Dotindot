@@ -79,4 +79,4 @@ export const ExpenseStatusBadge = ({ status }) => (
   </Badge>
 );
 
-export const CHART_COLORS = ["#F26B21", "#FBA834", "#6366F1", "#10B981", "#64748B", "#EF4444", "#0EA5E9"];
+export const CHART_COLORS = ["#F26B21", "#FFAD42", "#6366F1", "#10B981", "#64748B", "#EF4444", "#0EA5E9"];

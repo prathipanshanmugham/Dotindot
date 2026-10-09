@@ -155,7 +155,7 @@ function useLayout(nodes, collapsed) {
 const NodeCard = ({ n, color, isRoot, selected, highlighted, hiddenCount, onToggle, hasKids, collapsed, onSelect, side, sub }) => {
   const vacant = n.kind === "role" && (n.people || []).length === 0;
   const base = isRoot
-    ? "bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white border-transparent"
+    ? "bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white border-transparent"
     : n.kind === "department" ? "bg-white text-gray-900" : "bg-white text-gray-900";
   return (
     <div className="absolute" style={{ left: -W / 2, top: -H / 2, width: W, height: H }}>
@@ -665,7 +665,7 @@ export default function OrgStructurePage() {
                 {locPeople.length === 0 && <p className="text-sm text-gray-400">Nobody is based here yet.</p>}
                 {locPeople.map((p) => (
                   <Link key={p.id} to={`/employees/${p.id}`} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 hover:border-orange-200">
-                    <span className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-xs font-bold flex items-center justify-center">{initialsOf(p.name)}</span>
+                    <span className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-xs font-bold flex items-center justify-center">{initialsOf(p.name)}</span>
                     <div className="min-w-0"><div className="text-sm font-medium text-gray-800 truncate">{p.name}</div><div className="text-[11px] text-gray-400 truncate">{p.designation || ROLE_LABELS[p.role] || labelize(p.role)}</div></div>
                   </Link>
                 ))}
@@ -707,7 +707,7 @@ export default function OrgStructurePage() {
                 {(selected.people || []).length === 0 && <p className="text-sm text-amber-700">Vacant: nobody holds this yet.</p>}
                 {(selected.people || []).map((p) => (
                   <Link key={p.id} to={`/employees/${p.id}`} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 hover:border-orange-200">
-                    <span className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-xs font-bold flex items-center justify-center">{initialsOf(p.name)}</span>
+                    <span className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-xs font-bold flex items-center justify-center">{initialsOf(p.name)}</span>
                     <div className="min-w-0"><div className="text-sm font-medium text-gray-800 truncate">{p.name}</div><div className="text-[11px] text-gray-400 truncate">{p.designation || ROLE_LABELS[p.role] || labelize(p.role)}{branchName(p.branch_id) ? ` · ${branchName(p.branch_id)}` : ""}</div></div>
                   </Link>
                 ))}

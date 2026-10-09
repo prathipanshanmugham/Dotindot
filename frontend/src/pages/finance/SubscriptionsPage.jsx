@@ -105,7 +105,7 @@ export default function SubscriptionsPage() {
               <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6B7280" }} axisLine={false} tickLine={false} interval={0} angle={-25} textAnchor="end" height={55} />
               <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={50} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: "#FFF7ED" }} />
-              <Bar dataKey="value" fill="#FBA834" radius={[5, 5, 0, 0]} maxBarSize={30} />
+              <Bar dataKey="value" fill="#FFAD42" radius={[5, 5, 0, 0]} maxBarSize={30} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

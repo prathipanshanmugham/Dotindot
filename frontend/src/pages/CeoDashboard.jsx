@@ -184,7 +184,7 @@ export default function CeoDashboard() {
                 <XAxis dataKey="region" tick={{ fontSize: 11, fill: "#6B7280" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`} />
                 <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: "#FFF7ED" }} />
-                <Bar dataKey="revenue" fill="#FBA834" radius={[6, 6, 0, 0]} maxBarSize={48} />
+                <Bar dataKey="revenue" fill="#FFAD42" radius={[6, 6, 0, 0]} maxBarSize={48} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -25,7 +25,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white font-bold flex items-center justify-center">
+            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white font-bold flex items-center justify-center">
               {(user?.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
             </div>
             <div>
@@ -50,7 +50,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
-            <DotindotLogo size={28} textClass="text-base" />
+            <DotindotLogo height={22} />
             <span className="text-xs text-gray-400">Internal Operations & Growth Platform</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">

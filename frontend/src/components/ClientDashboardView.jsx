@@ -112,7 +112,7 @@ export default function ClientDashboardView({ data: d }) {
                       <Badge variant="outline" className={`${cls} text-[11px] shrink-0`}>{label}</Badge>
                     </div>
                     <div className="mt-2.5 flex items-center gap-3">
-                      <div className="h-2 flex-1 rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-[#F26B21] to-[#FBA834]" style={{ width: `${p.progress}%` }} /></div>
+                      <div className="h-2 flex-1 rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-[#FE7A18] to-[#FFAD42]" style={{ width: `${p.progress}%` }} /></div>
                       <span className="text-xs font-semibold text-gray-700 font-mono w-10 text-right">{p.progress}%</span>
                     </div>
                     <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-xs text-gray-500">
@@ -248,7 +248,7 @@ export default function ClientDashboardView({ data: d }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {d.team.map((t, i) => (
                 <div key={i} className="flex items-center gap-2.5 rounded-lg border border-gray-100 px-2.5 py-2">
-                  <span className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-[10px] font-bold flex items-center justify-center shrink-0">{t.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}</span>
+                  <span className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-[10px] font-bold flex items-center justify-center shrink-0">{t.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}</span>
                   <div className="min-w-0"><div className="text-sm font-medium text-gray-900 truncate">{t.name}</div><div className="text-xs text-gray-500 truncate">{t.role}</div></div>
                 </div>
               ))}

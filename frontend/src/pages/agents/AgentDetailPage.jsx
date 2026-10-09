@@ -130,7 +130,7 @@ export default function AgentDetailPage() {
               {!a.open_to_all && a.assignees.length === 0 && <p className="text-sm text-gray-400">Nobody yet.</p>}
               {a.assignees.map((p) => (
                 <Link key={p.id} to={`/employees/${p.id}`} className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 hover:border-orange-200">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-xs font-bold flex items-center justify-center">{initialsOf(p.name)}</div>
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-xs font-bold flex items-center justify-center">{initialsOf(p.name)}</div>
                   <div className="min-w-0"><div className="text-sm font-medium text-gray-800 truncate">{p.name}</div><div className="text-[11px] text-gray-400">{ROLE_LABELS[p.role] || labelize(p.role)}</div></div>
                 </Link>
               ))}
@@ -175,7 +175,7 @@ export default function AgentDetailPage() {
                   <TableCell className="text-sm text-gray-600 min-w-[200px]">{u.task}{(u.client_name || u.project_name) && <span className="text-gray-400"> · {u.client_name || u.project_name}</span>}{u.note && <div className="text-xs text-gray-400 italic">{u.note}</div>}</TableCell>
                   <TableCell className="text-right font-mono text-sm whitespace-nowrap">{Math.round(u.minutes_saved)} min</TableCell>
                   <TableCell className={`text-xs font-medium whitespace-nowrap ${outcomeStyle[u.outcome] || ""}`}>{outcomeLabel[u.outcome] || u.outcome}</TableCell>
-                  <TableCell className="whitespace-nowrap">{u.rating ? <span className="inline-flex items-center gap-0.5 text-xs text-gray-600"><Star className="h-3.5 w-3.5 fill-[#FBA834] text-[#FBA834]" />{u.rating}</span> : <span className="text-xs text-gray-300">—</span>}</TableCell>
+                  <TableCell className="whitespace-nowrap">{u.rating ? <span className="inline-flex items-center gap-0.5 text-xs text-gray-600"><Star className="h-3.5 w-3.5 fill-[#FFAD42] text-[#FFAD42]" />{u.rating}</span> : <span className="text-xs text-gray-300">—</span>}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

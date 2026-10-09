@@ -126,6 +126,14 @@ Internal web app (FARM: FastAPI + React + MongoDB) for Dotindot Creative, an AI-
 - Optional demo data: `seed_v28.py` (fixed-date holidays only — add festival dates from your HR list; cost rates; London/Dubai vacant roles; three weeks of timesheets).
 - Tests: `tests/test_v28_rev7.py` (25 tests, self-contained).
 
+## v2.9 Revision 8 (9 Oct 2026) — new logo & branding
+- New dotindot. logo everywhere, rebuilt as vectors from the supplied artwork (`brand/`: wordmark, "D" mark and stacked lockup in colour and white; mark `#FF831F`, wordmark gradient `#FE7A18 → #FFAD42`). `DotindotLogo.jsx` now exports `DotindotWordmark`, `DotindotMark`, `DotindotStacked` (inline SVG from `brandPaths.js`).
+- App: sidebar + phone header (wordmark, links home), login (white wordmark on the logo gradient with a large "D" watermark; colour wordmark on phones), client portal (stacked logo on sign-in, wordmark/mark in the header), Sales View, Settings, quote document. Brand gradient (avatars, bars, highlights) switched to the logo gradient app-wide; buttons/links keep the deeper `#F26B21` for legible white text.
+- Browser/app icons: new `favicon.svg` + `favicon.ico`, `apple-touch-icon.png`, `manifest.json` (192/512 icons, theme `#FF831F`), page title "dotindot. Ops" and description.
+- PDFs (`export_engine._page_decorator`, used by every export, report, quote and the client report): full-colour wordmark on a white header with a brand-gradient rule, small "D" mark in the footer. Excel: wordmark image in the top-left of every sheet (title moved to row 2, table header to row 5). Assets in `backend/assets/brand/`.
+- Fixes: PDF title/subtitle overlap (leading), Cash Flow report shows its real 12-month window, "AI" category label.
+- Tests: `tests/test_v29_brand.py` (logo images present in PDF + Excel exports).
+
 ## Prioritized Backlog (post-launch ideas)
 - P2: multi-currency, email alert digests, scheduled auto-generated monthly reports, quote e-signature
 

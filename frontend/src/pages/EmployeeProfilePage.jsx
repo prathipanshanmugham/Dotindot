@@ -153,7 +153,7 @@ export default function EmployeeProfilePage() {
         <CardContent className="p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white font-extrabold flex items-center justify-center text-xl">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white font-extrabold flex items-center justify-center text-xl">
                 {initials(emp.name)}
               </div>
               <div>

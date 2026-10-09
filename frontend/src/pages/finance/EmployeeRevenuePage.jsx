@@ -43,7 +43,7 @@ export default function EmployeeRevenuePage() {
                   <span className="font-mono text-sm font-semibold">{formatINR(e.revenue)}</span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-100 overflow-hidden ml-7">
-                  <div className="h-full rounded-full bg-gradient-to-r from-[#F26B21] to-[#FBA834]" style={{ width: `${(e.revenue / maxRev) * 100}%` }} />
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#FE7A18] to-[#FFAD42]" style={{ width: `${(e.revenue / maxRev) * 100}%` }} />
                 </div>
               </div>
             ))}

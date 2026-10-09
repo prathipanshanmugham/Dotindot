@@ -51,7 +51,7 @@ export const PeopleStack = ({ people = [], max = 4, openToAll }) => {
   return (
     <div className="flex items-center">
       {people.slice(0, max).map((p, i) => (
-        <div key={p.id} title={p.name} className={`h-7 w-7 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white ${i ? "-ml-2" : ""}`}>
+        <div key={p.id} title={p.name} className={`h-7 w-7 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white ${i ? "-ml-2" : ""}`}>
           {initialsOf(p.name)}
         </div>
       ))}
@@ -336,7 +336,7 @@ export function LogUsageDialog({ open, onOpenChange, agent, onSaved }) {
             <div className="flex gap-1">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} type="button" onClick={() => set("rating", form.rating === n ? 0 : n)} className="p-1.5" aria-label={`${n} star${n > 1 ? "s" : ""}`} data-testid={`usage-rating-${n}`}>
-                  <Star className={`h-6 w-6 ${n <= (form.rating || 0) ? "fill-[#FBA834] text-[#FBA834]" : "text-gray-300"}`} />
+                  <Star className={`h-6 w-6 ${n <= (form.rating || 0) ? "fill-[#FFAD42] text-[#FFAD42]" : "text-gray-300"}`} />
                 </button>
               ))}
             </div>

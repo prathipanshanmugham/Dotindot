@@ -147,7 +147,7 @@ export default function UsersPage() {
               <TableRow key={u.id} data-testid={`user-row-${u.id}`}>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white text-xs font-bold flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-xs font-bold flex items-center justify-center">
                       {u.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}
                     </div>
                     <div>

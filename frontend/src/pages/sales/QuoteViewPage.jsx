@@ -93,7 +93,7 @@ export default function QuoteViewPage() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 sm:p-10 print:border-0 print:shadow-none" data-testid="quote-document">
         <div className="flex items-start justify-between pb-6 border-b-2 border-[#F26B21]">
           <div>
-            <DotindotLogo size={34} textClass="text-xl" />
+            <DotindotLogo height={28} />
             <div className="text-[11px] text-gray-400 mt-2 leading-relaxed">
               Dotindot Creative · AI-first digital agency<br />Mumbai, India · hello@dotindot.com
             </div>

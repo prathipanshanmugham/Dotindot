@@ -105,7 +105,7 @@ export default function EmployeesPage() {
             <Card className={`border-gray-200/80 shadow-sm hover:border-orange-300 hover:shadow-md transition-all h-full ${p.is_active === false ? "opacity-60" : ""}`}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white font-bold flex items-center justify-center text-sm">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white font-bold flex items-center justify-center text-sm">
                     {initials(p.name)}
                   </div>
                   <div className="flex items-center gap-1"><RoleBadge role={p.role} /><RowDeleteControls kit={del} row={p} /></div>
