@@ -20,7 +20,8 @@ PERMISSION_GROUPS = {
                 "finance.ai_spend", "finance.marketing", "finance.project_profit", "finance.employee_revenue", "finance.delete"],
     "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud", "sales.delete"],
     "Growth": ["ads", "ads.delete", "social", "social.delete", "influencers", "influencers.delete"],
-    "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete"],
+    "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete",
+                   "ai_agents", "ai_agents.manage", "ai_agents.delete", "org_structure", "org_structure.manage", "org_structure.delete"],
     "System": ["logs", "logs.delete", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal", "password_manager.delete"],
 }
 
@@ -29,19 +30,29 @@ DELETE_KEYS_SET = {k for k in ALL_KEYS if k.endswith(".delete")}
 
 _FINANCE_ALL = set(PERMISSION_GROUPS["Finance"]) - {"finance.delete"}
 
+# v2.6: every role can see the AI agents assigned to them and the org chart.
+_V26_EVERYONE = {"ai_agents", "org_structure"}
+
 ROLE_DEFAULTS = {
     "super_admin": set(ALL_KEYS),
-    "admin": set(ALL_KEYS) - DELETE_KEYS_SET,
+    # v2.6: Admin / CEO can delete everything by default (permanent user deletion stays super-admin only).
+    "admin": set(ALL_KEYS),
     "finance": {"clients", "projects", *_FINANCE_ALL, "sales.pipeline", "sales.quotes", "sales.targets",
-                "employees", "training", "partnerships", "assets", "locations", "reports"},
+                "employees", "training", "partnerships", "assets", "locations", "reports", *_V26_EVERYONE},
     "sales": {"clients", "projects", "sales.pipeline", "sales.quotes", "sales.targets", "sales.hud",
-              "employees", "training", "partnerships", "influencers", "locations", "reports"},
+              "employees", "training", "partnerships", "influencers", "locations", "reports", *_V26_EVERYONE},
     "pm": {"clients", "projects", "finance.project_profit", "sales.pipeline", "sales.quotes", "sales.targets",
-           "employees", "training", "partnerships", "locations", "reports"},
-    "employee": {"projects", "employees", "training"},
-    "ads_manager": {"ads", "clients"},
-    "social_manager": {"social", "influencers", "clients"},
+           "employees", "training", "partnerships", "locations", "reports", *_V26_EVERYONE, "ai_agents.manage"},
+    "employee": {"projects", "employees", "training", *_V26_EVERYONE},
+    "ads_manager": {"ads", "clients", *_V26_EVERYONE},
+    "social_manager": {"social", "influencers", "clients", *_V26_EVERYONE},
 }
+
+# Keys introduced in v2.6 per role — merged once into DB-saved role defaults (see migrate_role_defaults_v26).
+V26_NEW_KEYS = {role: (keys & {"ai_agents", "ai_agents.manage", "ai_agents.delete",
+                               "org_structure", "org_structure.manage", "org_structure.delete"})
+                for role, keys in ROLE_DEFAULTS.items()}
+V26_NEW_KEYS["admin"] = V26_NEW_KEYS["admin"] | DELETE_KEYS_SET
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
@@ -54,6 +65,19 @@ async def load_role_defaults():
         role = doc.get("role")
         if role in ROLE_DEFAULTS and role != "super_admin":
             ROLE_DEFAULTS[role] = {k for k in doc.get("permissions", []) if k in ALL_KEYS}
+
+
+async def migrate_role_defaults_v26():
+    """Role defaults saved in the DB before v2.6 don't know the new AI Agents / Org Structure keys.
+    Add each role's v2.6 defaults once (tracked in migrations) so the new tabs appear for everyone."""
+    if await db.migrations.find_one({"id": "role_defaults_v26"}):
+        return
+    async for doc in db.role_defaults.find({}, {"_id": 0}):
+        role = doc.get("role")
+        if role in V26_NEW_KEYS and role != "super_admin":
+            merged = set(doc.get("permissions", [])) | V26_NEW_KEYS[role]
+            await save_role_default(role, merged)
+    await db.migrations.insert_one({"id": "role_defaults_v26"})
 
 
 async def save_role_default(role: str, permissions: set):
@@ -176,6 +200,8 @@ PATH_PERMISSIONS = [
     ("/api/social", ("social",)),
     ("/api/influencers", ("influencers",)),
     ("/api/locations", ("locations",)),
+    ("/api/agents", ("ai_agents",)),
+    ("/api/org", ("org_structure",)),
     ("/api/logs", ("logs",)),
     ("/api/reports", ("reports",)),
     ("/api/access", ("access_control",)),

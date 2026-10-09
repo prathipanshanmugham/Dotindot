@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from models import PartnershipCreate, PartnershipUpdate
-from auth import require_roles, log_activity
+from auth import require_roles, log_activity, get_current_user
+from permissions import has_permission
 
 router = APIRouter()
 
@@ -85,13 +86,15 @@ async def update_partnership(pid: str, body: PartnershipUpdate, user: dict = Dep
 
 
 @router.delete("/partnerships/{pid}")
-async def delete_partnership(pid: str, user: dict = Depends(require_roles(*WRITE_ROLES))):
-    p = await db.partnerships.find_one({"id": pid})
+async def delete_partnership(pid: str, user: dict = Depends(get_current_user)):
+    """v2.6: same rules as every other delete — needs partnerships.delete, lands in the 24h recycle bin."""
+    from routes_records import hard_delete
+    if not has_permission(user, "partnerships.delete"):
+        raise HTTPException(status_code=403, detail="You don't have delete permission for partnerships")
+    p = await db.partnerships.find_one({"id": pid}, {"_id": 0})
     if not p:
         raise HTTPException(status_code=404, detail="Partnership not found")
-    await db.partnerships.delete_one({"id": pid})
-    await log_activity(user, "partnership_deleted", "partnership", pid, p["name"])
-    return {"ok": True}
+    return await hard_delete("partnerships", p, user)
 
 
 @router.post("/partnerships/{pid}/benefits/{benefit_id}/toggle")

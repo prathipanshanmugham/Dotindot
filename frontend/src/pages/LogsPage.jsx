@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PurgeAllLogs } from "@/components/PurgeAllLogs";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,6 +57,8 @@ export default function LogsPage() {
 
   useEffect(() => { loadMeta(); }, [loadMeta]);
   useEffect(() => { loadLogs(); }, [loadLogs]);
+  const del = useRecordDelete({ coll: "activity_logs", permKey: "logs.delete", rows: logs?.items || [], onDeleted: () => { loadLogs(); loadMeta(); },
+    labelOf: (l) => `${labelize(l.action)} by ${l.user_name || "unknown"}` });
 
   const setFilter = (k, v) => {
     setPage(1);
@@ -92,7 +95,7 @@ export default function LogsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Activity Logs</h1>
           <p className="text-sm text-gray-500 mt-1">Every login and record change across the platform.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ExportMenu
             dataset="logs"
             params={{
@@ -191,10 +194,11 @@ export default function LogsPage() {
 
       {/* Table */}
       <Card className="border-gray-200/80 shadow-sm overflow-hidden">
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60 text-left text-[11px] uppercase tracking-widest text-gray-400">
+                {del.canDelete && <th className="pl-4 pr-1 py-3 w-24 normal-case tracking-normal">{del.dialog}<BulkDeleteBar kit={del} /></th>}
                 <th className="px-5 py-3 font-semibold">When</th>
                 <th className="px-5 py-3 font-semibold">User</th>
                 <th className="px-5 py-3 font-semibold">Action</th>
@@ -203,13 +207,14 @@ export default function LogsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {!logs && (
-                <tr><td colSpan={4} className="px-5 py-10 text-center text-gray-400">Loading...</td></tr>
+                <tr><td colSpan={5} className="px-5 py-10 text-center text-gray-400">Loading...</td></tr>
               )}
               {logs?.items?.length === 0 && (
-                <tr><td colSpan={4} className="px-5 py-10 text-center text-gray-400">No log entries match your filters.</td></tr>
+                <tr><td colSpan={5} className="px-5 py-10 text-center text-gray-400">No log entries match your filters.</td></tr>
               )}
               {logs?.items?.map((l) => (
                 <tr key={l.id} className="hover:bg-orange-50/40 transition-colors" data-testid={`log-row-${l.id}`}>
+                  {del.canDelete && <td className="pl-4 pr-1 py-3 w-24"><RowDeleteControls kit={del} row={l} /></td>}
                   <td className="px-5 py-3 whitespace-nowrap font-mono text-xs text-gray-500">{fmtTs(l.timestamp)}</td>
                   <td className="px-5 py-3">
                     <div className="font-medium text-gray-800">{l.user_name || "—"}</div>

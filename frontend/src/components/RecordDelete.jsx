@@ -20,6 +20,7 @@ export const useRecordDelete = ({ coll, permKey, rows = [], onDeleted, labelOf =
   const selectedIds = ids.filter((id) => selected[id]);
   const kit = {
     canDelete, coll, labelOf,
+    rowCount: ids.length,
     selectedCount: selectedIds.length,
     allSelected: ids.length > 0 && selectedIds.length === ids.length,
     isSelected: (id) => !!selected[id],
@@ -38,7 +39,7 @@ export const useRecordDelete = ({ coll, permKey, rows = [], onDeleted, labelOf =
 export const RowDeleteControls = ({ kit, row, className = "" }) => {
   if (!kit.canDelete) return null;
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`} onClick={(e) => e.stopPropagation()}>
+    <span className={`inline-flex items-center gap-1 ${className}`} onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
       <Checkbox checked={kit.isSelected(row.id)} onCheckedChange={() => kit.toggle(row.id)} data-testid={`select-${kit.coll}-${row.id}`} />
       <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-600" onClick={() => kit.requestDelete(row)} data-testid={`delete-${kit.coll}-${row.id}`} title="Delete permanently">
         <Trash2 className="h-3.5 w-3.5" />
@@ -48,7 +49,7 @@ export const RowDeleteControls = ({ kit, row, className = "" }) => {
 };
 
 export const BulkDeleteBar = ({ kit }) => {
-  if (!kit.canDelete) return null;
+  if (!kit.canDelete || !kit.rowCount) return null;
   return (
     <span className="inline-flex items-center gap-2">
       <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
@@ -119,5 +120,38 @@ export const RecordDeleteDialog = ({ coll, target, labelOf, onClose, onDeleted }
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+};
+
+// v2.6: delete one line item inside a record (maintenance entry, metrics snapshot, collaboration…).
+// Two-step inline confirm: first tap arms it, second tap deletes. Hidden without the module's delete permission.
+export const SubItemDeleteButton = ({ coll, rid, field, itemId, permKey, label = "item", onDeleted, className = "" }) => {
+  const { hasPerm } = useAuth();
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  if (!hasPerm(permKey)) return null;
+  const run = async (e) => {
+    e.stopPropagation();
+    if (!armed) { setArmed(true); return; }
+    setBusy(true);
+    try {
+      const { data } = await api.delete(`/records/${coll}/${rid}/items/${field}/${itemId}`);
+      toast.success(`Deleted ${label}`);
+      onDeleted && onDeleted(data);
+    } catch (err) { toast.error(apiError(err)); } finally { setBusy(false); setArmed(false); }
+  };
+  return armed ? (
+    <Button type="button" variant="destructive" size="sm" className={`h-7 px-2 text-[11px] ${className}`} disabled={busy} onClick={run} data-testid={`subitem-confirm-${itemId}`}>
+      Delete?
+    </Button>
+  ) : (
+    <Button type="button" variant="ghost" size="icon" className={`h-7 w-7 text-gray-400 hover:text-red-600 ${className}`} onClick={run} title={`Delete ${label}`} aria-label={`Delete ${label}`} data-testid={`subitem-delete-${itemId}`}>
+      <Trash2 className="h-3.5 w-3.5" />
+    </Button>
   );
 };

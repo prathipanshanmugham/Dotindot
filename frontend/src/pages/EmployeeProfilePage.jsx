@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { RecordDeleteDialog } from "@/components/RecordDelete";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError } from "@/lib/api";
@@ -17,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LocationFields } from "@/components/LocationFields";
 import {
   Mail, Phone, MapPin, CalendarDays, Building2, Pencil, FolderKanban,
-  IndianRupee, CheckCircle2, GraduationCap, Plus, Trash2, Boxes,
+  IndianRupee, CheckCircle2, GraduationCap, Plus, Trash2, Boxes, Network, Bot, Target as TargetIcon,
 } from "lucide-react";
 
 const initials = (name) => (name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -44,8 +45,12 @@ const PerfCard = ({ icon: Icon, label, value, sub, testid }) => (
 
 export default function EmployeeProfilePage() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, hasPerm } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [orgRoles, setOrgRoles] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [delOpen, setDelOpen] = useState(false);
   const [error, setError] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -64,6 +69,11 @@ export default function EmployeeProfilePage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (hasPerm("org_structure")) api.get(`/org/person/${id}`).then((r) => setOrgRoles(r.data)).catch(() => setOrgRoles([]));
+    if (hasPerm("ai_agents")) api.get("/agents", { params: { assignee: id } }).then((r) => setAgents(r.data)).catch(() => setAgents([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
   useEffect(() => {
     if (canManageTraining) api.get("/training/courses").then((r) => setCourses(r.data)).catch(() => {});
   }, [canManageTraining]);
@@ -170,11 +180,19 @@ export default function EmployeeProfilePage() {
                 )}
               </div>
             </div>
-            {canEdit && (
-              <Button variant="outline" size="sm" onClick={openEdit} data-testid="edit-profile-btn">
-                <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit profile
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <Button variant="outline" size="sm" onClick={openEdit} data-testid="edit-profile-btn">
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit profile
+                </Button>
+              )}
+              {user?.role === "super_admin" && !isSelf && (
+                <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setDelOpen(true)} data-testid="delete-employee-btn">
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                </Button>
+              )}
+            </div>
+            {delOpen && <RecordDeleteDialog coll="users" target={emp} labelOf={(x) => x.name} onClose={() => setDelOpen(false)} onDeleted={() => navigate("/employees")} />}
           </div>
         </CardContent>
       </Card>
@@ -192,6 +210,8 @@ export default function EmployeeProfilePage() {
           <TabsTrigger value="projects" data-testid="tab-projects">Projects</TabsTrigger>
           <TabsTrigger value="training" data-testid="tab-training">Training</TabsTrigger>
           <TabsTrigger value="assets" data-testid="tab-assets">Assets{assets.length > 0 ? ` (${assets.length})` : ""}</TabsTrigger>
+          {hasPerm("org_structure") && <TabsTrigger value="role" data-testid="tab-role">Role</TabsTrigger>}
+          {hasPerm("ai_agents") && <TabsTrigger value="agents" data-testid="tab-agents">AI agents{agents.length ? ` (${agents.length})` : ""}</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="projects" className="mt-4">
@@ -313,6 +333,62 @@ export default function EmployeeProfilePage() {
                     {labelize(a.status)}
                   </Badge>
                 </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="role" className="mt-4 space-y-4">
+          {orgRoles.length === 0 && (
+            <Card className="border-gray-200/80"><CardContent className="p-6 text-sm text-gray-400 text-center">
+              Not placed in the org chart yet. <Link to="/org" className="text-[#F26B21] font-semibold">Open Org Structure</Link>
+            </CardContent></Card>
+          )}
+          {orgRoles.map((r) => (
+            <Card key={r.id} className="border-gray-200/80 shadow-sm" data-testid={`profile-role-${r.id}`}>
+              <CardContent className="p-5 space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{labelize(r.kind)}</div>
+                    <div className="text-lg font-semibold text-gray-900">{r.title}</div>
+                    {r.reports_to && <div className="text-sm text-gray-500">Reports to {r.reports_to.title}{r.reports_to.people.length ? ` (${r.reports_to.people.join(", ")})` : ""}</div>}
+                  </div>
+                  <Link to="/org" className="inline-flex items-center gap-1 text-xs font-semibold text-[#F26B21]"><Network className="h-3.5 w-3.5" /> View in org chart</Link>
+                </div>
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Responsibilities</div>
+                  {(r.responsibilities || []).length === 0 && <p className="text-sm text-gray-400">None written yet.</p>}
+                  <ul className="space-y-1.5">{(r.responsibilities || []).map((x, i) => <li key={i} className="flex gap-2 text-sm text-gray-700"><CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />{x}</li>)}</ul>
+                </div>
+                {(r.kpis || []).length > 0 && (
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5 flex items-center gap-1"><TargetIcon className="h-3.5 w-3.5" /> KPIs</div>
+                    <div className="flex flex-wrap gap-1.5">{r.kpis.map((k, i) => <Badge key={i} variant="outline" className="bg-[#FFF7ED] border-orange-200 text-gray-700">{k}</Badge>)}</div>
+                  </div>
+                )}
+                {(r.direct_reports || []).length > 0 && (
+                  <div className="text-sm text-gray-600"><span className="font-semibold text-gray-800">Direct reports:</span> {r.direct_reports.map((d) => `${d.title}${d.people.length ? ` (${d.people.join(", ")})` : ""}`).join(" · ")}</div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
+
+        <TabsContent value="agents" className="mt-4">
+          <Card className="border-gray-200/80 shadow-sm">
+            <CardContent className="p-0 divide-y divide-gray-100" data-testid="profile-agents-list">
+              {agents.length === 0 && <div className="p-6 text-sm text-gray-400 text-center">No AI agents assigned.</div>}
+              {agents.map((a) => (
+                <Link key={a.id} to={`/agents/${a.id}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 hover:bg-orange-50/40" data-testid={`profile-agent-${a.id}`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-9 w-9 rounded-xl bg-[#FFF7ED] flex items-center justify-center shrink-0"><Bot style={{ height: 16, width: 16 }} className="text-[#F26B21]" /></div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-gray-800 truncate">{a.name}</div>
+                      <div className="text-xs text-gray-400 truncate">{a.purpose}</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500">{a.stats.runs_30d} runs · {a.stats.hours_saved_30d}h saved (30d)</div>
+                </Link>
               ))}
             </CardContent>
           </Card>

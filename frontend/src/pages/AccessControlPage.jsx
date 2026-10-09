@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ShieldCheck, RotateCcw, MapPin, Lock, Save } from "lucide-react";
 
 // Display-name overrides for permission keys (keys themselves stay stable)
-const PERM_LABELS = { "sales.hud": "Sales — Sales View (TV mode)" };
+const PERM_LABELS = { "sales.hud": "Sales — Sales View (TV mode)", "ai_agents": "AI Agents — View assigned agents & log runs", "ai_agents.manage": "AI Agents — Add, edit & assign", "ai_agents.delete": "AI Agents — Delete", "org_structure": "Org Structure — View", "org_structure.manage": "Org Structure — Edit & move roles", "org_structure.delete": "Org Structure — Delete" };
 
 export default function AccessControlPage() {
   const { user: me } = useAuth();

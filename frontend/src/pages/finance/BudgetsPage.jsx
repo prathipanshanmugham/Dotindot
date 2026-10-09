@@ -83,7 +83,7 @@ export default function BudgetsPage() {
         {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {report?.rows?.map((r) => (
           <Card key={r.id} className={`border ${r.over ? "border-red-300 bg-red-50/40" : "border-gray-200/80"}`} data-testid={`budget-row-${r.category}`}>
-            <CardContent className="p-4"><div className="flex justify-end -mb-6 relative z-10"><RowDeleteControls kit={del} row={r} /></div>
+            <CardContent className="p-4">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-gray-800">{labelize(r.category)}</span>
@@ -98,7 +98,9 @@ export default function BudgetsPage() {
                     <span className={r.over ? "text-red-600 font-semibold" : "text-gray-800 font-semibold"}>{formatINR(r.actual)}</span>
                     <span className="text-gray-400"> / {formatINR(r.amount)}</span>
                   </span>
-                  <Button variant="ghost" size="icon" onClick={() => remove(r.id)} data-testid={`delete-budget-${r.id}`}><Trash2 className="h-3.5 w-3.5 text-gray-300 hover:text-red-500" /></Button>
+                  {del.canDelete ? <RowDeleteControls kit={del} row={r} /> : (
+                    <Button variant="ghost" size="icon" onClick={() => remove(r.id)} data-testid={`delete-budget-${r.id}`}><Trash2 className="h-3.5 w-3.5 text-gray-300 hover:text-red-500" /></Button>
+                  )}
                 </div>
               </div>
               <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">

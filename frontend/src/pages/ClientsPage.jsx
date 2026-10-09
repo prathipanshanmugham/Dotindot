@@ -152,14 +152,14 @@ export default function ClientsPage() {
       <Card className="border-gray-200/80 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50/70"><TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
+            <TableRow className="bg-gray-50/70">{del.canDelete && <TableHead className="w-20"><BulkDeleteBar kit={del} />{del.dialog}</TableHead>}
               <TableHead>Client</TableHead>
-              <TableHead>Industry</TableHead>
-              <TableHead>Service</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Location</TableHead>
+              <TableHead className="hidden md:table-cell">Industry</TableHead>
+              <TableHead className="hidden md:table-cell">Service</TableHead>
+              <TableHead className="hidden md:table-cell">Size</TableHead>
+              <TableHead className="hidden md:table-cell">Location</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Projects</TableHead>
+              <TableHead className="hidden md:table-cell">Projects</TableHead>
               <TableHead>Health</TableHead>
             </TableRow>
           </TableHeader>
@@ -170,19 +170,20 @@ export default function ClientsPage() {
               <TableRow><TableCell colSpan={8} className="text-center py-10 text-sm text-gray-400">No clients match these filters.</TableCell></TableRow>
             ) : (
               clients.map((c) => (
-                <TableRow key={c.id} onClick={() => navigate(`/clients/${c.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`client-row-${c.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={c} /></TableCell>
+                <TableRow key={c.id} onClick={() => navigate(`/clients/${c.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`client-row-${c.id}`}>{del.canDelete && <TableCell className="w-20"><RowDeleteControls kit={del} row={c} /></TableCell>}
                   <TableCell>
                     <div className="font-semibold text-gray-900">{c.name}</div>
                     <div className="text-xs text-gray-400">{c.company}</div>
+                    <div className="md:hidden text-[11px] text-gray-400">{labelize(c.industry)} · {c.city}</div>
                   </TableCell>
-                  <TableCell className="text-sm text-gray-600">{labelize(c.industry)}</TableCell>
-                  <TableCell className="text-sm text-gray-600">{labelize(c.service_type)}{c.retainer ? " · Retainer" : ""}</TableCell>
-                  <TableCell className="text-sm text-gray-600">{labelize(c.size)}</TableCell>
-                  <TableCell className="text-sm text-gray-600">
+                  <TableCell className="hidden md:table-cell text-sm text-gray-600">{labelize(c.industry)}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-gray-600">{labelize(c.service_type)}{c.retainer ? " · Retainer" : ""}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-gray-600">{labelize(c.size)}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-gray-600">
                     <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3 text-gray-400" />{c.city}{c.region ? `, ${c.region}` : ""}</span>
                   </TableCell>
                   <TableCell><ClientStatusBadge status={c.status} /></TableCell>
-                  <TableCell className="text-sm text-gray-700 font-medium">{c.project_count} <span className="text-gray-400 text-xs">({c.active_projects} active)</span></TableCell>
+                  <TableCell className="hidden md:table-cell text-sm text-gray-700 font-medium">{c.project_count} <span className="text-gray-400 text-xs">({c.active_projects} active)</span></TableCell>
                   <TableCell><HealthBadge health={c.health} /></TableCell>
                 </TableRow>
               ))

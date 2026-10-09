@@ -81,7 +81,7 @@ export default function CeoDashboard() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Good to see you, {user.name.split(" ")[0]}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{d.range.start} → {d.range.end} · compared with {d.prev_range.start} → {d.prev_range.end}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DashboardSwitcher current="ceo" />
           <BranchFilter value={branch} onChange={setBranch} testid="ceo-branch-filter" />
           <Select value={period} onValueChange={setPeriod}>

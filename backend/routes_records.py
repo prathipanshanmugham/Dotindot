@@ -23,6 +23,19 @@ DELETE_KEYS = {
     "training_courses": "training.delete", "training_assignments": "training.delete",
     "password_entries": "password_manager.delete", "activity_logs": "logs.delete",
     "users": "__super_admin__",
+    "ai_agents": "ai_agents.delete", "ai_agent_usage": "ai_agents.delete",
+    "org_nodes": "org_structure.delete",
+}
+
+# Line items stored inside a parent record that can be removed one by one: collection -> {array field: module delete key}
+SUB_ITEMS = {
+    "clients": {"contacts": "clients.delete", "contracts": "clients.delete", "credentials": "clients.delete"},
+    "projects": {"milestones": "projects.delete", "deliverables": "projects.delete"},
+    "assets": {"maintenance_log": "assets.delete", "assignment_history": "assets.delete"},
+    "ad_campaigns": {"metrics_history": "ads.delete"},
+    "influencers": {"collaborations": "influencers.delete"},
+    "partnerships": {"benefits": "partnerships.delete"},
+    "ai_agents": {"prompts": "ai_agents.delete"},
 }
 
 
@@ -67,6 +80,28 @@ async def delete_one(coll: str, rid: str, user: dict = Depends(get_current_user)
 
 class BulkBody(BaseModel):
     ids: List[str]
+
+
+@router.delete("/records/{coll}/{rid}/items/{field}/{item_id}")
+async def delete_sub_item(coll: str, rid: str, field: str, item_id: str, user: dict = Depends(get_current_user)):
+    """Remove one line item (a contact, maintenance entry, metrics snapshot, collaboration…) from a record."""
+    key = SUB_ITEMS.get(coll, {}).get(field)
+    if not key:
+        raise HTTPException(status_code=404, detail="These items can't be deleted individually")
+    if not has_permission(user, key):
+        raise HTTPException(status_code=403, detail=f"You don't have delete permission for this module ({key})")
+    doc = await db[coll].find_one({"id": rid}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Record not found")
+    items = doc.get(field) or []
+    keep = [x for x in items if not (isinstance(x, dict) and x.get("id") == item_id)]
+    if len(keep) == len(items):
+        raise HTTPException(status_code=404, detail="Item not found")
+    removed = next(x for x in items if isinstance(x, dict) and x.get("id") == item_id)
+    await db[coll].update_one({"id": rid}, {"$set": {field: keep}})
+    label = removed.get("title") or removed.get("name") or removed.get("description") or removed.get("item") or removed.get("campaign_name") or removed.get("date") or item_id
+    await log_activity(user, "record_item_deleted", coll, rid, f"{_label(doc)} · {field}: {label}")
+    return {"ok": True, field: keep}
 
 
 @router.post("/records/{coll}/bulk-delete")

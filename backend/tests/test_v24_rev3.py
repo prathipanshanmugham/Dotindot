@@ -103,14 +103,14 @@ class TestAssetsDelete:
         assert r.status_code in (200, 201), f"create asset -> {r.status_code} {r.text}"
         return r.json()["id"]
 
-    def test_midhun_forbidden_delete(self, tokens):
+    def test_midhun_can_delete_since_v26(self, tokens):
+        """v2.6: Admin / CEO has assets.delete by default (was super-admin only in v2.4)."""
         aid = self._create_asset(tokens["admin"], "TEST_asset_midhun_delete")
         r = requests.delete(f"{API}/assets/{aid}", headers=H(tokens["midhun"]))
-        assert r.status_code == 403
-        rb = requests.post(f"{API}/assets/bulk-delete", json={"ids": [aid]}, headers=H(tokens["midhun"]))
-        assert rb.status_code == 403
-        # cleanup
-        requests.delete(f"{API}/assets/{aid}", headers=H(tokens["admin"]))
+        assert r.status_code == 200, r.text
+        aid2 = self._create_asset(tokens["admin"], "TEST_asset_midhun_bulk")
+        rb = requests.post(f"{API}/assets/bulk-delete", json={"ids": [aid2]}, headers=H(tokens["midhun"]))
+        assert rb.status_code == 200, rb.text
 
     def test_admin_delete_and_recycle_bin(self, tokens):
         aid = self._create_asset(tokens["admin"], "TEST_asset_recycle")

@@ -5,7 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { labelize } from "@/components/Badges";
-import { History, Undo2 } from "lucide-react";
+import { History, Undo2, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const remaining = (iso) => {
   const ms = new Date(iso) - Date.now();
@@ -17,6 +21,7 @@ const remaining = (iso) => {
 // 24h undo for Workspace hard-deletes (super_admin only)
 export const RecycleBin = ({ onRestored }) => {
   const [rows, setRows] = useState([]);
+  const [armed, setArmed] = useState(null);
 
   const load = useCallback(() => {
     api.get("/workspace/recycle-bin").then((r) => setRows(r.data)).catch(() => {});
@@ -26,7 +31,8 @@ export const RecycleBin = ({ onRestored }) => {
     load();
     const t = setInterval(load, 30000);
     window.addEventListener("workspace-deleted", load);
-    return () => { clearInterval(t); window.removeEventListener("workspace-deleted", load); };
+    window.addEventListener("records-changed", load);
+    return () => { clearInterval(t); window.removeEventListener("workspace-deleted", load); window.removeEventListener("records-changed", load); };
   }, [load]);
 
   const restore = async (s) => {
@@ -38,10 +44,46 @@ export const RecycleBin = ({ onRestored }) => {
     } catch (e) { toast.error(apiError(e)); }
   };
 
+  const purge = async (s) => {
+    if (armed !== s.id) { setArmed(s.id); setTimeout(() => setArmed((a) => (a === s.id ? null : a)), 4000); return; }
+    try {
+      await api.delete(`/workspace/recycle-bin/${s.id}`);
+      toast.success(`"${s.label}" deleted for good`);
+      setArmed(null);
+      load();
+    } catch (e) { toast.error(apiError(e)); }
+  };
+  const emptyBin = async () => {
+    try {
+      const { data } = await api.delete("/workspace/recycle-bin");
+      toast.success(`Recycle bin emptied (${data.deleted_count})`);
+      load();
+    } catch (e) { toast.error(apiError(e)); }
+  };
+
   return (
     <Card className="border-gray-200/80 shadow-sm" data-testid="recycle-bin">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold flex items-center gap-2"><History className="h-4 w-4 text-[#F26B21]" /> Recently deleted</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold flex items-center gap-2"><History className="h-4 w-4 text-[#F26B21]" /> Recently deleted</CardTitle>
+          {rows.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" data-testid="recycle-empty-btn"><Trash2 className="h-3.5 w-3.5 mr-1.5" /> Empty bin</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Empty the recycle bin?</AlertDialogTitle>
+                  <AlertDialogDescription>All {rows.length} deleted record{rows.length > 1 ? "s" : ""} will be gone for good. This can't be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={emptyBin} className="bg-red-600 hover:bg-red-700" data-testid="recycle-empty-confirm">Empty bin</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
         <p className="text-xs text-gray-400">Hard-deleted records can be restored for 24 hours (including cascaded dependents). After that they are purged permanently.</p>
       </CardHeader>
       <CardContent>
@@ -58,9 +100,15 @@ export const RecycleBin = ({ onRestored }) => {
                   <span className="text-amber-600 font-semibold">· {remaining(s.expires_at)}</span>
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => restore(s)} data-testid={`recycle-restore-${s.record_id}`}>
-                <Undo2 className="h-3.5 w-3.5 mr-1.5" /> Undo
-              </Button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => restore(s)} data-testid={`recycle-restore-${s.record_id}`}>
+                  <Undo2 className="h-3.5 w-3.5 mr-1.5" /> Undo
+                </Button>
+                <Button size="sm" variant={armed === s.id ? "destructive" : "ghost"} className={armed === s.id ? "" : "text-gray-400 hover:text-red-600"} onClick={() => purge(s)}
+                  aria-label="Delete for good" title="Delete for good" data-testid={`recycle-purge-${s.record_id}`}>
+                  {armed === s.id ? "Delete for good?" : <Trash2 className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
             </div>
           ))}
         </div>

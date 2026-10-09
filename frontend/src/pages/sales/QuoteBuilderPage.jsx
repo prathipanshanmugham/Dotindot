@@ -112,16 +112,16 @@ export default function QuoteBuilderPage() {
             <div>
               <Label className="text-sm font-semibold">Line items</Label>
               <div className="space-y-2 mt-2">
-                <div className="grid grid-cols-[1.8fr_0.5fr_0.8fr_0.8fr_auto] gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 px-1">
+                <div className="hidden sm:grid grid-cols-[1.8fr_0.5fr_0.8fr_0.8fr_auto] gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 px-1">
                   <span>Description</span><span>Qty</span><span>Unit price ₹</span><span className="text-right">Total</span><span />
                 </div>
                 {form.items.map((it, i) => (
-                  <div key={i} className="grid grid-cols-[1.8fr_0.5fr_0.8fr_0.8fr_auto] gap-2 items-center">
-                    <Input data-testid={`quote-item-desc-${i}`} value={it.description} onChange={(e) => setItem(i, "description", e.target.value)} placeholder="Service / deliverable" />
-                    <Input data-testid={`quote-item-qty-${i}`} type="number" min="0" value={it.qty} onChange={(e) => setItem(i, "qty", e.target.value)} />
-                    <Input data-testid={`quote-item-price-${i}`} type="number" min="0" value={it.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} />
-                    <div className="text-right font-mono text-sm font-semibold">{formatINR((Number(it.qty) || 0) * (Number(it.unit_price) || 0))}</div>
-                    <Button variant="ghost" size="icon" onClick={() => set("items", form.items.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4 text-gray-300" /></Button>
+                  <div key={i} className="grid grid-cols-[64px_1fr_auto] sm:grid-cols-[1.8fr_0.5fr_0.8fr_0.8fr_auto] gap-2 items-center rounded-lg border border-gray-100 p-2 sm:border-0 sm:p-0">
+                    <Input className="col-span-3 sm:col-span-1" data-testid={`quote-item-desc-${i}`} value={it.description} onChange={(e) => setItem(i, "description", e.target.value)} placeholder="Service / deliverable" />
+                    <Input aria-label="Quantity" placeholder="Qty" data-testid={`quote-item-qty-${i}`} type="number" min="0" value={it.qty} onChange={(e) => setItem(i, "qty", e.target.value)} />
+                    <Input aria-label="Unit price" placeholder="Unit price ₹" data-testid={`quote-item-price-${i}`} type="number" min="0" value={it.unit_price} onChange={(e) => setItem(i, "unit_price", e.target.value)} />
+                    <div className="col-span-2 sm:col-span-1 text-left sm:text-right font-mono text-sm font-semibold">{formatINR((Number(it.qty) || 0) * (Number(it.unit_price) || 0))}</div>
+                    <Button variant="ghost" size="icon" aria-label="Remove line item" onClick={() => set("items", form.items.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4 text-gray-300" /></Button>
                   </div>
                 ))}
                 <Button variant="outline" size="sm" onClick={() => set("items", [...form.items, { ...EMPTY_ITEM }])} data-testid="quote-add-item-btn">

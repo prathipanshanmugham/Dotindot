@@ -98,7 +98,7 @@ export default function TargetsPage() {
         {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {targets.map((t) => (
           <Card key={t.id} className="border-gray-200/80" data-testid={`target-row-${t.id}`}>
-            <CardContent className="p-4"><div className="flex justify-end -mb-6 relative z-10"><RowDeleteControls kit={del} row={t} /></div>
+            <CardContent className="p-4">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-gray-800">{t.user_name}</span>
@@ -114,7 +114,7 @@ export default function TargetsPage() {
                     <span className="font-semibold">{formatINR(t.actual)}</span>
                     <span className="text-gray-400"> / {formatINR(t.amount)}</span>
                   </span>
-                  {canWrite && (
+                  {del.canDelete ? <RowDeleteControls kit={del} row={t} /> : canWrite && (
                     <Button variant="ghost" size="icon" onClick={() => remove(t.id)} data-testid={`delete-target-${t.id}`}>
                       <Trash2 className="h-3.5 w-3.5 text-gray-300 hover:text-red-500" />
                     </Button>

@@ -204,7 +204,8 @@ class TestDeletePipeline:
 
 # --------------- 4. Permission enforcement ---------------
 class TestPermissionEnforcement:
-    def test_midhun_cannot_delete_and_grant_finance(self, admin_token, midhun_token):
+    def test_midhun_delete_follows_permissions(self, admin_token, midhun_token):
+        """v2.6: Admin / CEO deletes by default; revoking a module's .delete key via override blocks it again."""
         ah = _hdr(admin_token)
         mh = _hdr(midhun_token)
 
@@ -214,39 +215,24 @@ class TestPermissionEnforcement:
             "next_renewal_date": "2026-12-01", "ai_tool": "OpenAI"}).json()
         br = requests.post(f"{API}/locations/branches", headers=ah, json={
             "name": "T-Br-2", "country": "India", "state": "Kerala", "city": "Kochi"}).json()
-        tx = requests.post(f"{API}/finance/transactions", headers=ah, json={
-            "type": "expense", "category": "ai_tools", "amount": 10,
-            "description": "T-tx-perm", "date": "2026-09-29"}).json()
 
-        # Midhun cannot delete
-        assert requests.delete(f"{API}/records/subscriptions/{sub['id']}", headers=mh).status_code == 403
-        assert requests.delete(f"{API}/records/branches/{br['id']}", headers=mh).status_code == 403
-        assert requests.post(f"{API}/records/transactions/bulk-delete", headers=mh,
-                             json={"ids": [tx["id"]]}).status_code == 403
-
-        # Look up midhun id
         users = requests.get(f"{API}/users", headers=ah).json()
         midhun = next(u for u in users if u["email"] == MIDHUN_EMAIL)
 
-        # Grant finance.delete
+        # Revoke locations.delete for midhun only
         r = requests.put(f"{API}/access/users/{midhun['id']}/permissions", headers=ah,
-                         json={"overrides": {"finance.delete": True}})
+                         json={"overrides": {"locations.delete": False}})
         assert r.status_code == 200, r.text
+        assert requests.delete(f"{API}/records/branches/{br['id']}", headers=mh).status_code == 403
 
-        # Now midhun deletes subscription (finance)
+        # Default (v2.6): midhun can delete finance records
         r = requests.delete(f"{API}/records/subscriptions/{sub['id']}", headers=mh)
         assert r.status_code == 200, r.text
 
-        # Still 403 on branches (locations.delete)
-        assert requests.delete(f"{API}/records/branches/{br['id']}", headers=mh).status_code == 403
-
-        # Reset
+        # Reset overrides → branch delete allowed again
         r = requests.post(f"{API}/access/users/{midhun['id']}/permissions/reset", headers=ah)
         assert r.status_code == 200
-
-        # Cleanup
-        requests.delete(f"{API}/records/branches/{br['id']}", headers=ah)
-        requests.post(f"{API}/records/transactions/bulk-delete", headers=ah, json={"ids": [tx["id"]]})
+        assert requests.delete(f"{API}/records/branches/{br['id']}", headers=mh).status_code == 200
 
     def test_delete_permission_keys_registered(self, admin_token):
         r = requests.get(f"{API}/access/registry", headers=_hdr(admin_token))

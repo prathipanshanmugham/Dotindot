@@ -70,7 +70,7 @@ export default function QuotesPage() {
               <TableRow><TableCell colSpan={6} className="text-center py-10 text-sm text-gray-400">No quotes.</TableCell></TableRow>
             ) : quotes.map((q) => (
               <TableRow key={q.id} onClick={() => navigate(`/sales/quotes/${q.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`quote-row-${q.id}`}><TableCell className="w-20"><RowDeleteControls kit={del} row={q} /></TableCell>
-                <TableCell className="font-mono text-sm font-semibold text-[#F26B21]">{q.number}</TableCell>
+                <TableCell className="font-mono text-sm font-semibold text-[#F26B21] whitespace-nowrap">{q.number}</TableCell>
                 <TableCell className="text-sm font-semibold text-gray-900 max-w-[280px] truncate">{q.title}</TableCell>
                 <TableCell className="text-sm text-gray-600">{q.lead_name || q.client_name || "—"}</TableCell>
                 <TableCell className="text-sm text-gray-500">{q.validity_date || "—"}</TableCell>

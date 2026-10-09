@@ -12,18 +12,24 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Trash2, MapPin, CalendarDays, IndianRupee, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, Trash2, MapPin, CalendarDays, IndianRupee, CheckCircle2, Circle, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import ProjectEditDialog from "@/components/ProjectEditDialog";
+import { RecordDeleteDialog } from "@/components/RecordDelete";
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasPerm } = useAuth();
   const [project, setProject] = useState(null);
   const [profit, setProfit] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [delOpen, setDelOpen] = useState(false);
 
   const canWrite = ["super_admin", "admin", "pm", "sales"].includes(user.role);
-  const canDelete = ["super_admin", "admin", "pm"].includes(user.role);
+  // v2.6: anyone with projects.delete (super admin, admin/CEO) deletes via the recycle-bin pipeline; PMs keep their old delete.
+  const canPermDelete = hasPerm("projects.delete");
+  const canDelete = canPermDelete || user.role === "pm";
   const isAssigned = project?.team_member_ids?.includes(user.id);
   const canToggle = canWrite || isAssigned;
 
@@ -78,6 +84,8 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6 max-w-6xl" data-testid="project-detail-page">
+      <ProjectEditDialog open={editOpen} onOpenChange={setEditOpen} project={project} onSaved={load} />
+      {delOpen && <RecordDeleteDialog coll="projects" target={project} labelOf={(x) => x.name} onClose={() => setDelOpen(false)} onDeleted={() => navigate("/projects")} />}
       <button onClick={() => navigate("/projects")} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#F26B21] transition-colors" data-testid="back-to-projects">
         <ArrowLeft className="h-4 w-4" /> Back to projects
       </button>
@@ -100,14 +108,24 @@ export default function ProjectDetailPage() {
             <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.location || "—"}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {canWrite && (
             <Select value={project.status} onValueChange={updateStatus}>
               <SelectTrigger className="w-[150px]" data-testid="project-status-select"><SelectValue /></SelectTrigger>
               <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s}>{labelize(s)}</SelectItem>)}</SelectContent>
             </Select>
           )}
-          {canDelete && (
+          {canWrite && (
+            <Button variant="outline" onClick={() => setEditOpen(true)} data-testid="edit-project-btn">
+              <Pencil className="h-4 w-4 mr-1.5" /> Edit project
+            </Button>
+          )}
+          {canPermDelete && (
+            <Button variant="outline" size="icon" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setDelOpen(true)} aria-label="Delete project" data-testid="delete-project-btn">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          {canDelete && !canPermDelete && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" data-testid="delete-project-btn">

@@ -92,13 +92,13 @@ export default function SalesHudPage() {
       )}
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 pt-5">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 pt-5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <DotindotMark size={30} />
           <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-[#F26B21] to-[#FBA834] bg-clip-text text-transparent">dotindot.</span>
-          <span className="text-xs font-bold uppercase tracking-[0.3em] text-white/40 ml-3">Sales View · {d.month}</span>
+          <span className="text-xs font-bold uppercase tracking-[0.3em] text-white/40 sm:ml-3">Sales View · {d.month}</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <span className="flex items-center gap-2 text-xs font-semibold text-emerald-400" data-testid="hud-live-indicator">
             <span className="h-2 w-2 rounded-full bg-emerald-400" style={{ animation: "hud-pulse 1.6s infinite" }} />
             LIVE · refreshes every 15s{updatedAt && ` · updated ${updatedAt.toLocaleTimeString("en-IN", { hour12: false })}`}

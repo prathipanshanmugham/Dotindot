@@ -17,6 +17,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Trash2, Plus, Mail, Phone, UserRound, Instagram } from "lucide-react";
+import { SubItemDeleteButton } from "@/components/RecordDelete";
 
 const COLLAB_EMPTY = { client_id: "", campaign_name: "", date: "", deliverable: "", amount: "", note: "" };
 
@@ -193,6 +194,7 @@ export default function InfluencerDetailPage() {
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-400">{c.date}</span>
                     <span className="font-mono text-sm font-bold">{formatINR(c.amount)}</span>
+                    <SubItemDeleteButton coll="influencers" rid={inf.id} field="collaborations" itemId={c.id} permKey="influencers.delete" label="collaboration" onDeleted={load} />
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">{c.deliverable}{c.note ? ` — ${c.note}` : ""}</div>

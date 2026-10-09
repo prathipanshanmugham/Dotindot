@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatINR, openReceipt } from "@/lib/api";
 import ExpenseSubmitDialog from "@/components/ExpenseSubmitDialog";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import { labelize, ExpenseStatusBadge } from "@/components/Badges";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ export default function MyExpensesPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  const del = useRecordDelete({ coll: "expenses", permKey: "finance.delete", rows, onDeleted: load, labelOf: (e) => e.description });
 
   const viewReceipt = async (path) => {
     try { await openReceipt(path); } catch (e) { toast.error("Could not open receipt"); }
@@ -39,15 +41,17 @@ export default function MyExpensesPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/70">
+              {del.canDelete && <TableHead className="w-24">{del.dialog}<BulkDeleteBar kit={del} /></TableHead>}
               <TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead>Description</TableHead>
               <TableHead>Receipt</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-10 text-sm text-gray-400">You haven't submitted any expenses yet.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-10 text-sm text-gray-400">You haven't submitted any expenses yet.</TableCell></TableRow>
             ) : rows.map((e) => (
               <TableRow key={e.id} data-testid={`my-expense-row-${e.id}`}>
+                {del.canDelete && <TableCell className="w-24"><RowDeleteControls kit={del} row={e} /></TableCell>}
                 <TableCell className="text-sm text-gray-600 whitespace-nowrap">{e.date}</TableCell>
                 <TableCell className="text-sm text-gray-700">{labelize(e.category)}</TableCell>
                 <TableCell className="text-sm text-gray-800 max-w-[280px] truncate">{e.description}</TableCell>

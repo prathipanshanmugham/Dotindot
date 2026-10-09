@@ -114,8 +114,8 @@ export default function PipelinePage() {
       </Card>
 
       {/* Kanban — horizontal scroll on mobile, grid on xl */}
+      {del.canDelete && leads.length > 0 && <div className="flex justify-end -mb-3">{del.dialog}<BulkDeleteBar kit={del} /></div>}
       <div className="flex gap-3 overflow-x-auto pb-3 xl:grid xl:grid-cols-6 xl:overflow-visible xl:pb-0" data-testid="pipeline-board">
-        {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {LEAD_STAGES.map((stage) => {
           const col = leads.filter((l) => l.stage === stage);
           const value = col.reduce((s, l) => s + (l.estimated_value || 0), 0);
@@ -134,7 +134,7 @@ export default function PipelinePage() {
                   return (
                     <div key={l.id}
                       className="rounded-lg bg-white border border-gray-200 p-2.5 hover:border-orange-300 hover:shadow-sm transition-all cursor-pointer"
-                      onClick={() => navigate(`/sales/leads/${l.id}`)} data-testid={`lead-card-${l.id}`}><div className="flex justify-end -mb-5 relative z-10"><RowDeleteControls kit={del} row={l} /></div>
+                      onClick={() => navigate(`/sales/leads/${l.id}`)} data-testid={`lead-card-${l.id}`}>
                       <div className="text-sm font-semibold text-gray-900 leading-tight flex items-start gap-1">
                         {overdue && <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />}
                         <span className="truncate">{l.name}</span>
@@ -144,22 +144,27 @@ export default function PipelinePage() {
                         <span className="font-mono text-xs font-bold text-[#F26B21]">{formatINR(l.estimated_value)}</span>
                         <span className="text-[10px] text-gray-400">{labelize(l.source)}{!l.owner_id && <span className="ml-1 rounded border border-dashed border-gray-300 px-1 text-gray-500" data-testid={`lead-unassigned-${l.id}`}>Unassigned</span>}</span>
                       </div>
-                      {canWrite && !l.converted_client_id && (
-                        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                          <Select value={l.stage} onValueChange={(v) => changeStage(l.id, v)}>
-                            <SelectTrigger className="h-6 text-[11px] px-2" data-testid={`stage-select-${l.id}`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {LEAD_STAGES.map((s) => <SelectItem key={s} value={s} className="text-xs">{labelize(s)}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                      {(del.canDelete || (canWrite && !l.converted_client_id) || l.converted_client_id) && (
+                        <div className="mt-2 flex items-center gap-1">
+                          {canWrite && !l.converted_client_id && (
+                            <div className="min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+                              <Select value={l.stage} onValueChange={(v) => changeStage(l.id, v)}>
+                                <SelectTrigger className="h-7 text-[11px] px-2" data-testid={`stage-select-${l.id}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {LEAD_STAGES.map((s) => <SelectItem key={s} value={s} className="text-xs">{labelize(s)}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          {l.converted_client_id && (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1">
+                              Converted <ChevronRight className="h-2.5 w-2.5" />
+                            </Badge>
+                          )}
+                          <RowDeleteControls kit={del} row={l} className="ml-auto shrink-0" />
                         </div>
-                      )}
-                      {l.converted_client_id && (
-                        <Badge variant="outline" className="mt-2 bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1">
-                          Converted <ChevronRight className="h-2.5 w-2.5" />
-                        </Badge>
                       )}
                     </div>
                   );

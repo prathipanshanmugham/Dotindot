@@ -8,14 +8,16 @@ import { DotindotLogo } from "@/components/DotindotLogo";
 import { saveBlobResponse } from "@/components/ExportMenu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Pencil, Printer, Send, Check, X, FileDown } from "lucide-react";
+import { ArrowLeft, Pencil, Printer, Send, Check, X, FileDown, Trash2 } from "lucide-react";
+import { RecordDeleteDialog } from "@/components/RecordDelete";
 import { toast } from "sonner";
 
 export default function QuoteViewPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasPerm } = useAuth();
   const [quote, setQuote] = useState(null);
+  const [delOpen, setDelOpen] = useState(false);
 
   const canWrite = ["super_admin", "admin", "sales"].includes(user.role);
 
@@ -51,7 +53,7 @@ export default function QuoteViewPage() {
         <button onClick={() => navigate("/sales/quotes")} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#F26B21] transition-colors" data-testid="quote-back-btn">
           <ArrowLeft className="h-4 w-4" /> Back to quotes
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {canWrite && quote.status === "draft" && (
             <Button size="sm" variant="outline" onClick={() => setStatus("sent")} data-testid="quote-mark-sent-btn">
               <Send className="h-3.5 w-3.5 mr-1.5" /> Mark sent
@@ -78,8 +80,14 @@ export default function QuoteViewPage() {
           <Button size="sm" onClick={() => window.print()} data-testid="quote-print-btn" className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold">
             <Printer className="h-3.5 w-3.5 mr-1.5" /> Print
           </Button>
+          {hasPerm("sales.delete") && (
+            <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setDelOpen(true)} aria-label="Delete quote" data-testid="quote-delete-btn">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
+      {delOpen && <RecordDeleteDialog coll="quotes" target={quote} labelOf={(x) => x.number || x.title} onClose={() => setDelOpen(false)} onDeleted={() => navigate("/sales/quotes")} />}
 
       {/* Printable document */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 sm:p-10 print:border-0 print:shadow-none" data-testid="quote-document">

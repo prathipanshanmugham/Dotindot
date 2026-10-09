@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import api from "@/lib/api";
 import { RoleBadge, ROLE_LABELS } from "@/components/Badges";
 import ExportMenu from "@/components/ExportMenu";
+import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,8 @@ export default function EmployeesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, role]);
 
+  // v2.6: super admin can permanently remove people from the directory (same pipeline as User Management)
+  const del = useRecordDelete({ coll: "users", permKey: "__super_admin__", rows: people || [], onDeleted: load, labelOf: (p) => p.name });
   if (!people)
     return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
@@ -95,6 +98,7 @@ export default function EmployeesPage() {
         </Select>
       </div>
 
+      {del.canDelete && people.length > 0 && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {people.map((p) => (
           <Link key={p.id} to={`/employees/${p.id}`} data-testid={`employee-card-${p.id}`}>
@@ -104,7 +108,7 @@ export default function EmployeesPage() {
                   <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#F26B21] to-[#FBA834] text-white font-bold flex items-center justify-center text-sm">
                     {initials(p.name)}
                   </div>
-                  <RoleBadge role={p.role} />
+                  <div className="flex items-center gap-1"><RoleBadge role={p.role} /><RowDeleteControls kit={del} row={p} /></div>
                 </div>
                 <div className="mt-3">
                   <div className="font-semibold text-gray-900 flex items-center gap-2">

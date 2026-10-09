@@ -96,9 +96,22 @@ async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depe
     _pc = await db.clients.find_one({"id": existing["client_id"]}, {"_id": 0, "branch_id": 1})
     check_branch_write(user, (_pc or {}).get("branch_id"), existing.get("created_by"))
     updates = body.model_dump(exclude_unset=True)
+    if "name" in updates and not (updates["name"] or "").strip():
+        raise HTTPException(status_code=400, detail="Project name can't be empty")
+    if updates.get("client_id") and updates["client_id"] != existing["client_id"]:
+        new_client = await db.clients.find_one({"id": updates["client_id"]}, {"_id": 0})
+        if not new_client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        check_branch_write(user, new_client.get("branch_id"))
+    elif "client_id" in updates:
+        updates.pop("client_id")
+    if updates.get("start_date") and updates.get("end_date") and updates["end_date"] < updates["start_date"]:
+        raise HTTPException(status_code=400, detail="End date must be after the start date")
+    restructured = bool({"milestones", "deliverables", "team_member_ids", "client_id"} & set(updates))
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.projects.update_one({"id": project_id}, {"$set": updates})
-    await log_activity(user, "project_updated", "project", project_id, updates.get("name", existing["name"]))
+    await log_activity(user, "project_restructured" if restructured else "project_updated", "project", project_id,
+                       updates.get("name", existing["name"]))
     return {"ok": True}
 
 

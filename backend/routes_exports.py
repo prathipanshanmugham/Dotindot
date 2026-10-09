@@ -294,6 +294,53 @@ async def fetch_partnerships(p, user):
         {"label": "Unused benefit value", "value": sum(r["unused_value"] for r in rows if r.get("status") == "active"), "money": True}]
 
 
+async def fetch_ai_agents(p, user):
+    from routes_agents import list_agents
+    rows = await list_agents(status=p.get("status"), platform=p.get("platform"), assignee=p.get("assignee"),
+                             search=p.get("search"), user=user)
+    for r in rows:
+        r["assigned_to"] = "Everyone" if r.get("open_to_all") else ", ".join(a["name"] for a in r.get("assignees", []))
+        r["runs_30d"] = r["stats"]["runs_30d"]
+        r["hours_saved_30d"] = r["stats"]["hours_saved_30d"]
+        r["last_used"] = r["stats"]["last_used_at"] or "Never"
+    cols = [("name", "Agent", "text"), ("platform", "Platform", "text"), ("agent_type", "Type", "text"),
+            ("status", "Status", "text"), ("owner_name", "Owner", "text"), ("assigned_to", "Assigned to", "text"),
+            ("monthly_cost", "Monthly cost", "money"), ("runs_30d", "Runs (30d)", "num"),
+            ("hours_saved_30d", "Hours saved (30d)", "num"), ("cost_per_hour_saved", "Cost / hour saved", "money"),
+            ("last_used", "Last used", "text")]
+    return "AI Agents", cols, rows, [
+        {"label": "Agents", "value": len(rows)},
+        {"label": "Monthly cost", "value": sum(r.get("monthly_cost", 0) for r in rows if r.get("status") == "active"), "money": True},
+        {"label": "Hours saved (30d)", "value": round(sum(r["hours_saved_30d"] for r in rows), 1)},
+        {"label": "Idle agents", "value": sum(1 for r in rows if r.get("idle"))}]
+
+
+async def fetch_org_structure(p, user):
+    nodes = await db.org_nodes.find({}, {"_id": 0}).sort("order", 1).to_list(3000)
+    people = {u["id"]: u["name"] for u in await db.users.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(2000)}
+    by_id = {n["id"]: n for n in nodes}
+    children = {}
+    for n in nodes:
+        children.setdefault(n.get("parent_id"), []).append(n)
+    rows = []
+
+    def walk(parent_id, depth):
+        for n in children.get(parent_id, []):
+            parent = by_id.get(n.get("parent_id"))
+            rows.append({"title": ("    " * depth) + n["title"], "kind": n.get("kind"),
+                         "people": ", ".join(people[x] for x in n.get("person_ids", []) if x in people) or "—",
+                         "reports_to": parent["title"] if parent else "—",
+                         "responsibilities": "; ".join(n.get("responsibilities") or []),
+                         "kpis": "; ".join(n.get("kpis") or [])})
+            walk(n["id"], depth + 1)
+    walk(None, 0)
+    cols = [("title", "Role / department", "text"), ("kind", "Type", "text"), ("people", "People", "text"),
+            ("reports_to", "Reports to", "text"), ("responsibilities", "Responsibilities", "text"), ("kpis", "KPIs", "text")]
+    return "Organisation Structure", cols, rows, [
+        {"label": "Roles & departments", "value": len(rows)},
+        {"label": "People placed", "value": len({x for n in nodes for x in n.get("person_ids", [])})}]
+
+
 async def fetch_logs(p, user):
     q = logs_query(p.get("user_id"), p.get("action"), p.get("entity_type"), p.get("date_from"), p.get("date_to"))
     rows = await db.activity_logs.find(q, {"_id": 0}).sort("timestamp", -1).to_list(2000)
@@ -414,6 +461,8 @@ DATASETS = {
     "ad-campaigns": {"roles": ("admin", "finance", "sales", "ads_manager"), "fetch": fetch_ad_campaigns},
     "social-posts": {"roles": ("admin", "social_manager"), "fetch": fetch_social_posts},
     "influencers": {"roles": ("admin", "sales", "social_manager"), "fetch": fetch_influencers},
+    "ai-agents": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_ai_agents},
+    "org-structure": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_org_structure},
 }
 
 MEDIA = {

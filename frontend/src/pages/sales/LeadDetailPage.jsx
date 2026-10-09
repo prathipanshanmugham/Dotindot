@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Phone, Mail, Users2, StickyNote, Sparkles, ExternalLink, FileText, Plus } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Users2, StickyNote, Sparkles, ExternalLink, FileText, Plus, Trash2 } from "lucide-react";
+import { useRecordDelete, RecordDeleteDialog } from "@/components/RecordDelete";
 import { toast } from "sonner";
 
 const KIND_ICONS = { call: Phone, email: Mail, meeting: Users2, note: StickyNote };
@@ -23,8 +24,9 @@ const SERVICES = ["web_dev", "marketing", "ai", "retainer", "one_off"];
 export default function LeadDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasPerm } = useAuth();
   const [lead, setLead] = useState(null);
+  const [delOpen, setDelOpen] = useState(false);
   const [activity, setActivity] = useState({ kind: "call", text: "", date: "", follow_up_date: "" });
   const [convertOpen, setConvertOpen] = useState(false);
   const [convertMode, setConvertMode] = useState("new_client");
@@ -46,6 +48,7 @@ export default function LeadDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  const delActivity = useRecordDelete({ coll: "lead_activities", permKey: "sales.delete", rows: lead?.activities || [], onDeleted: load, labelOf: (a) => a.text });
 
   useEffect(() => {
     if (convertOpen) api.get("/clients").then((r) => setClients(r.data)).catch(() => {});
@@ -120,10 +123,19 @@ export default function LeadDetailPage() {
           </p>
           <p className="text-xs text-gray-400 mt-0.5">{lead.contact_email} · {lead.contact_phone} {lead.follow_up_date ? `· Follow-up: ${lead.follow_up_date}` : ""}</p>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold font-mono text-[#F26B21]" data-testid="lead-value">{formatINR(lead.estimated_value)}</div>
-          <div className="text-xs text-gray-400">{lead.service_interest || "Estimated value"}</div>
+        <div className="flex items-start gap-3">
+          <div className="sm:text-right">
+            <div className="text-2xl font-bold font-mono text-[#F26B21]" data-testid="lead-value">{formatINR(lead.estimated_value)}</div>
+            <div className="text-xs text-gray-400">{lead.service_interest || "Estimated value"}</div>
+          </div>
+          {hasPerm("sales.delete") && (
+            <Button variant="outline" size="icon" className="text-red-600 border-red-200 hover:bg-red-50 shrink-0" onClick={() => setDelOpen(true)} aria-label="Delete lead" data-testid="delete-lead-btn">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
+        {delOpen && <RecordDeleteDialog coll="leads" target={lead} labelOf={(x) => x.name} onClose={() => setDelOpen(false)} onDeleted={() => navigate("/sales/pipeline")} />}
+        {delActivity.dialog}
       </div>
 
       {/* Stage stepper */}
@@ -160,15 +172,15 @@ export default function LeadDetailPage() {
           <CardContent className="space-y-4">
             {canWrite && (
               <div className="rounded-xl border border-gray-200 p-3 space-y-2">
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 sm:flex gap-2">
                   <Select value={activity.kind} onValueChange={(v) => setActivity((p) => ({ ...p, kind: v }))}>
-                    <SelectTrigger className="w-[120px]" data-testid="activity-kind-select"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="col-span-2 sm:w-[120px]" data-testid="activity-kind-select"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {["call", "email", "meeting", "note"].map((k) => <SelectItem key={k} value={k}>{labelize(k)}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Input type="date" className="w-[150px]" value={activity.date} onChange={(e) => setActivity((p) => ({ ...p, date: e.target.value }))} data-testid="activity-date-input" />
-                  <Input type="date" className="w-[150px]" title="Set follow-up date" value={activity.follow_up_date} onChange={(e) => setActivity((p) => ({ ...p, follow_up_date: e.target.value }))} data-testid="activity-followup-input" />
+                  <Input type="date" className="sm:w-[150px]" title="Activity date" value={activity.date} onChange={(e) => setActivity((p) => ({ ...p, date: e.target.value }))} data-testid="activity-date-input" />
+                  <Input type="date" className="sm:w-[150px]" title="Set follow-up date" value={activity.follow_up_date} onChange={(e) => setActivity((p) => ({ ...p, follow_up_date: e.target.value }))} data-testid="activity-followup-input" />
                 </div>
                 <Textarea rows={2} placeholder="What happened? (call summary, email sent, meeting notes...)" value={activity.text} onChange={(e) => setActivity((p) => ({ ...p, text: e.target.value }))} data-testid="activity-text-input" />
                 <Button size="sm" onClick={addActivity} data-testid="add-activity-btn" className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold">
@@ -185,11 +197,16 @@ export default function LeadDetailPage() {
                     <div className="h-8 w-8 rounded-full bg-[#FFF7ED] flex items-center justify-center shrink-0">
                       <Icon className="h-3.5 w-3.5 text-[#F26B21]" />
                     </div>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="text-xs text-gray-400">{a.date} · {labelize(a.kind)} · {a.created_by_name}</div>
-                      <div className="text-sm text-gray-800">{a.text}</div>
+                      <div className="text-sm text-gray-800 break-words">{a.text}</div>
                       {a.follow_up_date && <div className="text-[11px] text-amber-600 mt-0.5">Follow-up: {a.follow_up_date}</div>}
                     </div>
+                    {delActivity.canDelete && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-300 hover:text-red-600 shrink-0" onClick={() => delActivity.requestDelete(a)} aria-label="Delete activity" data-testid={`delete-activity-${a.id}`}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 );
               })}

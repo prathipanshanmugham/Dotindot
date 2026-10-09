@@ -138,6 +138,7 @@ export default function InfluencersPage() {
       </div>
 
       {/* Cards grid */}
+      {del.canDelete && rows.length > 0 && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {rows.length === 0 && (
           <Card className="border-gray-200/80 col-span-full">
@@ -146,17 +147,16 @@ export default function InfluencersPage() {
             </CardContent>
           </Card>
         )}
-        {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {rows.map((inf) => (
           <Card key={inf.id} className="border-gray-200/80 shadow-sm cursor-pointer hover:border-orange-300 transition-all"
             onClick={() => navigate(`/influencers/${inf.id}`)} data-testid={`influencer-card-${inf.id}`}>
-            <CardContent className="p-5"><div className="flex justify-end -mb-6 relative z-10"><RowDeleteControls kit={del} row={inf} /></div>
+            <CardContent className="p-5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-bold text-gray-900 truncate">{inf.name}</div>
                   <div className="text-xs text-[#F26B21] font-semibold">{inf.handle}</div>
                 </div>
-                <BookingBadge status={inf.booking_status} />
+                <div className="flex items-center gap-1 shrink-0"><BookingBadge status={inf.booking_status} /><RowDeleteControls kit={del} row={inf} /></div>
               </div>
               <div className="mt-3 flex items-center gap-2 flex-wrap">
                 <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200 text-[10px]">{labelize(inf.niche)}</Badge>

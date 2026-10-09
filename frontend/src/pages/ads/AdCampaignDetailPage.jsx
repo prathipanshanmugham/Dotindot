@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Pencil, Trash2, Plus } from "lucide-react";
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { SubItemDeleteButton } from "@/components/RecordDelete";
 
 const SNAP_EMPTY = { date: "", spend: "", impressions: "", clicks: "", conversions: "", revenue: "" };
 
@@ -159,11 +160,12 @@ export default function AdCampaignDetailPage() {
               <TableHead className="text-right">Impressions</TableHead><TableHead className="text-right">Clicks</TableHead>
               <TableHead className="text-right">Conversions</TableHead><TableHead className="text-right">Revenue</TableHead>
               <TableHead>Entered by</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {(c.metrics_history || []).length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-sm text-gray-400">No snapshots recorded.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-sm text-gray-400">No snapshots recorded.</TableCell></TableRow>
             )}
             {[...(c.metrics_history || [])].reverse().map((s) => (
               <TableRow key={s.id} data-testid={`snapshot-row-${s.id}`}>
@@ -174,6 +176,7 @@ export default function AdCampaignDetailPage() {
                 <TableCell className="text-right font-mono text-sm">{s.conversions}</TableCell>
                 <TableCell className="text-right font-mono text-sm">{formatINR(s.revenue)}</TableCell>
                 <TableCell className="text-xs text-gray-400">{s.entered_by}</TableCell>
+                <TableCell className="w-12"><SubItemDeleteButton coll="ad_campaigns" rid={c.id} field="metrics_history" itemId={s.id} permKey="ads.delete" label="snapshot" onDeleted={load} /></TableCell>
               </TableRow>
             ))}
           </TableBody>

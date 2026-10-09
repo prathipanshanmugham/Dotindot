@@ -40,6 +40,9 @@ COLLECTIONS = {
     "targets": {"label": "Sales Targets", "search": ["period"]},
     "lead_activities": {"label": "Lead Activities", "search": ["note"]},
     "password_entries": {"label": "Password Entries", "search": ["name", "username"]},
+    "ai_agents": {"label": "AI Agents", "search": ["name", "platform"]},
+    "ai_agent_usage": {"label": "AI Agent Usage", "search": ["task", "user_name"]},
+    "org_nodes": {"label": "Org Structure", "search": ["title"]},
 }
 
 # child collection, foreign-key field, cascade mode: delete | unset | pull(array)
@@ -52,11 +55,14 @@ DEPS = {
     "branches": [("clients", "branch_id", "unset"), ("leads", "branch_id", "unset"), ("users", "branch_id", "unset")],
     "users": [("projects", "team_member_ids", "pull"), ("training_assignments", "user_id", "delete"),
               ("leads", "owner_id", "unset"), ("assets", "assigned_to", "unset"), ("password_entries", "owner_id", "unset"),
-              ("clients", "account_manager_id", "unset"), ("branches", "manager_id", "unset"), ("targets", "user_id", "delete")],
+              ("clients", "account_manager_id", "unset"), ("branches", "manager_id", "unset"), ("targets", "user_id", "delete"),
+              ("ai_agents", "assignee_ids", "pull"), ("ai_agents", "owner_id", "unset"), ("org_nodes", "person_ids", "pull")],
     "campaigns": [("transactions", "campaign_id", "unset")],
     "subscriptions": [("transactions", "subscription_id", "unset")],
     "ad_campaigns": [("transactions", "campaign_id", "unset")],
     "training_courses": [("training_assignments", "course_id", "delete")],
+    "ai_agents": [("ai_agent_usage", "agent_id", "delete")],
+    "org_nodes": [("org_nodes", "parent_id", "unset")],
 }
 
 
@@ -173,6 +179,24 @@ async def restore_snapshot(snap_id: str, user: dict = Depends(require_super_admi
     await db.deleted_records.delete_one({"id": snap_id})
     await log_activity(user, "workspace_restored", snap["coll"], snap["record_id"], snap["label"])
     return {"ok": True, "restored": snap["label"]}
+
+
+@router.delete("/workspace/recycle-bin/{snap_id}")
+async def purge_snapshot(snap_id: str, user: dict = Depends(require_super_admin)):
+    """Delete a recycle-bin snapshot now (the record can no longer be restored)."""
+    snap = await db.deleted_records.find_one({"id": snap_id}, {"_id": 0, "label": 1, "coll": 1, "record_id": 1})
+    if not snap:
+        raise HTTPException(status_code=404, detail="Snapshot not found (may have expired)")
+    await db.deleted_records.delete_one({"id": snap_id})
+    await log_activity(user, "recycle_bin_purged", snap["coll"], snap["record_id"], snap["label"])
+    return {"ok": True}
+
+
+@router.delete("/workspace/recycle-bin")
+async def empty_recycle_bin(user: dict = Depends(require_super_admin)):
+    res = await db.deleted_records.delete_many({})
+    await log_activity(user, "recycle_bin_emptied", "deleted_records", None, f"{res.deleted_count} snapshots")
+    return {"ok": True, "deleted_count": res.deleted_count}
 
 
 @router.get("/workspace/{coll}")

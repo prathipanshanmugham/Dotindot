@@ -98,16 +98,6 @@ export default function PartnershipsPage() {
     }
   };
 
-  const remove = async (p) => {
-    try {
-      await api.delete(`/partnerships/${p.id}`);
-      toast.success(`${p.name} removed`);
-      load();
-    } catch (e) {
-      toast.error(apiError(e));
-    }
-  };
-
   const toggleBenefit = async (pid, bid) => {
     try {
       await api.post(`/partnerships/${pid}/benefits/${bid}/toggle`);
@@ -175,13 +165,13 @@ export default function PartnershipsPage() {
         </Card>
       )}
 
+      {del.canDelete && partners.length > 0 && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {del.canDelete && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
         {partners.map((p) => (
           <Card key={p.id} className="border-gray-200/80 shadow-sm" data-testid={`partnership-card-${p.id}`}>
-            <CardContent className="p-5"><div className="flex justify-end -mb-6 relative z-10"><RowDeleteControls kit={del} row={p} /></div>
+            <CardContent className="p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-900">{p.name}</span>
                     <Badge variant="outline" className={`${TYPE_STYLES[p.partner_type] || ""} font-medium text-[10px]`}>{labelize(p.partner_type)}</Badge>
@@ -191,22 +181,18 @@ export default function PartnershipsPage() {
                     {p.category}{p.contact_email ? ` · ${p.contact_email}` : ""}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   {p.website && (
                     <a href={p.website} target="_blank" rel="noreferrer" className="p-1.5 text-gray-400 hover:text-[#F26B21]" data-testid={`partner-website-${p.id}`}>
                       <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   )}
                   {canWrite && (
-                    <>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" onClick={() => openEdit(p)} data-testid={`edit-partnership-${p.id}`}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-600" onClick={() => remove(p)} data-testid={`delete-partnership-${p.id}`}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-700" onClick={() => openEdit(p)} data-testid={`edit-partnership-${p.id}`}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
                   )}
+                  <RowDeleteControls kit={del} row={p} />
                 </div>
               </div>
 
@@ -228,9 +214,13 @@ export default function PartnershipsPage() {
                 <div className="mt-4 space-y-1.5">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Benefits</div>
                   {p.benefits.map((b) => (
-                    <div key={b.id} className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${b.used ? "border-gray-100 bg-gray-50/60" : "border-orange-200/70 bg-[#FFF7ED]/60"}`} data-testid={`benefit-row-${b.id}`}>
+                    <div key={b.id} className={`flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${b.used ? "border-gray-100 bg-gray-50/60" : "border-orange-200/70 bg-[#FFF7ED]/60"}`} data-testid={`benefit-row-${b.id}`}>
                       <div className="flex items-center gap-2 min-w-0">
-                        {b.used ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> : <Circle className="h-4 w-4 text-orange-400 shrink-0" />}
+                        {canWrite ? (
+                          <button type="button" onClick={() => toggleBenefit(p.id, b.id)} className="shrink-0 -m-1 p-1 rounded-full hover:bg-white" aria-label={b.used ? "Mark unused" : "Mark used"} data-testid={`benefit-check-${b.id}`}>
+                            {b.used ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-orange-400" />}
+                          </button>
+                        ) : b.used ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" /> : <Circle className="h-4 w-4 text-orange-400 shrink-0" />}
                         <div className="min-w-0">
                           <div className={`text-xs font-medium truncate ${b.used ? "text-gray-400 line-through" : "text-gray-700"}`}>{b.title}</div>
                           {b.note && <div className="text-[10px] text-gray-400 truncate">{b.note}</div>}
@@ -261,7 +251,7 @@ export default function PartnershipsPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "Edit partnership" : "Add partnership"}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Name *</Label>
               <Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} data-testid="partnership-form-name" />
@@ -304,15 +294,15 @@ export default function PartnershipsPage() {
               <Label>Contact email</Label>
               <Input className="mt-1" value={form.contact_email} onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))} />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>Website</Label>
               <Input className="mt-1" value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} placeholder="https://..." />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>Notes</Label>
               <Textarea className="mt-1" rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
             </div>
-            <div className="col-span-2 space-y-2">
+            <div className="sm:col-span-2 space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Benefits</Label>
                 <Button
@@ -324,10 +314,10 @@ export default function PartnershipsPage() {
                 </Button>
               </div>
               {form.benefits.map((b, i) => (
-                <div key={b.id} className="grid grid-cols-[1fr_110px_1fr_32px] gap-2 items-center">
+                <div key={b.id} className="grid grid-cols-[1fr_96px_32px] sm:grid-cols-[1fr_110px_1fr_32px] gap-2 items-center rounded-lg sm:rounded-none border sm:border-0 border-gray-100 p-2 sm:p-0">
                   <Input placeholder="Benefit title" value={b.title} onChange={(e) => setBenefit(i, "title", e.target.value)} data-testid={`benefit-title-${i}`} />
                   <Input type="number" placeholder="₹ value" value={b.credit_value} onChange={(e) => setBenefit(i, "credit_value", e.target.value)} data-testid={`benefit-value-${i}`} />
-                  <Input placeholder="Note" value={b.note} onChange={(e) => setBenefit(i, "note", e.target.value)} />
+                  <Input placeholder="Note" className="col-span-3 sm:col-span-1 row-start-2 sm:row-start-auto" value={b.note} onChange={(e) => setBenefit(i, "note", e.target.value)} />
                   <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600"
                     onClick={() => setForm((f) => ({ ...f, benefits: f.benefits.filter((_, j) => j !== i) }))}>
                     <Trash2 className="h-3.5 w-3.5" />

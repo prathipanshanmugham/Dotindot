@@ -371,8 +371,8 @@ export default function ClientDetailPage() {
           ))}
           {canReveal && (
             showCredForm ? (
-              <Card className="border-gray-200/80"><CardContent className="p-4 grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 items-center">
-                <Input placeholder="Label" value={newCred.label} onChange={(e) => setNewCred((p) => ({ ...p, label: e.target.value }))} data-testid="new-credential-label" />
+              <Card className="border-gray-200/80"><CardContent className="p-4 grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 items-center">
+                <Input className="col-span-2 sm:col-span-1" placeholder="Label" value={newCred.label} onChange={(e) => setNewCred((p) => ({ ...p, label: e.target.value }))} data-testid="new-credential-label" />
                 <Input placeholder="Username" value={newCred.username} onChange={(e) => setNewCred((p) => ({ ...p, username: e.target.value }))} data-testid="new-credential-username" />
                 <Input placeholder="Secret" type="password" value={newCred.secret} onChange={(e) => setNewCred((p) => ({ ...p, secret: e.target.value }))} data-testid="new-credential-secret" />
                 <Button size="sm" onClick={addCredential} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="save-credential-btn">Save</Button>

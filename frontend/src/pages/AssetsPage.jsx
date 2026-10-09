@@ -19,6 +19,7 @@ import { AssetDeleteDialog } from "@/pages/assets/AssetDeleteDialog";
 import { BranchFilter } from "@/components/BranchFilter";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { CHART_COLORS } from "@/components/Badges";
+import { SubItemDeleteButton } from "@/components/RecordDelete";
 
 const TYPES = ["laptop", "computer", "phone", "sim_card", "camera", "equipment", "other"];
 const STATUSES = ["available", "in_use", "maintenance", "retired"];
@@ -270,7 +271,7 @@ export default function AssetsPage() {
             {rows.map((a) => (
               <TableRow key={a.id} className="cursor-pointer hover:bg-orange-50/40" onClick={() => openDetail(a.id)} data-testid={`asset-row-${a.id}`}>
                 {canDelete && <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={!!selected[a.id]} onCheckedChange={(v) => setSelected((s) => ({ ...s, [a.id]: !!v }))} data-testid={`asset-select-${a.id}`} /></TableCell>}
-                <TableCell className="font-mono text-xs text-gray-500">{a.code}</TableCell>
+                <TableCell className="font-mono text-xs text-gray-500 whitespace-nowrap">{a.code}</TableCell>
                 <TableCell>
                   <div className="font-semibold text-gray-900 text-sm">{a.name}</div>
                   <div className="text-[11px] text-gray-400 font-mono">{a.serial_no}</div>
@@ -375,14 +376,18 @@ export default function AssetsPage() {
                         <span className="font-medium text-gray-700">{m.description}</span>
                         <span className="text-xs text-gray-400 ml-2">by {m.logged_by}</span>
                       </div>
-                      <div className="text-xs text-gray-500 shrink-0">{m.date} · {formatINR(m.cost)}</div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-xs text-gray-500">{m.date} · {formatINR(m.cost)}</span>
+                        <SubItemDeleteButton coll="assets" rid={detail.id} field="maintenance_log" itemId={m.id} permKey="assets.delete" label="maintenance entry"
+                          onDeleted={(d) => { setDetail((x) => ({ ...x, maintenance_log: d.maintenance_log })); load(); }} />
+                      </div>
                     </div>
                   ))}
                 </div>
                 {canWrite && (
-                  <div className="mt-2 grid grid-cols-[130px_1fr_100px_auto] gap-2">
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-[130px_1fr_100px_auto] gap-2">
                     <Input type="date" value={maint.date} onChange={(e) => setMaint((m) => ({ ...m, date: e.target.value }))} data-testid="maint-date" />
-                    <Input placeholder="What was done?" value={maint.description} onChange={(e) => setMaint((m) => ({ ...m, description: e.target.value }))} data-testid="maint-desc" />
+                    <Input className="col-span-2 sm:col-span-1 order-first sm:order-none" placeholder="What was done?" value={maint.description} onChange={(e) => setMaint((m) => ({ ...m, description: e.target.value }))} data-testid="maint-desc" />
                     <Input type="number" placeholder="Cost ₹" value={maint.cost} onChange={(e) => setMaint((m) => ({ ...m, cost: e.target.value }))} data-testid="maint-cost" />
                     <Button variant="outline" onClick={logMaintenance} disabled={busy} data-testid="maint-submit">Log</Button>
                   </div>

@@ -128,6 +128,7 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
+    client_id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None

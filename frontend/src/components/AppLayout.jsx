@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
-  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu, Lock,
+  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu, Lock, Bot, Network,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -47,6 +47,8 @@ const NAV = [
       { name: "Project Profit", path: "/finance/profit", icon: PieChart, perm: ["finance.project_profit"], when: (u, hasPerm) => !hasPerm("finance.ledger") },
       { name: "My Expenses", path: "/my-expenses", icon: ReceiptText, when: (u) => !["super_admin", "admin", "finance"].includes(u?.role) },
       { name: "Employees", path: "/employees", icon: UserCheck, perm: ["employees"] },
+      { name: "Org Structure", path: "/org", icon: Network, perm: ["org_structure"] },
+      { name: "AI Agents", path: "/agents", icon: Bot, perm: ["ai_agents"] },
       { name: "Assets", path: "/assets", icon: Boxes, perm: ["assets"] },
       { name: "Partnerships", path: "/partnerships", icon: Handshake, perm: ["partnerships"] },
       { name: "Locations", path: "/locations", icon: MapPin, perm: ["locations"] },

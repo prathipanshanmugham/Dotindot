@@ -48,6 +48,9 @@ import InfluencersPage from "@/pages/InfluencersPage";
 import InfluencerDetailPage from "@/pages/InfluencerDetailPage";
 import SalesHudPage from "@/pages/SalesHudPage";
 import PasswordManagerPage from "@/pages/PasswordManagerPage";
+import AgentsPage from "@/pages/agents/AgentsPage";
+import AgentDetailPage from "@/pages/agents/AgentDetailPage";
+import OrgStructurePage from "@/pages/org/OrgStructurePage";
 
 const FIN_ANY = [
   "finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
@@ -150,6 +153,9 @@ function App() {
           <Route path="/employees" element={<Protected perm="employees"><EmployeesPage /></Protected>} />
           <Route path="/employees/:id" element={<Protected perm="employees"><EmployeeProfilePage /></Protected>} />
           <Route path="/partnerships" element={<Protected perm="partnerships"><PartnershipsPage /></Protected>} />
+          <Route path="/agents" element={<Protected perm="ai_agents"><AgentsPage /></Protected>} />
+          <Route path="/agents/:id" element={<Protected perm="ai_agents"><AgentDetailPage /></Protected>} />
+          <Route path="/org" element={<Protected perm="org_structure"><OrgStructurePage /></Protected>} />
           <Route path="/locations" element={<Protected perm="locations"><LocationsPage /></Protected>} />
           <Route path="/logs" element={<Protected perm="logs"><LogsPage /></Protected>} />
           <Route path="/reports" element={<Protected perm="reports"><ReportsPage /></Protected>} />
