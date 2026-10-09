@@ -21,6 +21,7 @@ import ExpensesPage from "@/pages/finance/ExpensesPage";
 import SubscriptionsPage from "@/pages/finance/SubscriptionsPage";
 import BudgetsPage from "@/pages/finance/BudgetsPage";
 import AiSpendPage from "@/pages/finance/AiSpendPage";
+import ApiCreditsPage from "@/pages/finance/ApiCreditsPage";
 import MarketingPage from "@/pages/finance/MarketingPage";
 import ProjectProfitPage from "@/pages/finance/ProjectProfitPage";
 import EmployeeRevenuePage from "@/pages/finance/EmployeeRevenuePage";
@@ -51,10 +52,13 @@ import PasswordManagerPage from "@/pages/PasswordManagerPage";
 import AgentsPage from "@/pages/agents/AgentsPage";
 import AgentDetailPage from "@/pages/agents/AgentDetailPage";
 import OrgStructurePage from "@/pages/org/OrgStructurePage";
+import DailyPage from "@/pages/daily/DailyPage";
+import ClientDashboardPage from "@/pages/ClientDashboardPage";
+import { PortalLoginPage, PortalDashboardPage } from "@/pages/portal/PortalPages";
 
 const FIN_ANY = [
   "finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
-  "finance.ai_spend", "finance.marketing", "finance.project_profit", "finance.employee_revenue",
+  "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue",
 ];
 const SALES_ANY = ["sales.pipeline", "sales.quotes", "sales.targets"];
 
@@ -112,6 +116,8 @@ function App() {
         <ForbiddenGuard />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/portal/login" element={<PortalLoginPage />} />
+          <Route path="/portal" element={<PortalDashboardPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Protected><HomeDashboard /></Protected>} />
           <Route path="/dashboard/ceo" element={<Protected perm="ceo_dashboard"><DashboardRoute kind="ceo" /></Protected>} />
@@ -119,6 +125,7 @@ function App() {
           <Route path="/dashboard/staff" element={<Protected><DashboardRoute kind="staff" /></Protected>} />
           <Route path="/clients" element={<Protected perm="clients"><ClientsPage /></Protected>} />
           <Route path="/clients/:id" element={<Protected perm="clients"><ClientDetailPage /></Protected>} />
+          <Route path="/clients/:id/dashboard" element={<Protected perm="clients"><ClientDashboardPage /></Protected>} />
           <Route path="/projects" element={<Protected perm="projects"><ProjectsPage /></Protected>} />
           <Route path="/projects/new" element={<Protected perm="projects" roles={["admin", "pm", "sales"]}><NewProjectWizard /></Protected>} />
           <Route path="/projects/:id" element={<Protected perm="projects"><ProjectDetailPage /></Protected>} />
@@ -131,6 +138,7 @@ function App() {
           <Route path="/finance/subscriptions" element={<Protected perm="finance.subscriptions"><SubscriptionsPage /></Protected>} />
           <Route path="/finance/budgets" element={<Protected perm="finance.budgets"><BudgetsPage /></Protected>} />
           <Route path="/finance/ai" element={<Protected perm="finance.ai_spend"><AiSpendPage /></Protected>} />
+          <Route path="/finance/api-credits" element={<Protected perm="finance.api_credits"><ApiCreditsPage /></Protected>} />
           <Route path="/finance/marketing" element={<Protected perm="finance.marketing"><MarketingPage /></Protected>} />
           <Route path="/finance/profit" element={<Protected perm="finance.project_profit"><ProjectProfitPage /></Protected>} />
           <Route path="/finance/employees" element={<Protected perm="finance.employee_revenue"><EmployeeRevenuePage /></Protected>} />
@@ -156,6 +164,7 @@ function App() {
           <Route path="/agents" element={<Protected perm="ai_agents"><AgentsPage /></Protected>} />
           <Route path="/agents/:id" element={<Protected perm="ai_agents"><AgentDetailPage /></Protected>} />
           <Route path="/org" element={<Protected perm="org_structure"><OrgStructurePage /></Protected>} />
+          <Route path="/daily" element={<Protected perm="daily_reports"><DailyPage /></Protected>} />
           <Route path="/locations" element={<Protected perm="locations"><LocationsPage /></Protected>} />
           <Route path="/logs" element={<Protected perm="logs"><LogsPage /></Protected>} />
           <Route path="/reports" element={<Protected perm="reports"><ReportsPage /></Protected>} />

@@ -43,25 +43,32 @@ COLLECTIONS = {
     "ai_agents": {"label": "AI Agents", "search": ["name", "platform"]},
     "ai_agent_usage": {"label": "AI Agent Usage", "search": ["task", "user_name"]},
     "org_nodes": {"label": "Org Structure", "search": ["title"]},
+    "api_accounts": {"label": "API Accounts", "search": ["name", "provider"]},
+    "api_credit_txns": {"label": "API Credit Entries", "search": ["note", "kind"]},
+    "daily_reports": {"label": "Daily Reports & Attendance", "search": ["user_name", "date"]},
+    "portal_users": {"label": "Client Portal Logins", "search": ["name", "email"]},
 }
 
 # child collection, foreign-key field, cascade mode: delete | unset | pull(array)
 DEPS = {
-    "clients": [("projects", "client_id", "delete"), ("transactions", "client_id", "unset"),
+    "clients": [("projects", "client_id", "delete"), ("transactions", "client_id", "unset"), ("portal_users", "client_id", "delete"),
+                ("api_credit_txns", "client_id", "unset"),
                 ("ad_campaigns", "client_id", "delete"), ("social_posts", "client_id", "unset"),
                 ("quotes", "client_id", "unset")],
-    "projects": [("transactions", "project_id", "unset"), ("expenses", "project_id", "unset")],
+    "projects": [("transactions", "project_id", "unset"), ("expenses", "project_id", "unset"), ("api_credit_txns", "project_id", "unset")],
     "leads": [("quotes", "lead_id", "unset"), ("lead_activities", "lead_id", "delete")],
     "branches": [("clients", "branch_id", "unset"), ("leads", "branch_id", "unset"), ("users", "branch_id", "unset")],
     "users": [("projects", "team_member_ids", "pull"), ("training_assignments", "user_id", "delete"),
               ("leads", "owner_id", "unset"), ("assets", "assigned_to", "unset"), ("password_entries", "owner_id", "unset"),
               ("clients", "account_manager_id", "unset"), ("branches", "manager_id", "unset"), ("targets", "user_id", "delete"),
-              ("ai_agents", "assignee_ids", "pull"), ("ai_agents", "owner_id", "unset"), ("org_nodes", "person_ids", "pull")],
+              ("ai_agents", "assignee_ids", "pull"), ("ai_agents", "owner_id", "unset"), ("org_nodes", "person_ids", "pull"),
+              ("daily_reports", "user_id", "delete"), ("api_accounts", "owner_id", "unset")],
     "campaigns": [("transactions", "campaign_id", "unset")],
     "subscriptions": [("transactions", "subscription_id", "unset")],
     "ad_campaigns": [("transactions", "campaign_id", "unset")],
     "training_courses": [("training_assignments", "course_id", "delete")],
-    "ai_agents": [("ai_agent_usage", "agent_id", "delete")],
+    "ai_agents": [("ai_agent_usage", "agent_id", "delete"), ("api_credit_txns", "agent_id", "unset"), ("api_accounts", "agent_ids", "pull")],
+    "api_accounts": [("api_credit_txns", "account_id", "delete")],
     "org_nodes": [("org_nodes", "parent_id", "unset")],
 }
 

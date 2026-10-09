@@ -4,7 +4,7 @@ import api, { formatINR } from "@/lib/api";
 import FinanceLayout from "@/components/FinanceLayout";
 import { BranchFilter } from "@/components/BranchFilter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, ReceiptText, Repeat, PiggyBank, Cpu, Megaphone, TrendingUp, Users, IndianRupee, AlertTriangle } from "lucide-react";
+import { BookOpen, ReceiptText, Repeat, PiggyBank, Cpu, Megaphone, TrendingUp, Users, IndianRupee, AlertTriangle, KeyRound } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const QUICK_LINKS = [
@@ -13,6 +13,7 @@ const QUICK_LINKS = [
   { name: "Subscriptions", path: "/finance/subscriptions", icon: Repeat, desc: "Recurring tools & renewals" },
   { name: "Budgets", path: "/finance/budgets", icon: PiggyBank, desc: "Actual vs planned" },
   { name: "AI Spend", path: "/finance/ai", icon: Cpu, desc: "AI tools sub-ledger" },
+  { name: "API Credits", path: "/finance/api-credits", icon: KeyRound, desc: "Balances & usage per API" },
   { name: "Marketing", path: "/finance/marketing", icon: Megaphone, desc: "Campaign spend & ROI" },
   { name: "Project Profit", path: "/finance/profit", icon: TrendingUp, desc: "Margins per project" },
   { name: "Employee Revenue", path: "/finance/employees", icon: Users, desc: "Revenue per team member" },

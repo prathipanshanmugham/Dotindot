@@ -341,6 +341,44 @@ async def fetch_org_structure(p, user):
         {"label": "People placed", "value": len({x for n in nodes for x in n.get("person_ids", [])})}]
 
 
+async def fetch_api_credits(p, user):
+    from permissions import has_permission
+    from routes_api_credits import list_txns, list_accounts
+    if not has_permission(user, "finance.api_credits"):
+        raise HTTPException(status_code=403, detail="You don't have permission for this module")
+    rows = await list_txns(account_id=p.get("account_id"), kind=p.get("kind"), client_id=p.get("client_id"),
+                           project_id=p.get("project_id"), start=p.get("start"), end=p.get("end"), limit=2000, user=user)
+    for r in rows:
+        r["amount_txt"] = f"{r['amount']:g} {r.get('currency', '')}"
+        r["units_txt"] = f"{r['units']:g} {r.get('unit_label') or ''}".strip() if r.get("units") is not None else ""
+    accts = await list_accounts(user=user)
+    cols = [("date", "Date", "text"), ("account_name", "Account", "text"), ("kind", "Type", "text"), ("amount_txt", "Amount", "text"),
+            ("amount_inr", "Amount (INR)", "money"), ("units_txt", "Units", "text"), ("client_name", "Client", "text"),
+            ("project_name", "Project", "text"), ("agent_name", "AI agent", "text"), ("note", "Note", "text")]
+    return "API Credits", cols, rows, [
+        {"label": "Accounts", "value": len(accts)},
+        {"label": "Prepaid balance", "value": round(sum(a["balance_inr"] or 0 for a in accts if a.get("status") == "active")), "money": True},
+        {"label": "Used this month", "value": round(sum(a["used_mtd_inr"] for a in accts)), "money": True},
+        {"label": "Low balance", "value": sum(1 for a in accts if a["low_balance"])}]
+
+
+async def fetch_attendance(p, user):
+    from routes_daily import attendance_month
+    d = await attendance_month(month=p.get("month"), branch=p.get("branch"), user=user)
+    rows = []
+    for r in d["rows"]:
+        t = r["totals"]
+        rows.append({"name": r["user"]["name"], "branch": r["branch"], "present": t["present"], "late": t["late"], "wfh": t["wfh"],
+                     "leave": t["leave"], "absent": t["absent"], "rate": f"{t['rate']}%" if t["rate"] is not None else "—",
+                     "avg_check_in": t["avg_check_in"] or "—", "hours": t["hours"], "reports": t["reports"]})
+    cols = [("name", "Person", "text"), ("branch", "Location", "text"), ("present", "Days present", "num"), ("late", "Late", "num"),
+            ("wfh", "WFH", "num"), ("leave", "Leave", "num"), ("absent", "Absent", "num"), ("rate", "Attendance", "text"),
+            ("avg_check_in", "Avg check-in", "text"), ("hours", "Hours", "num"), ("reports", "Reports filed", "num")]
+    return f"Attendance — {d['month']}", cols, rows, [
+        {"label": "People", "value": len(rows)}, {"label": "Working days so far", "value": d["working_days"]}] + [
+        {"label": b["name"], "value": f"{b['rate']}%"} for b in d["by_branch"][:4]]
+
+
 async def fetch_logs(p, user):
     q = logs_query(p.get("user_id"), p.get("action"), p.get("entity_type"), p.get("date_from"), p.get("date_to"))
     rows = await db.activity_logs.find(q, {"_id": 0}).sort("timestamp", -1).to_list(2000)
@@ -463,6 +501,8 @@ DATASETS = {
     "influencers": {"roles": ("admin", "sales", "social_manager"), "fetch": fetch_influencers},
     "ai-agents": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_ai_agents},
     "org-structure": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_org_structure},
+    "api-credits": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_api_credits},
+    "attendance": {"roles": ALL + ("ads_manager", "social_manager"), "fetch": fetch_attendance},
 }
 
 MEDIA = {

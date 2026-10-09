@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import api, { formatINR } from "@/lib/api";
 import { labelize } from "@/components/Badges";
 import { DashboardSwitcher } from "@/components/DashboardSwitcher";
+import TodayAttendanceStrip from "@/components/TodayAttendanceStrip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FolderKanban, CheckSquare, Target, Laptop, GraduationCap, Activity, ReceiptText } from "lucide-react";
@@ -39,6 +40,8 @@ export default function StaffDashboard() {
         </div>
         <DashboardSwitcher current="staff" />
       </div>
+
+      <TodayAttendanceStrip />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat icon={FolderKanban} label="Active projects" value={d.projects.active} sub={`${d.projects.total} total`} link="/projects" testid="staff-stat-projects" />

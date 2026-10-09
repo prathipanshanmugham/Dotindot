@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
-  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu, Lock, Bot, Network,
+  PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu, Lock, Bot, Network, CalendarCheck,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -25,6 +25,7 @@ const NAV = [
       { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
       { name: "Clients", path: "/clients", icon: Users, perm: ["clients"] },
       { name: "Projects", path: "/projects", icon: FolderKanban, perm: ["projects"] },
+      { name: "Daily Reporting", path: "/daily", icon: CalendarCheck, perm: ["daily_reports"] },
     ],
   },
   {
@@ -42,7 +43,7 @@ const NAV = [
     items: [
       {
         name: "Finance", path: "/finance", icon: IndianRupee,
-        perm: ["finance.ledger", "finance.subscriptions", "finance.budgets", "finance.ai_spend", "finance.marketing", "finance.employee_revenue"],
+        perm: ["finance.ledger", "finance.subscriptions", "finance.budgets", "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.employee_revenue"],
       },
       { name: "Project Profit", path: "/finance/profit", icon: PieChart, perm: ["finance.project_profit"], when: (u, hasPerm) => !hasPerm("finance.ledger") },
       { name: "My Expenses", path: "/my-expenses", icon: ReceiptText, when: (u) => !["super_admin", "admin", "finance"].includes(u?.role) },

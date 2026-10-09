@@ -15,13 +15,14 @@ from database import db
 from auth import get_current_user
 
 PERMISSION_GROUPS = {
-    "Core": ["ceo_dashboard", "clients", "clients.delete", "projects", "projects.delete"],
+    "Core": ["ceo_dashboard", "clients", "clients.delete", "client_portal", "projects", "projects.delete"],
     "Finance": ["finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
-                "finance.ai_spend", "finance.marketing", "finance.project_profit", "finance.employee_revenue", "finance.delete"],
+                "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue", "finance.delete"],
     "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud", "sales.delete"],
     "Growth": ["ads", "ads.delete", "social", "social.delete", "influencers", "influencers.delete"],
     "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete",
-                   "ai_agents", "ai_agents.manage", "ai_agents.delete", "org_structure", "org_structure.manage", "org_structure.delete"],
+                   "ai_agents", "ai_agents.manage", "ai_agents.delete", "org_structure", "org_structure.manage", "org_structure.delete",
+                   "daily_reports", "daily_reports.team", "daily_reports.delete"],
     "System": ["logs", "logs.delete", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal", "password_manager.delete"],
 }
 
@@ -31,7 +32,8 @@ DELETE_KEYS_SET = {k for k in ALL_KEYS if k.endswith(".delete")}
 _FINANCE_ALL = set(PERMISSION_GROUPS["Finance"]) - {"finance.delete"}
 
 # v2.6: every role can see the AI agents assigned to them and the org chart.
-_V26_EVERYONE = {"ai_agents", "org_structure"}
+# v2.7: every role files daily reports / attendance.
+_V26_EVERYONE = {"ai_agents", "org_structure", "daily_reports"}
 
 ROLE_DEFAULTS = {
     "super_admin": set(ALL_KEYS),
@@ -40,9 +42,10 @@ ROLE_DEFAULTS = {
     "finance": {"clients", "projects", *_FINANCE_ALL, "sales.pipeline", "sales.quotes", "sales.targets",
                 "employees", "training", "partnerships", "assets", "locations", "reports", *_V26_EVERYONE},
     "sales": {"clients", "projects", "sales.pipeline", "sales.quotes", "sales.targets", "sales.hud",
-              "employees", "training", "partnerships", "influencers", "locations", "reports", *_V26_EVERYONE},
+              "employees", "training", "partnerships", "influencers", "locations", "reports", *_V26_EVERYONE, "client_portal"},
     "pm": {"clients", "projects", "finance.project_profit", "sales.pipeline", "sales.quotes", "sales.targets",
-           "employees", "training", "partnerships", "locations", "reports", *_V26_EVERYONE, "ai_agents.manage"},
+           "employees", "training", "partnerships", "locations", "reports", *_V26_EVERYONE, "ai_agents.manage",
+           "client_portal", "daily_reports.team"},
     "employee": {"projects", "employees", "training", *_V26_EVERYONE},
     "ads_manager": {"ads", "clients", *_V26_EVERYONE},
     "social_manager": {"social", "influencers", "clients", *_V26_EVERYONE},
@@ -52,7 +55,12 @@ ROLE_DEFAULTS = {
 V26_NEW_KEYS = {role: (keys & {"ai_agents", "ai_agents.manage", "ai_agents.delete",
                                "org_structure", "org_structure.manage", "org_structure.delete"})
                 for role, keys in ROLE_DEFAULTS.items()}
-V26_NEW_KEYS["admin"] = V26_NEW_KEYS["admin"] | DELETE_KEYS_SET
+V26_NEW_KEYS["admin"] = V26_NEW_KEYS["admin"] | (DELETE_KEYS_SET - {"daily_reports.delete"})
+_V27 = {"finance.api_credits", "daily_reports", "daily_reports.team", "daily_reports.delete", "client_portal"}
+V27_NEW_KEYS = {role: (keys & _V27) for role, keys in ROLE_DEFAULTS.items()}
+for _r in V26_NEW_KEYS:
+    V26_NEW_KEYS[_r] -= _V27
+ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS)]
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
@@ -67,17 +75,22 @@ async def load_role_defaults():
             ROLE_DEFAULTS[role] = {k for k in doc.get("permissions", []) if k in ALL_KEYS}
 
 
-async def migrate_role_defaults_v26():
-    """Role defaults saved in the DB before v2.6 don't know the new AI Agents / Org Structure keys.
-    Add each role's v2.6 defaults once (tracked in migrations) so the new tabs appear for everyone."""
-    if await db.migrations.find_one({"id": "role_defaults_v26"}):
-        return
-    async for doc in db.role_defaults.find({}, {"_id": 0}):
-        role = doc.get("role")
-        if role in V26_NEW_KEYS and role != "super_admin":
-            merged = set(doc.get("permissions", [])) | V26_NEW_KEYS[role]
-            await save_role_default(role, merged)
-    await db.migrations.insert_one({"id": "role_defaults_v26"})
+async def migrate_role_defaults():
+    """Role defaults saved in the DB before a release don't know that release's new permission keys.
+    Each migration adds the role's new defaults exactly once (tracked in `migrations`), so new tabs appear
+    without overwriting choices made later in Settings → Role permissions."""
+    for mig_id, new_keys in ROLE_MIGRATIONS:
+        if await db.migrations.find_one({"id": mig_id}):
+            continue
+        async for doc in db.role_defaults.find({}, {"_id": 0}):
+            role = doc.get("role")
+            if role in new_keys and role != "super_admin" and new_keys[role]:
+                merged = set(doc.get("permissions", [])) | new_keys[role]
+                await save_role_default(role, merged)
+        await db.migrations.insert_one({"id": mig_id})
+
+
+migrate_role_defaults_v26 = migrate_role_defaults  # backwards-compatible name
 
 
 async def save_role_default(role: str, permissions: set):
@@ -201,6 +214,8 @@ PATH_PERMISSIONS = [
     ("/api/influencers", ("influencers",)),
     ("/api/locations", ("locations",)),
     ("/api/agents", ("ai_agents",)),
+    ("/api/finance/api-credits", ("finance.api_credits",)),
+    ("/api/daily", ("daily_reports",)),
     ("/api/org", ("org_structure",)),
     ("/api/logs", ("logs",)),
     ("/api/reports", ("reports",)),

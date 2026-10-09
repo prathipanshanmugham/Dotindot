@@ -13,14 +13,15 @@ const TABS = [
   { name: "Subscriptions", path: "/finance/subscriptions", roles: ["super_admin", "admin", "finance"] },
   { name: "Budgets", path: "/finance/budgets", roles: ["super_admin", "admin", "finance"] },
   { name: "AI Spend", path: "/finance/ai", roles: ["super_admin", "admin", "finance"] },
+  { name: "API Credits", path: "/finance/api-credits", roles: ["super_admin", "admin", "finance"], perm: "finance.api_credits" },
   { name: "Marketing", path: "/finance/marketing", roles: ["super_admin", "admin", "finance"] },
   { name: "Project Profit", path: "/finance/profit", roles: ["super_admin", "admin", "finance", "pm"] },
   { name: "Employee Revenue", path: "/finance/employees", roles: ["super_admin", "admin", "finance"] },
 ];
 
 export default function FinanceLayout({ title, subtitle, children, actions }) {
-  const { user } = useAuth();
-  const tabs = TABS.filter((t) => t.roles.includes(user?.role));
+  const { user, hasPerm } = useAuth();
+  const tabs = TABS.filter((t) => (t.perm ? hasPerm(t.perm) : t.roles.includes(user?.role)));
   return (
     <div className="space-y-5 max-w-7xl" data-testid="finance-layout">
       <div className="flex flex-wrap items-center justify-between gap-3">

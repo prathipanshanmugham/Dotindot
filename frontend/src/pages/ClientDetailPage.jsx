@@ -14,7 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, ExternalLink, Pencil, Trash2, Eye, EyeOff, Copy, MapPin, Plus } from "lucide-react";
+import { ArrowLeft, ExternalLink, Pencil, Trash2, Eye, EyeOff, Copy, MapPin, Plus, LayoutDashboard } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { toast } from "sonner";
 
@@ -155,7 +155,10 @@ export default function ClientDetailPage() {
             <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{client.city}, {client.region}</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" className="bg-[#F26B21] hover:bg-[#d95b16] text-white" onClick={() => navigate(`/clients/${client.id}/dashboard`)} data-testid="open-client-dashboard">
+            <LayoutDashboard className="h-4 w-4 mr-1.5" /> Client dashboard
+          </Button>
           {client.google_drive_link && (
             <Button variant="outline" size="sm" asChild data-testid="open-drive-btn">
               <a href={client.google_drive_link} target="_blank" rel="noopener noreferrer">

@@ -25,6 +25,9 @@ DELETE_KEYS = {
     "users": "__super_admin__",
     "ai_agents": "ai_agents.delete", "ai_agent_usage": "ai_agents.delete",
     "org_nodes": "org_structure.delete",
+    "api_accounts": "finance.delete", "api_credit_txns": "finance.delete",
+    "daily_reports": "daily_reports.delete",
+    "portal_users": "clients.delete",
 }
 
 # Line items stored inside a parent record that can be removed one by one: collection -> {array field: module delete key}
@@ -36,6 +39,7 @@ SUB_ITEMS = {
     "influencers": {"collaborations": "influencers.delete"},
     "partnerships": {"benefits": "partnerships.delete"},
     "ai_agents": {"prompts": "ai_agents.delete"},
+    "daily_reports": {"tasks": "daily_reports.delete"},
 }
 
 

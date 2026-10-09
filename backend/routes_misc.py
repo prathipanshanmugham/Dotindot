@@ -2,7 +2,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, Query
 from database import db
 from auth import get_current_user, require_roles
-from permissions import branch_scope, scoped_client_ids
+from permissions import has_permission, branch_scope, scoped_client_ids
 
 router = APIRouter()
 
@@ -134,6 +134,12 @@ async def notifications(user: dict = Depends(get_current_user)):
         for a in assignments:
             items.append({"kind": "training", "title": f"Training overdue: {courses.get(a['course_id'], 'Course')}",
                           "sub": f"Was due {a['due_date']}", "link": f"/employees/{user['id']}", "date": a["due_date"]})
+
+    if role in ("admin", "finance") and has_permission(user, "finance.api_credits"):
+        from routes_api_credits import api_credit_alerts
+        items.extend(await api_credit_alerts())
+    from routes_daily import daily_alerts
+    items.extend(await daily_alerts(user))
 
     items.sort(key=lambda x: x["date"])
     return {"items": items, "count": len(items)}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiError } from "@/lib/api";
 import { DotindotLogo, DotindotMark } from "@/components/DotindotLogo";
@@ -105,6 +105,9 @@ export default function LoginPage() {
               {busy ? "Signing in..." : "Sign in"}
             </Button>
           </form>
+          <p className="text-sm text-gray-500 mt-6 text-center">
+            Client of dotindot? <Link to="/portal/login" className="font-semibold text-[#F26B21] hover:underline" data-testid="portal-login-link">Sign in to your portal</Link>
+          </p>
         </div>
       </div>
     </div>

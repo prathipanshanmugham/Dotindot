@@ -41,6 +41,9 @@ from routes_locations import repair_coordinates
 from routes_dashboard import router as dashboard_router
 from routes_agents import router as agents_router
 from routes_org import router as org_router
+from routes_api_credits import router as api_credits_router
+from routes_daily import router as daily_router
+from routes_client_dashboard import router as client_dashboard_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -51,7 +54,8 @@ app = FastAPI(
 for r in (auth_router, users_router, clients_router, projects_router, misc_router, finance_router, sales_router, ceo_router,
           employees_router, logs_router, partnerships_router, locations_router, exports_router, reports_router,
           access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router,
-          passwords_router, dashboard_router, records_router, agents_router, org_router):
+          passwords_router, dashboard_router, records_router, agents_router, org_router,
+          api_credits_router, daily_router, client_dashboard_router):
     app.include_router(r, prefix="/api")
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
@@ -63,6 +67,7 @@ app.add_middleware(
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],  # lets the browser read download filenames
 )
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -106,15 +111,23 @@ async def startup():
     await db.ai_agent_usage.create_index("date")
     await db.org_nodes.create_index("id", unique=True)
     await db.org_nodes.create_index("parent_id")
+    await db.api_accounts.create_index("id", unique=True)
+    await db.api_credit_txns.create_index("account_id")
+    await db.api_credit_txns.create_index("date")
+    await db.daily_reports.create_index("id", unique=True)
+    await db.daily_reports.create_index([("user_id", 1), ("date", 1)], unique=True)
+    await db.daily_reports.create_index("date")
+    await db.portal_users.create_index("email", unique=True)
+    await db.portal_users.create_index("client_id")
     # Ignore-proof cleanup: remove any stale test users (test_*@dotindot.test) on every startup
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
     if removed.deleted_count:
         logger.info(f"Removed {removed.deleted_count} stale test users (@dotindot.test)")
     # Demo seeding removed (v2.5): only a minimal super_admin guard so a fresh deploy is usable.
     await ensure_super_admin()
-    from permissions import load_role_defaults, migrate_role_defaults_v26
+    from permissions import load_role_defaults, migrate_role_defaults
     await load_role_defaults()
-    await migrate_role_defaults_v26()
+    await migrate_role_defaults()
     await repair_coordinates()
     start_scheduler()
     try:
