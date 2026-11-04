@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import api, { apiError } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { saveBlobResponse } from "@/components/ExportMenu";
 import ClientDashboardView, { PeriodBar, DEFAULT_PERIODS, blobErrorText } from "@/components/ClientDashboardView";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -136,6 +137,7 @@ function PortalLogins({ clientId, clientName }) {
 
 export default function ClientDashboardPage() {
   const { id } = useParams();
+  const { hasPerm } = useAuth();
   const navigate = useNavigate();
   const [period, setPeriod] = useState({ period: "this_month" });
   const [d, setD] = useState(null);
@@ -170,7 +172,7 @@ export default function ClientDashboardPage() {
         <Button variant="outline" size="sm" asChild className="self-start lg:self-auto"><a href={portalUrl()} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4 mr-1.5" /> Portal sign-in page</a></Button>
       </div>
       <PeriodBar value={period} onChange={setPeriod} periods={d.periods || DEFAULT_PERIODS} onDownload={download} downloading={downloading} />
-      <ClientDashboardView data={d} />
+      <ClientDashboardView data={d} growthLink={hasPerm("growth") ? <Link to={`/growth?owner=${id}`} className="font-semibold text-[#F26B21]" data-testid="client-growth-open">Open in Digital Growth →</Link> : null} />
       <PortalLogins clientId={id} clientName={d.client.name} />
     </div>
   );

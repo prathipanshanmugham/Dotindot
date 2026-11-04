@@ -37,6 +37,18 @@ async def purge_deleted_records(trigger: str = "scheduled") -> int:
     return res.deleted_count
 
 
+async def sync_growth_accounts(trigger: str = "scheduled") -> dict:
+    """Daily (02:10 IST): refresh every Digital Growth account that's connected to YouTube / Instagram / Facebook."""
+    from routes_growth import sync_all
+    try:
+        res = await sync_all(trigger)
+        logger.info(f"Growth sync ({trigger}): {res}")
+        return res
+    except Exception as e:  # never let a platform outage break the scheduler
+        logger.error(f"Growth sync failed: {e}")
+        return {"error": str(e)}
+
+
 def start_scheduler():
     global _scheduler
     if _scheduler:
@@ -44,8 +56,9 @@ def start_scheduler():
     _scheduler = AsyncIOScheduler(timezone="UTC")
     _scheduler.add_job(purge_old_logs, CronTrigger(hour=2, minute=30), id="log_purge_daily", replace_existing=True)
     _scheduler.add_job(purge_deleted_records, CronTrigger(minute=15), id="recycle_purge_hourly", replace_existing=True)
+    _scheduler.add_job(sync_growth_accounts, CronTrigger(hour=20, minute=40), id="growth_sync_daily", replace_existing=True)
     _scheduler.start()
-    logger.info("Schedulers started (log purge daily 02:30 UTC, recycle-bin purge hourly)")
+    logger.info("Schedulers started (log purge daily 02:30 UTC, recycle-bin purge hourly, growth sync daily 20:40 UTC / 02:10 IST)")
 
 
 def get_next_run():

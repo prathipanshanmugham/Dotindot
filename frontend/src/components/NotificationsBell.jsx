@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Bell, CalendarClock, RefreshCw, Handshake, ReceiptText, PhoneCall, GraduationCap, Wrench, Megaphone, KeyRound, Wallet, CalendarCheck, Sheet, LifeBuoy, Contact, Banknote, Landmark } from "lucide-react";
+import { Bell, CalendarClock, RefreshCw, Handshake, ReceiptText, PhoneCall, GraduationCap, Wrench, Megaphone, KeyRound, Wallet, CalendarCheck, Sheet, LifeBuoy, Contact, Banknote, Landmark, Rocket } from "lucide-react";
 
 const KIND_META = {
   contract: { icon: CalendarClock, color: "text-amber-600 bg-amber-50" },
@@ -24,6 +24,7 @@ const KIND_META = {
   hr: { icon: Contact, color: "text-violet-700 bg-violet-50" },
   payroll: { icon: Banknote, color: "text-emerald-700 bg-emerald-50" },
   loan: { icon: Landmark, color: "text-amber-700 bg-amber-50" },
+  growth: { icon: Rocket, color: "text-[#F26B21] bg-[#FFF7ED]" },
 };
 
 export default function NotificationsBell() {

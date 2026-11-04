@@ -70,6 +70,9 @@ COLLECTIONS = {
     "investor_users": {"label": "Investor Logins", "search": ["name", "email"]},
     "ai_tokens": {"label": "AI Access Tokens", "search": ["name"]},
     "ai_access_log": {"label": "AI Access Log", "search": ["token_name", "tool"]},
+    # v3.1
+    "growth_accounts": {"label": "Digital Growth Accounts", "search": ["handle", "owner_name", "platform"]},
+    "growth_months": {"label": "Digital Growth Numbers", "search": ["month", "platform"]},
 }
 
 # Collections that hold platform internals — never listed or wiped.
@@ -118,6 +121,9 @@ DEPS["users"] += [("salary_structures", "user_id", "delete"), ("payslips", "user
                   ("hr_onboarding", "user_id", "delete"), ("hr_offboarding", "user_id", "delete"), ("hr_skill_plans", "user_id", "delete"),
                   ("tickets", "assignee_id", "unset"), ("ai_tokens", "created_by", "unset")]
 DEPS["clients"] += [("client_leads", "client_id", "delete"), ("tickets", "client_id", "delete")]
+# v3.1: a client's growth accounts and their monthly numbers go with the client; numbers go with their account.
+DEPS["clients"] += [("growth_accounts", "client_id", "delete"), ("growth_months", "client_id", "delete")]
+DEPS["growth_accounts"] = [("growth_months", "account_id", "delete")]
 
 
 async def require_super_admin(user: dict = Depends(get_current_user)) -> dict:

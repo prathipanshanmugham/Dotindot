@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
   PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu, Lock, Bot, Network, CalendarCheck,
-  LifeBuoy, Workflow, Contact, IdCard, Landmark, BrainCircuit,
+  LifeBuoy, Workflow, Contact, IdCard, Landmark, BrainCircuit, Rocket,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -35,6 +35,7 @@ const NAV = [
     items: [
       { name: "Sales", path: "/sales", icon: TrendingUp, perm: ["sales.pipeline", "sales.quotes", "sales.targets"] },
       { name: "Lead Flow", path: "/lead-flow", icon: Workflow, perm: ["lead_flow", "sales.pipeline"] },
+      { name: "Digital Growth", path: "/growth", icon: Rocket, perm: ["growth"] },
       { name: "Sales View", path: "/hud", icon: MonitorPlay, perm: ["sales.hud"] },
       { name: "Ads", path: "/ads", icon: Megaphone, perm: ["ads"] },
       { name: "Social Media", path: "/social", icon: CalendarDays, perm: ["social"] },

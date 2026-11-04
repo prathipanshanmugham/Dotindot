@@ -625,9 +625,11 @@ def build_statement_pdf(d: dict) -> bytes:
 
 
 def _pdf(d):
-    safe = "".join(ch if ch.isalnum() else "-" for ch in d["investor"]["name"]).strip("-").lower() or "investor"
+    from export_engine import slug, attachment
+    nm = d["investor"]["name"]
+    fname = f"dotindot-statement-{slug(nm, 'investor')}-{date.today().isoformat()}.pdf"
     return Response(content=build_statement_pdf(d), media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="dotindot-statement-{safe}-{date.today().isoformat()}.pdf"'})
+                    headers={"Content-Disposition": attachment(fname, f"dotindot-statement-{'-'.join(nm.split())}-{date.today().isoformat()}.pdf")})
 
 
 @router.get("/investor-portal/statement")

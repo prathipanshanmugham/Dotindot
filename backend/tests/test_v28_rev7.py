@@ -247,7 +247,8 @@ class TestReports:
     def test_templates_listed_with_groups(self, ah):
         t = requests.get(f"{API}/reports/templates", headers=ah).json()
         keys = {x["key"] for x in t}
-        assert set(NEW) <= keys and all(x.get("group") for x in t) and sum(1 for x in t if x.get("new")) == 8
+        # v3.1: the "New" badge moved on to the latest release's templates (Digital Growth)
+        assert set(NEW) <= keys and all(x.get("group") for x in t) and {x["key"] for x in t if x.get("new")} == {"digital-growth"}
 
     @pytest.mark.parametrize("key", NEW)
     def test_generate(self, ah, key):

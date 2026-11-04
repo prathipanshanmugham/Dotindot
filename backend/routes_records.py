@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from database import db
 from auth import get_current_user, log_activity
-from permissions import has_permission
+from permissions import has_permission, scoped_client_ids
 from routes_workspace import (COLLECTIONS, _dependents, _collect_cascade_ops, _apply_cascade, _snapshot,
                               _guard_user_delete, known_collection)
 
@@ -38,6 +38,8 @@ DELETE_KEYS = {
     "investors": "investors.delete", "investments": "investors.delete", "investor_returns": "investors.delete",
     "investor_updates": "investors.delete", "investor_users": "investors.delete",
     "ai_tokens": "ai_settings", "ai_access_log": "ai_settings",
+    # v3.1
+    "growth_accounts": "growth.delete", "growth_months": "growth.delete",
 }
 
 # Line items stored inside a parent record that can be removed one by one: collection -> {array field: module delete key}
@@ -67,6 +69,22 @@ async def _require(user: dict, coll: str):
         raise HTTPException(status_code=403, detail=f"You don't have delete permission for this module ({key})")
 
 
+# v3.1: records that belong to a client are only deletable by people who can see that client (branch scope).
+CLIENT_OWNED = {"growth_accounts": "owner", "growth_months": "owner"}
+
+
+async def _check_scope(user: dict, coll: str, existing: dict):
+    field = CLIENT_OWNED.get(coll)
+    if not field:
+        return
+    owner = existing.get(field)
+    if not owner or owner == "internal":
+        return
+    scope = await scoped_client_ids(user)
+    if scope is not None and owner not in scope:
+        raise HTTPException(status_code=403, detail="This record belongs to a client outside your locations")
+
+
 def _check_permanent(user: dict, permanent: bool):
     if permanent and user.get("role") != "super_admin":
         raise HTTPException(status_code=403, detail="Only a super admin can delete forever (skipping the recycle bin)")
@@ -93,6 +111,9 @@ async def hard_delete(coll: str, existing: dict, user: dict, action: str = "reco
 @router.get("/records/{coll}/{rid}/dependents")
 async def record_dependents(coll: str, rid: str, user: dict = Depends(get_current_user)):
     await _require(user, coll)
+    existing = await db[coll].find_one({"id": rid}, {"_id": 0})
+    if existing:
+        await _check_scope(user, coll, existing)
     return {k: v["count"] for k, v in (await _dependents(coll, rid)).items()}
 
 
@@ -103,6 +124,7 @@ async def delete_one(coll: str, rid: str, permanent: bool = False, user: dict = 
     existing = await db[coll].find_one({"id": rid})
     if not existing:
         raise HTTPException(status_code=404, detail="Record not found")
+    await _check_scope(user, coll, existing)
     return await hard_delete(coll, existing, user, permanent=permanent)
 
 
@@ -144,6 +166,7 @@ async def delete_many(coll: str, body: BulkBody, user: dict = Depends(get_curren
             skipped.append({"id": rid, "reason": "not found"})
             continue
         try:
+            await _check_scope(user, coll, existing)
             await hard_delete(coll, existing, user, action="record_deleted", permanent=body.permanent)
             deleted += 1
         except HTTPException as e:

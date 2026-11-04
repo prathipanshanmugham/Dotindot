@@ -156,9 +156,13 @@ async def build_client_dashboard(client_id: str, p: dict) -> dict:
     # v3.0 leads generated for the client (lead flow)
     from routes_lead_flow import client_lead_flow
     leads = await client_lead_flow([client_id], p["start"], p["end"])
+    # v3.1 digital growth (followers, views, engagement by account)
+    from routes_growth import client_growth_summary
+    growth = await client_growth_summary(client_id, p["start"], p["end"])
 
     return {
         "leads": leads,
+        "growth": growth,
         "client": {"id": c["id"], "name": c["name"], "company": c.get("company"), "industry": c.get("industry"), "city": c.get("city"),
                    "region": c.get("region"), "status": c.get("status"), "service_type": c.get("service_type"), "retainer": c.get("retainer", False)},
         "period": p,
@@ -323,6 +327,28 @@ def build_client_report_pdf(d: dict, prepared_by: str = "") -> bytes:
                              inr(r["cost_per_lead"]) if r.get("cost_per_lead") else "—"] for r in lf.get("sources", [])],
                            [0.34, 0.12, 0.13, 0.13, 0.13, 0.15], right=(1, 2, 3, 4, 5)))
 
+    # digital growth (v3.1)
+    gr = d.get("growth")
+    if gr and gr.get("accounts"):
+        gt = gr["totals"]
+        block = [Paragraph("Digital growth", H2)]
+        bits = [f"Total audience <b>{gt['audience_now']:,}</b>"]
+        if gt.get("net_growth") is not None:
+            bits.append(f"<b>{'+' if gt['net_growth'] >= 0 else ''}{gt['net_growth']:,}</b> new followers" + (f" ({gt['growth_pct']:+.1f}%)" if gt.get("growth_pct") is not None else ""))
+        if gt.get("views"):
+            bits.append(f"<b>{gt['views']:,}</b> views")
+        if gt.get("engagement_rate") is not None:
+            bits.append(f"engagement <b>{gt['engagement_rate']:.2f}%</b>")
+        block.append(Paragraph(" · ".join(bits) + f" <font color='#6B7280'>({esc(gr['period'])})</font>", CELL))
+        block.append(Spacer(1, 4))
+        n0 = lambda v: "—" if v is None else f"{int(round(v)):,}"
+        block.append(table(["Account", "Start", "Now", "Change", "Views", "Engagement"],
+                           [[Paragraph(esc(a["label"]), CELL), n0(a["audience_start"]), n0(a["audience_now"]),
+                             ("—" if a["change"] is None else f"{'+' if a['change'] >= 0 else ''}{int(a['change']):,}" + (f" ({a['change_pct']:+.1f}%)" if a.get("change_pct") is not None else "")),
+                             n0(a["views"]) if a.get("views") else "—", f"{a['engagement_rate']:.2f}%" if a.get("engagement_rate") is not None else "—"]
+                            for a in gr["accounts"]], [0.32, 0.12, 0.12, 0.18, 0.13, 0.13], right=(1, 2, 3, 4, 5)))
+        story.append(KeepTogether(block))
+
     # social
     story.append(Paragraph("Social media", H2))
     soc = d["social"]
@@ -361,9 +387,10 @@ def build_client_report_pdf(d: dict, prepared_by: str = "") -> bytes:
 
 
 def _pdf_response(data: bytes, client_name: str, period: dict):
-    safe = "".join(ch if ch.isalnum() else "-" for ch in client_name).strip("-").lower() or "client"
-    fname = f"dotindot-report-{safe}-{period['start']}-to-{period['end']}.pdf"
-    return Response(content=data, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+    from export_engine import slug, attachment
+    fname = f"dotindot-report-{slug(client_name, 'client')}-{period['start']}-to-{period['end']}.pdf"
+    nice = f"dotindot-report-{'-'.join(client_name.split())}-{period['start']}-to-{period['end']}.pdf"
+    return Response(content=data, media_type="application/pdf", headers={"Content-Disposition": attachment(fname, nice)})
 
 
 async def _check_client_access(user: dict, client_id: str):

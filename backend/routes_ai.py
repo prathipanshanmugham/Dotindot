@@ -64,6 +64,9 @@ MODULES: Dict[str, dict] = {
     "social": {"label": "Social media posts", "coll": "social_posts", "search": ["caption", "platform"],
                "write": {"create": ["client_id", "platform", "caption", "scheduled_at", "content_type"], "update": ["caption", "status"]}},
     "influencers": {"label": "Influencers", "coll": "influencers", "search": ["name", "handle"]},
+    "growth": {"label": "Digital growth (followers, views, reach by month)", "colls": ["growth_accounts", "growth_months"],
+               "search": ["handle", "owner_name", "platform", "month"], "hide": {"sync.token_enc", "sync.token_hint"},
+               "write": {"create": ["account_id", "month", "values", "note"], "update": []}},
     "support": {"label": "Support tickets", "coll": "tickets", "search": ["number", "subject", "client_name"],
                 "write": {"create": ["subject", "body", "category", "priority"], "update": ["status", "priority", "reply"]}},
     "employees": {"label": "Team directory (name, role, skills)", "coll": "users", "search": ["name", "designation", "department", "skills"],
@@ -93,14 +96,21 @@ SENSITIVE_PERM = {"payroll": "payroll", "hr_personal": "hr", "investors": "inves
 # You can only open a module to AI (or put it on a token) if you can see that data in the app yourself.
 MODULE_PERM = {"clients": "clients", "projects": "projects", "leads": "sales.pipeline", "client_leads": "lead_flow", "quotes": "sales.quotes",
                "finance": "finance.ledger", "expenses": "finance.expenses", "subscriptions": "finance.subscriptions", "loans": "finance.loans",
-               "ads": "ads", "social": "social", "influencers": "influencers", "support": "support", "employees": "employees",
+               "ads": "ads", "social": "social", "influencers": "influencers", "growth": "growth", "support": "support", "employees": "employees",
                "attendance": "daily_reports.team", "timesheets": "daily_reports.team", "holidays": "daily_reports", "hr": "hr", "assets": "assets",
                "partnerships": "partnerships", "locations": "locations", "org": "org_structure", "agents": "ai_agents",
                "api_credits": "finance.api_credits", "payroll": "payroll", "hr_records": "hr", "investors": "investors"}
 
 
-def _may_share(user: dict, module: str) -> bool:
-    return has_permission(user, MODULE_PERM.get(module, "__super_admin__"))
+# Letting AI *change* a module needs the same right in the app (reading needs only MODULE_PERM).
+MODULE_WRITE_PERM = {"growth": "growth.manage", "leads": "sales.pipeline", "client_leads": "lead_flow.manage", "support": "support",
+                     "social": "social"}
+
+
+def _may_share(user: dict, module: str, level: str = "read") -> bool:
+    if not has_permission(user, MODULE_PERM.get(module, "__super_admin__")):
+        return False
+    return level != "write" or has_permission(user, MODULE_WRITE_PERM.get(module, MODULE_PERM.get(module, "__super_admin__")))
 DEFAULT_ACCESS = {k: ("none" if v.get("sensitive") else "read") for k, v in MODULES.items()}
 
 
@@ -180,8 +190,8 @@ async def save_settings(body: SettingsIn, request: Request, user: dict = Depends
         cur = (await db.settings.find_one({"id": "ai"}, {"_id": 0}) or {}).get("access") or {}
         for k, v in body.access.items():
             if k in MODULES and v in LEVELS:
-                if v != "none" and not _may_share(user, k):
-                    raise HTTPException(status_code=403, detail=f"You can't open {MODULES[k]['label']} to AI — you don't have access to it yourself")
+                if v != "none" and not _may_share(user, k, v):
+                    raise HTTPException(status_code=403, detail=f"You can't open {MODULES[k]['label']} to AI{' for changes' if v == 'write' else ''} — you don't have that access yourself")
                 cur[k] = v
         sets["access"] = cur
     if body.sensitive is not None:
@@ -300,7 +310,7 @@ async def create_token(body: TokenIn, user: dict = Depends(get_current_user)):
     if not body.name.strip():
         raise HTTPException(status_code=400, detail="Name the token after the agent or tool that will use it")
     access = {k: v for k, v in body.access.items() if k in MODULES and v in ("read", "write")}
-    blocked = [MODULES[k]["label"] for k in access if not _may_share(user, k)]
+    blocked = [MODULES[k]["label"] for k, lv in access.items() if not _may_share(user, k, lv)]
     if blocked:
         raise HTTPException(status_code=403, detail=f"You can't give a token access to data you can't see yourself: {', '.join(blocked)}")
     if not access:
@@ -548,6 +558,14 @@ async def _create(agent: Agent, module: str, data: dict):
                "scheduled_at": vals.get("scheduled_at") or now, "content_type": vals.get("content_type", "post"), "status": "planned",
                "created_by": actor["id"], "created_at": now, "via": "ai"}
         await db.social_posts.insert_one(dict(doc))
+    elif module == "growth":
+        from routes_growth import upsert_month
+        acc = await db.growth_accounts.find_one({"id": vals.get("account_id")}, {"_id": 0})
+        if not acc:
+            raise HTTPException(status_code=400, detail="account_id is required and must exist (list growth_accounts first)")
+        if not isinstance(vals.get("values"), dict) or not vals["values"]:
+            raise HTTPException(status_code=400, detail="values must be an object like {\"followers\": 12840, \"views\": 90210}")
+        doc = await upsert_month(acc, str(vals.get("month") or ""), vals["values"], "ai", actor, str(vals.get("note") or ""))
     else:
         raise HTTPException(status_code=400, detail="This module is read-only for AI")
     await log_activity(actor, "ai_record_created", module, doc["id"], doc.get("name") or doc.get("subject") or doc.get("number") or doc["id"])

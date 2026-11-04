@@ -23,7 +23,7 @@ PERMISSION_GROUPS = {
     "Investors": ["investors", "investors.manage", "investors.delete"],
     "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud", "lead_flow", "lead_flow.manage", "sales.delete"],
     "HR": ["hr", "hr.manage", "hr.delete", "payroll", "payroll.manage", "payroll.delete"],
-    "Growth": ["ads", "ads.delete", "social", "social.delete", "influencers", "influencers.delete"],
+    "Growth": ["growth", "growth.manage", "growth.delete", "ads", "ads.delete", "social", "social.delete", "influencers", "influencers.delete"],
     "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete",
                    "ai_agents", "ai_agents.manage", "ai_agents.delete", "org_structure", "org_structure.manage", "org_structure.delete",
                    "daily_reports", "daily_reports.team", "daily_reports.delete", "holidays.manage"],
@@ -52,13 +52,13 @@ ROLE_DEFAULTS = {
                 "payroll", "support"},
     "sales": {"clients", "projects", "sales.pipeline", "sales.quotes", "sales.targets", "sales.hud",
               "employees", "training", "partnerships", "influencers", "locations", "reports", *_V26_EVERYONE, "client_portal",
-              "lead_flow", "lead_flow.manage", "support"},
+              "lead_flow", "lead_flow.manage", "support", "growth"},
     "pm": {"clients", "projects", "finance.project_profit", "sales.pipeline", "sales.quotes", "sales.targets",
            "employees", "training", "partnerships", "locations", "reports", *_V26_EVERYONE, "ai_agents.manage",
-           "client_portal", "daily_reports.team", "lead_flow", "support", "support.manage"},
+           "client_portal", "daily_reports.team", "lead_flow", "support", "support.manage", "growth"},
     "employee": {"projects", "employees", "training", *_V26_EVERYONE},
-    "ads_manager": {"ads", "clients", *_V26_EVERYONE, "lead_flow", "lead_flow.manage"},
-    "social_manager": {"social", "influencers", "clients", *_V26_EVERYONE, "lead_flow"},
+    "ads_manager": {"ads", "clients", *_V26_EVERYONE, "lead_flow", "lead_flow.manage", "growth", "growth.manage"},
+    "social_manager": {"social", "influencers", "clients", *_V26_EVERYONE, "lead_flow", "growth", "growth.manage"},
     # v3.0: HR Manager — people records, onboarding/offboarding, skills, KT, payroll, attendance.
     "hr": {"employees", "training", "training.delete", "hr", "hr.manage", "hr.delete", "payroll", "payroll.manage",
            "daily_reports", "daily_reports.team", "holidays.manage", "org_structure", "org_structure.manage", "ai_agents",
@@ -82,8 +82,14 @@ V28_NEW_KEYS = {role: (keys & _V28) for role, keys in ROLE_DEFAULTS.items()}
 _V30 = {"support", "support.manage", "support.delete", "lead_flow", "lead_flow.manage", "hr", "hr.manage", "hr.delete",
         "payroll", "payroll.manage", "payroll.delete", "finance.loans", "investors", "investors.manage", "investors.delete", "ai_settings"}
 V30_NEW_KEYS = {role: (keys & _V30) for role, keys in ROLE_DEFAULTS.items()}
+# v3.1: Digital Growth (follower / views tracking + reports)
+_V31 = {"growth", "growth.manage", "growth.delete"}
+V31_NEW_KEYS = {role: (keys & _V31) for role, keys in ROLE_DEFAULTS.items()}
+for _r in (V26_NEW_KEYS, V27_NEW_KEYS, V28_NEW_KEYS, V30_NEW_KEYS):
+    for _k in _r:
+        _r[_k] = _r[_k] - _V31
 ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS), ("role_defaults_v28", V28_NEW_KEYS),
-                   ("role_defaults_v30", V30_NEW_KEYS)]
+                   ("role_defaults_v30", V30_NEW_KEYS), ("role_defaults_v31", V31_NEW_KEYS)]
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
@@ -233,6 +239,7 @@ PATH_PERMISSIONS = [
     ("/api/training", ("training",)),
     ("/api/partnerships", ("partnerships",)),
     ("/api/assets", ("assets",)),
+    ("/api/growth", ("growth",)),
     ("/api/ads", ("ads",)),
     ("/api/social", ("social",)),
     ("/api/influencers", ("influencers",)),

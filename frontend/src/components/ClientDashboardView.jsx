@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FolderKanban, CheckCircle2, Flag, Megaphone, TrendingUp, Target, Share2, IndianRupee, Download, CalendarDays, Users, FileSignature, Loader2, GitBranch } from "lucide-react";
+import { FolderKanban, CheckCircle2, Flag, Megaphone, TrendingUp, Target, Share2, IndianRupee, Download, CalendarDays, Users, FileSignature, Loader2, GitBranch, Rocket } from "lucide-react";
 import { LeadSankey, SourceTable } from "@/components/LeadFlowChart";
+import { ClientGrowthSection } from "@/components/GrowthCharts";
 
 export const DEFAULT_PERIODS = [
   { value: "this_month", label: "This month" }, { value: "last_month", label: "Last month" },
@@ -76,7 +77,7 @@ export function PeriodBar({ value, onChange, periods = DEFAULT_PERIODS, onDownlo
   );
 }
 
-export default function ClientDashboardView({ data: d }) {
+export default function ClientDashboardView({ data: d, growthLink = null }) {
   const k = d.kpis;
   const hasAds = d.ads.campaigns.length > 0 || d.ads.monthly.some((m) => m.spend || m.revenue);
   const socialTotal = d.social.by_platform.reduce((a, b) => a + b.value, 0);
@@ -194,6 +195,13 @@ export default function ClientDashboardView({ data: d }) {
           right={<span className="text-xs text-gray-500"><span className="font-semibold text-gray-900 font-mono">{d.leads.totals.leads}</span> leads · <span className="font-semibold text-gray-900 font-mono">{d.leads.totals.won}</span> converted ({d.leads.totals.win_rate}%){d.leads.totals.cost_per_lead ? <> · <span className="font-mono">{inr(d.leads.totals.cost_per_lead)}</span> per lead</> : null}</span>}>
           <LeadSankey flow={d.leads} height={300} />
           <div className="mt-3"><SourceTable sources={d.leads.sources} winLabel="Converted" showSpend testid="client-lead-sources" /></div>
+        </Section>
+      )}
+
+      {d.growth?.accounts?.length > 0 && (
+        <Section title="Digital growth" icon={Rocket} testid="client-growth"
+          right={<span className="text-xs text-gray-500">{d.growth.period}{growthLink ? <> · {growthLink}</> : null}</span>}>
+          <ClientGrowthSection growth={d.growth} />
         </Section>
       )}
 

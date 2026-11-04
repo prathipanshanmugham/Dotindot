@@ -57,6 +57,7 @@ import ClientDashboardPage from "@/pages/ClientDashboardPage";
 import { PortalLoginPage, PortalDashboardPage } from "@/pages/portal/PortalPages";
 import SupportPage from "@/pages/support/SupportPage";
 import LeadFlowPage from "@/pages/sales/LeadFlowPage";
+import GrowthPage from "@/pages/growth/GrowthPage";
 import { HROverviewPage, HRPeoplePage, OnboardingPage, OffboardingPage, SkillsPage, KTPage } from "@/pages/hr/HRPages";
 import { PayrollPage, IncentivesPage } from "@/pages/hr/PayrollPages";
 import MyHRPage from "@/pages/hr/MyHRPage";
@@ -165,6 +166,7 @@ function App() {
           <Route path="/sales/quotes/:id/edit" element={<Protected perm="sales.quotes" roles={["admin", "sales"]}><QuoteBuilderPage /></Protected>} />
           <Route path="/sales/targets" element={<Protected perm="sales.targets"><TargetsPage /></Protected>} />
           <Route path="/lead-flow" element={<Protected perm={["lead_flow", "sales.pipeline"]}><LeadFlowPage /></Protected>} />
+          <Route path="/growth" element={<Protected perm={["growth"]}><GrowthPage /></Protected>} />
           <Route path="/hud" element={<Protected perm="sales.hud" bare><SalesHudPage /></Protected>} />
           <Route path="/ads" element={<Protected perm="ads"><AdsPage /></Protected>} />
           <Route path="/ads/:id" element={<Protected perm="ads"><AdCampaignDetailPage /></Protected>} />

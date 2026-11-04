@@ -36,6 +36,22 @@ except Exception:
     FONT, BOLD_FONT, RUPEE = "Helvetica", "Helvetica-Bold", "Rs "
 
 
+def slug(name, fallback="file"):
+    """ASCII-only file-name part (accents folded; non-Latin names fall back), so download headers never fail."""
+    import unicodedata
+    t = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", t.lower()).strip("-") or fallback
+
+
+def attachment(filename_ascii, display=None):
+    """Content-Disposition value: an ASCII filename plus the original (Unicode) name for browsers that read filename*."""
+    from urllib.parse import quote
+    v = f'attachment; filename="{filename_ascii}"'
+    if display and display != filename_ascii:
+        v += f"; filename*=UTF-8''{quote(display, safe='')}"
+    return v
+
+
 def inr(n):
     """Indian-grouped currency string: 185000 -> ₹1,85,000"""
     try:

@@ -148,7 +148,8 @@ async def notifications(user: dict = Depends(get_current_user)):
     from routes_hr import hr_alerts
     from routes_payroll import payroll_alerts
     from routes_loans import loan_alerts
-    for fn in (support_alerts, hr_alerts, payroll_alerts, loan_alerts):
+    from routes_growth import growth_alerts
+    for fn in (support_alerts, hr_alerts, payroll_alerts, loan_alerts, growth_alerts):
         try:
             items.extend(await fn(user))
         except Exception:  # a broken feed must never take the bell down

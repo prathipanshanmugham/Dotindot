@@ -10,7 +10,7 @@ from routes_finance import monthly_equiv, name_maps, period_range
 from routes_sales import targets_with_actuals, won_at, STAGES
 from routes_clients import compute_health, project_counts_map
 from routes_exports import file_response, _umap
-from permissions import branch_scope
+from permissions import branch_scope, has_permission
 
 router = APIRouter()
 
@@ -397,9 +397,14 @@ BUILDERS = {
 from reports_v28 import V28_TEMPLATES, V28_BUILDERS  # noqa: E402
 TEMPLATES.update(V28_TEMPLATES)
 BUILDERS.update(V28_BUILDERS)
+# v3.1: Digital Growth
+from routes_growth import GROWTH_TEMPLATES, GROWTH_BUILDERS  # noqa: E402
+TEMPLATES.update(GROWTH_TEMPLATES)
+BUILDERS.update(GROWTH_BUILDERS)
+NEW_TEMPLATES = set(GROWTH_TEMPLATES)
 TEMPLATE_GROUPS = {
     "Money": ["monthly-financial", "cash-flow", "client-profitability", "ai-costs", "renewals"],
-    "Clients & delivery": ["client-status", "project-delivery", "ads-performance"],
+    "Clients & delivery": ["client-status", "project-delivery", "ads-performance", "digital-growth"],
     "Sales": ["sales-pipeline", "lead-sources"],
     "People": ["attendance", "timesheet-utilisation", "employee-activity"],
     "Locations": ["location-comparison"],
@@ -414,6 +419,8 @@ def _check_template(key: str, user: dict):
         raise HTTPException(status_code=404, detail="Unknown report template")
     if user["role"] != "super_admin" and user["role"] not in tpl["roles"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions for this report")
+    if tpl.get("perm") and not has_permission(user, tpl["perm"]):
+        raise HTTPException(status_code=403, detail="This report needs access to its module")
     return tpl
 
 
@@ -421,8 +428,9 @@ def _check_template(key: str, user: dict):
 async def list_templates(user: dict = Depends(require_roles(*REPORT_ROLES))):
     keys = sorted(TEMPLATES, key=lambda k: _ORDER.index(k) if k in _ORDER else 99)
     return [{"key": k, "name": TEMPLATES[k]["name"], "description": TEMPLATES[k]["description"], "group": _GROUP_OF.get(k, "Other"),
-             "new": k in V28_TEMPLATES}
-            for k in keys if user["role"] == "super_admin" or user["role"] in TEMPLATES[k]["roles"]]
+             "new": k in NEW_TEMPLATES}
+            for k in keys if (user["role"] == "super_admin" or user["role"] in TEMPLATES[k]["roles"])
+            and (not TEMPLATES[k].get("perm") or has_permission(user, TEMPLATES[k]["perm"]))]
 
 
 @router.get("/reports/branch-options")

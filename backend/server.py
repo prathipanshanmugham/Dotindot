@@ -6,7 +6,10 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import logging
-from fastapi import FastAPI
+import math
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
 from database import db, client
@@ -53,6 +56,7 @@ from routes_payroll import router as payroll_router
 from routes_loans import router as loans_router
 from routes_investors import router as investors_router
 from routes_ai import router as ai_router
+from routes_growth import router as growth_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -60,12 +64,29 @@ app = FastAPI(
     docs_url="/api/docs",
 )
 
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(request: Request, exc: RequestValidationError):
+    """Same 422 as FastAPI's default, but never fails on input it can't echo back (NaN, Infinity, bytes)."""
+    def safe(v):
+        if isinstance(v, float) and not math.isfinite(v):
+            return str(v)
+        if isinstance(v, dict):
+            return {k: safe(x) for k, x in v.items()}
+        if isinstance(v, (list, tuple)):
+            return [safe(x) for x in v]
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            return v
+        return str(v)
+    errors = [{k: safe(v) for k, v in e.items() if k != "ctx"} for e in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
 for r in (auth_router, users_router, clients_router, projects_router, misc_router, finance_router, sales_router, ceo_router,
           employees_router, logs_router, partnerships_router, locations_router, exports_router, reports_router,
           access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router,
           passwords_router, dashboard_router, records_router, agents_router, org_router,
           api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router,
-          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router):
+          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router):
     app.include_router(r, prefix="/api")
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
@@ -160,6 +181,11 @@ async def startup():
     await db.investor_users.create_index("email", unique=True)
     await db.ai_tokens.create_index("token_hash", unique=True)
     await db.ai_access_log.create_index("at")
+    await db.growth_accounts.create_index("id", unique=True)
+    await db.growth_accounts.create_index("owner")
+    await db.growth_months.create_index("id", unique=True)
+    await db.growth_months.create_index([("account_id", 1), ("month", 1)], unique=True)
+    await db.growth_months.create_index([("owner", 1), ("month", 1)])
     # Ignore-proof cleanup: remove any stale test users (test_*@dotindot.test) on every startup
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
     if removed.deleted_count:

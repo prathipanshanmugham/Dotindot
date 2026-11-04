@@ -1082,8 +1082,10 @@ def build_payslip_pdf(s: dict, cfg: dict) -> bytes:
 
 
 def _pdf(s: dict, data: bytes):
-    safe = "".join(ch if ch.isalnum() else "-" for ch in s["user_name"]).strip("-").lower()
-    return Response(content=data, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="payslip-{safe}-{s["month"]}.pdf"'})
+    from export_engine import slug, attachment
+    fname = f"payslip-{slug(s['user_name'], 'employee')}-{s['month']}.pdf"
+    return Response(content=data, media_type="application/pdf",
+                    headers={"Content-Disposition": attachment(fname, f"payslip-{'-'.join(s['user_name'].split())}-{s['month']}.pdf")})
 
 
 @router.get("/hr/payroll/payslips/{sid}/pdf")
