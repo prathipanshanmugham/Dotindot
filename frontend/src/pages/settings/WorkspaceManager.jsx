@@ -48,6 +48,11 @@ export const WorkspaceManager = () => {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [cascadeBulk, setCascadeBulk] = useState(false);
+  // v3.0: skip the recycle bin ("delete forever") + wipe a whole module
+  const [forever, setForever] = useState(false);
+  const [foreverBulk, setForeverBulk] = useState(false);
+  const [wipeOpen, setWipeOpen] = useState(false);
+  const [wipeText, setWipeText] = useState("");
 
   useEffect(() => {
     api.get("/workspace/collections").then((r) => setCollections(r.data)).catch(() => {});
@@ -95,7 +100,7 @@ export const WorkspaceManager = () => {
   };
 
   const openDelete = async (rec) => {
-    setSingleConfirm("");
+    setSingleConfirm(""); setForever(false);
     setDelTarget({ record: rec, dependents: null, checked: false });
     try {
       const { data: res } = await api.get(`/workspace/${coll}/${rec.id}/dependents`);
@@ -108,8 +113,8 @@ export const WorkspaceManager = () => {
 
   const doDelete = async (rid, cascade) => {
     try {
-      await api.delete(`/workspace/${coll}/${rid}`, { params: cascade ? { cascade: true } : {} });
-      toast.success(cascade ? "Record and dependents deleted — undo available for 24h" : "Record deleted — undo available for 24h");
+      await api.delete(`/workspace/${coll}/${rid}`, { params: { ...(cascade ? { cascade: true } : {}), ...(forever ? { permanent: true } : {}) } });
+      toast.success(`${cascade ? "Record and dependents" : "Record"} deleted${forever ? " forever" : " — undo available for 24h"}`);
       setDelTarget(null);
       load();
       refreshCounts();
@@ -129,8 +134,8 @@ export const WorkspaceManager = () => {
 
   const bulkDelete = async () => {
     try {
-      const { data: res } = await api.post(`/workspace/${coll}/bulk-delete`, { ids: selectedIds, cascade: cascadeBulk });
-      toast.success(`${res.deleted} deleted${res.skipped.length ? `, ${res.skipped.length} skipped` : ""}`);
+      const { data: res } = await api.post(`/workspace/${coll}/bulk-delete`, { ids: selectedIds, cascade: cascadeBulk, permanent: foreverBulk });
+      toast.success(`${res.deleted} deleted${foreverBulk ? " forever" : ""}${res.skipped.length ? `, ${res.skipped.length} skipped` : ""}`);
       if (res.skipped.length) {
         toast.warning(res.skipped.slice(0, 3).map((s) => `${s.id.slice(0, 8)}: ${typeof s.reason === "string" ? s.reason : "blocked"}`).join(" · "));
       }
@@ -144,6 +149,16 @@ export const WorkspaceManager = () => {
     }
   };
 
+  const wipe = async () => {
+    try {
+      const { data: res } = await api.post(`/workspace/${coll}/wipe`, { confirm: wipeText });
+      toast.success(`${res.deleted} records deleted forever`);
+      setWipeOpen(false); setWipeText(""); setSelected({});
+      load(); refreshCounts();
+    } catch (e) { toast.error(apiError(e)); }
+  };
+
+  const collLabel = collections.find((c) => c.key === coll)?.label;
   const cols = pickColumns(data?.items);
   const totalPages = data ? Math.max(1, Math.ceil(data.total / 20)) : 1;
 
@@ -154,7 +169,7 @@ export const WorkspaceManager = () => {
           <Database className="h-4 w-4 text-[#F26B21]" /> Workspace data manager
         </CardTitle>
         <p className="text-xs text-gray-400">
-          Super admin power tool — edit or <span className="font-semibold text-red-500">hard delete</span> any record. Deleted records go to "Recently deleted" below and can be restored for 24 hours, then are purged permanently.
+          Super admin power tool — edit or <span className="font-semibold text-red-500">hard delete</span> any record in any module. Deleted records go to "Recently deleted" below for 24 hours — or tick <span className="font-semibold">Delete forever</span> to remove them for good straight away.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -175,6 +190,11 @@ export const WorkspaceManager = () => {
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search records…" className="pl-9" data-testid="workspace-search-input" />
             </div>
           )}
+          {coll && data?.total > 0 && (
+            <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 shrink-0" onClick={() => { setWipeText(""); setWipeOpen(true); }} data-testid="workspace-wipe-btn">
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete all…
+            </Button>
+          )}
         </div>
 
         {coll && data && (
@@ -182,7 +202,7 @@ export const WorkspaceManager = () => {
             {selectedIds.length > 0 && (
               <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2.5" data-testid="workspace-bulk-bar">
                 <span className="text-sm font-semibold text-red-700">{selectedIds.length} selected</span>
-                <Button size="sm" variant="destructive" onClick={() => { setConfirmText(""); setCascadeBulk(false); setBulkOpen(true); }} data-testid="workspace-bulk-delete-btn">
+                <Button size="sm" variant="destructive" onClick={() => { setConfirmText(""); setCascadeBulk(false); setForeverBulk(false); setBulkOpen(true); }} data-testid="workspace-bulk-delete-btn">
                   <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete selected
                 </Button>
               </div>
@@ -268,8 +288,12 @@ export const WorkspaceManager = () => {
           <div className="space-y-3 text-sm text-gray-600">
             <p>
               <span className="font-mono text-xs bg-gray-100 rounded px-1.5 py-0.5">{delTarget?.record?.id}</span>
-              {" — "}This removes the record now. It stays in <span className="font-semibold">Recently deleted</span> for 24 hours (undo available), then is purged permanently.
+              {" — "}{forever ? <>This removes the record <span className="font-semibold text-red-600">forever</span>. It will not go to Recently deleted and cannot be restored.</> : <>This removes the record now. It stays in <span className="font-semibold">Recently deleted</span> for 24 hours (undo available), then is purged permanently.</>}
             </p>
+            <label className="flex items-start gap-2 text-xs text-gray-600 rounded-lg border border-red-100 bg-red-50/50 p-2.5 cursor-pointer">
+              <Checkbox checked={forever} onCheckedChange={(v) => { setForever(!!v); setSingleConfirm(""); }} className="mt-0.5" data-testid="workspace-delete-forever" />
+              <span><span className="font-semibold text-red-700">Delete forever</span> — skip Recently deleted. No undo.</span>
+            </label>
             {delTarget && !delTarget.checked && (
               <p className="text-xs text-gray-400" data-testid="workspace-dependents-checking">Checking for dependent records…</p>
             )}
@@ -296,6 +320,12 @@ export const WorkspaceManager = () => {
             {delTarget?.checked && !delTarget?.dependents && (
               <p className="text-xs text-emerald-700" data-testid="workspace-no-dependents">No dependent records — safe to delete this record only.</p>
             )}
+            {forever && !delTarget?.dependents && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-gray-700">Type <span className="font-mono text-red-600">DELETE</span> to confirm:</p>
+                <Input value={singleConfirm} onChange={(e) => setSingleConfirm(e.target.value)} placeholder="DELETE" data-testid="workspace-delete-confirm-input" />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDelTarget(null)} data-testid="workspace-delete-cancel">Cancel</Button>
@@ -311,11 +341,11 @@ export const WorkspaceManager = () => {
             ) : (
               <Button
                 variant="destructive"
-                disabled={!delTarget?.checked}
+                disabled={!delTarget?.checked || (forever && singleConfirm !== "DELETE")}
                 onClick={() => doDelete(delTarget.record.id, false)}
                 data-testid="workspace-delete-confirm"
               >
-                Delete permanently
+                {forever ? "Delete forever" : "Delete permanently"}
               </Button>
             )}
           </DialogFooter>
@@ -331,7 +361,11 @@ export const WorkspaceManager = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm text-gray-600">
-            <p>This removes {selectedIds.length} records from <span className="font-semibold">{collections.find((c) => c.key === coll)?.label}</span>. They stay in Recently deleted for 24 hours (undo available), then are purged.</p>
+            <p>This removes {selectedIds.length} records from <span className="font-semibold">{collLabel}</span>. {foreverBulk ? <span className="font-semibold text-red-600">They are deleted forever — no undo.</span> : "They stay in Recently deleted for 24 hours (undo available), then are purged."}</p>
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              <Checkbox checked={foreverBulk} onCheckedChange={(v) => setForeverBulk(!!v)} data-testid="workspace-bulk-forever" />
+              <span><span className="font-semibold text-red-700">Delete forever</span> — skip Recently deleted</span>
+            </label>
             <label className="flex items-center gap-2 text-xs text-gray-500">
               <Checkbox checked={cascadeBulk} onCheckedChange={(v) => setCascadeBulk(!!v)} data-testid="workspace-bulk-cascade" />
               Also cascade-delete/unlink dependent records (otherwise records with dependents are skipped)
@@ -344,8 +378,29 @@ export const WorkspaceManager = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkOpen(false)}>Cancel</Button>
             <Button variant="destructive" disabled={confirmText !== "DELETE"} onClick={bulkDelete} data-testid="workspace-bulk-confirm-btn">
-              Delete {selectedIds.length} records
+              Delete {selectedIds.length} records{foreverBulk ? " forever" : ""}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* v3.0 wipe a whole module */}
+      <Dialog open={wipeOpen} onOpenChange={setWipeOpen}>
+        <DialogContent className="max-w-md" data-testid="workspace-wipe-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700"><AlertTriangle className="h-5 w-5" /> Delete all {collLabel}?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-gray-600">
+            <p>Every record in <span className="font-semibold">{collLabel}</span> ({data?.total}) will be <span className="font-semibold text-red-600">deleted forever</span>. Linked records elsewhere are removed or unlinked the same way as a single delete. This skips Recently deleted and cannot be undone.</p>
+            {coll === "users" && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">Super admin accounts and your own login are always kept.</p>}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-gray-700">Type <span className="font-mono text-red-600">DELETE ALL</span> to confirm:</p>
+              <Input value={wipeText} onChange={(e) => setWipeText(e.target.value)} placeholder="DELETE ALL" data-testid="workspace-wipe-input" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWipeOpen(false)}>Cancel</Button>
+            <Button variant="destructive" disabled={wipeText !== "DELETE ALL"} onClick={wipe} data-testid="workspace-wipe-confirm">Delete all forever</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

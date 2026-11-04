@@ -66,8 +66,14 @@ ROLE_TEMPLATE = {
                              "Manages influencer collaborations"],
         "kpis": ["Posts published on schedule", "Engagement rate", "Follower growth"],
     },
+    "hr": {
+        "dept": "People & HR", "title": "HR Manager",
+        "responsibilities": ["Runs hiring, onboarding and offboarding", "Processes monthly payroll, PF / ESI and incentives",
+                             "Plans skill development and knowledge transfer"],
+        "kpis": ["Payroll on time", "Onboarding completed in 30 days", "Training hours per person"],
+    },
 }
-DEPT_ORDER = ["Operations", "Finance", "Sales & Business Development", "Project Management", "Creative & Delivery",
+DEPT_ORDER = ["Operations", "Finance", "People & HR", "Sales & Business Development", "Project Management", "Creative & Delivery",
               "Performance Marketing", "Social Media"]
 
 

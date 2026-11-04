@@ -65,13 +65,16 @@ export const BulkDeleteBar = ({ kit }) => {
 };
 
 export const RecordDeleteDialog = ({ coll, target, labelOf, onClose, onDeleted }) => {
+  const { user } = useAuth();
+  const isSuper = user?.role === "super_admin";
   const isBulk = Array.isArray(target);
   const [deps, setDeps] = useState(null);
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
+  const [forever, setForever] = useState(false); // v3.0 super admin: skip the recycle bin
 
   useEffect(() => {
-    setConfirm(""); setDeps(null);
+    setConfirm(""); setDeps(null); setForever(false);
     if (isBulk) return;
     api.get(`/records/${coll}/${target.id}/dependents`).then((r) => setDeps(r.data)).catch(() => setDeps({}));
   }, [coll, target, isBulk]);
@@ -80,11 +83,11 @@ export const RecordDeleteDialog = ({ coll, target, labelOf, onClose, onDeleted }
     setBusy(true);
     try {
       if (isBulk) {
-        const { data } = await api.post(`/records/${coll}/bulk-delete`, { ids: target.map((r) => r.id) });
-        toast.success(`${data.deleted} deleted — undo available for 24h in Settings`);
+        const { data } = await api.post(`/records/${coll}/bulk-delete`, { ids: target.map((r) => r.id), permanent: forever });
+        toast.success(forever ? `${data.deleted} deleted forever` : `${data.deleted} deleted — undo available for 24h in Settings`);
       } else {
-        await api.delete(`/records/${coll}/${target.id}`);
-        toast.success(`"${labelOf(target)}" deleted — undo available for 24h in Settings`);
+        await api.delete(`/records/${coll}/${target.id}`, { params: forever ? { permanent: true } : {} });
+        toast.success(forever ? `"${labelOf(target)}" deleted forever` : `"${labelOf(target)}" deleted — undo available for 24h in Settings`);
       }
       window.dispatchEvent(new Event("records-changed"));
       onDeleted();
@@ -97,7 +100,15 @@ export const RecordDeleteDialog = ({ coll, target, labelOf, onClose, onDeleted }
       <DialogContent className="max-w-md" data-testid="record-delete-dialog">
         <DialogHeader><DialogTitle className="flex items-center gap-2 text-red-700"><AlertTriangle className="h-5 w-5" /> {isBulk ? `Delete ${target.length} records?` : `Delete "${labelOf(target)}"?`}</DialogTitle></DialogHeader>
         <div className="space-y-3 text-sm text-gray-600">
-          <p>This is <span className="font-semibold text-red-600">permanent and cannot be undone</span> from this screen. A super admin can restore it from Settings → Recently deleted within 24 hours.</p>
+          {forever
+            ? <p>This is <span className="font-semibold text-red-600">deleted forever</span>. It skips Recently deleted and can't be restored by anyone.</p>
+            : <p>This is <span className="font-semibold text-red-600">permanent and cannot be undone</span> from this screen. A super admin can restore it from Settings → Recently deleted within 24 hours.</p>}
+          {isSuper && (
+            <label className="flex items-start gap-2 text-xs text-gray-600 rounded-lg border border-red-100 bg-red-50/50 p-2.5 cursor-pointer">
+              <Checkbox checked={forever} onCheckedChange={(v) => { setForever(!!v); setConfirm(""); }} className="mt-0.5" data-testid="record-delete-forever" />
+              <span><span className="font-semibold text-red-700">Delete forever</span> — skip Recently deleted. No undo. (Super admin only)</span>
+            </label>
+          )}
           {!isBulk && deps === null && <p className="text-xs text-gray-400">Checking linked records…</p>}
           {!isBulk && depEntries.length > 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-0.5" data-testid="record-delete-warnings">
@@ -105,7 +116,7 @@ export const RecordDeleteDialog = ({ coll, target, labelOf, onClose, onDeleted }
               {depEntries.map(([k, n]) => <div key={k}>• {n} {labelize(k)}</div>)}
             </div>
           )}
-          {isBulk && (
+          {(isBulk || forever) && (
             <div className="space-y-1">
               <p className="text-xs font-semibold text-gray-700">Type <span className="font-mono text-red-600">DELETE</span> to confirm:</p>
               <Input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="DELETE" data-testid="record-bulk-confirm-input" />
@@ -114,8 +125,8 @@ export const RecordDeleteDialog = ({ coll, target, labelOf, onClose, onDeleted }
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} data-testid="record-delete-cancel">Cancel</Button>
-          <Button variant="destructive" disabled={busy || (isBulk ? confirm !== "DELETE" : deps === null)} onClick={run} data-testid="record-delete-confirm">
-            {isBulk ? `Delete ${target.length}` : "Delete permanently"}
+          <Button variant="destructive" disabled={busy || ((isBulk || forever) && confirm !== "DELETE") || (!isBulk && deps === null)} onClick={run} data-testid="record-delete-confirm">
+            {isBulk ? `Delete ${target.length}${forever ? " forever" : ""}` : forever ? "Delete forever" : "Delete permanently"}
           </Button>
         </DialogFooter>
       </DialogContent>

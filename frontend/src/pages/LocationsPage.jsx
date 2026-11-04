@@ -15,27 +15,32 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Building2, UserCheck, Globe2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Users, Building2, UserCheck, Globe2, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { LocationFields } from "@/components/LocationFields";
 import { PinPicker } from "@/components/PinPicker";
 import { BranchFilter } from "@/components/BranchFilter";
 
 const LAYERS = [
-  { key: "clients", label: "Clients", color: "#F26B21", icon: Users, offset: [0, 0] },
-  { key: "branches", label: "Branches", color: "#1F2937", icon: Building2, offset: [0.22, 0.22] },
-  { key: "employees", label: "Team", color: "#2563EB", icon: UserCheck, offset: [-0.22, -0.22] },
+  { key: "clients", label: "Clients", color: "#F26B21", icon: Users },
+  { key: "branches", label: "Branches", color: "#1F2937", icon: Building2 },
+  { key: "employees", label: "Team", color: "#2563EB", icon: UserCheck },
 ];
 
-const makeIcon = (color, count) =>
+// v3.0: branches sit on their own exact pin; clients + team share ONE marker at their city's centre (no offsets).
+const BUILDING_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/></svg>';
+const branchIcon = (exact) =>
   L.divIcon({
     className: "",
-    html: `<div style="background:${color};color:#fff;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);border:2px solid #fff;"><span style="transform:rotate(45deg);font-size:11px;font-weight:700;font-family:sans-serif;">${count}</span></div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -26],
+    html: `<div style="background:${exact ? "#1F2937" : "#fff"};color:${exact ? "#fff" : "#1F2937"};width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35);border:${exact ? "2px solid #fff" : "2px dashed #1F2937"};"><span style="transform:rotate(45deg);display:flex">${BUILDING_SVG}</span></div>`,
+    iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28],
   });
+const cityIcon = (clients, team) => {
+  const seg = (n, bg) => (n ? `<span style="background:${bg};color:#fff;padding:0 7px;line-height:22px;font-weight:700">${n}</span>` : "");
+  const html = `<div style="display:inline-flex;border-radius:11px;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);font:11px Inter,sans-serif;transform:translate(-50%,-50%);white-space:nowrap">${seg(clients, "#F26B21")}${seg(team, "#2563EB")}</div>`;
+  return L.divIcon({ className: "", html, iconSize: [0, 0], iconAnchor: [0, 0], popupAnchor: [0, -12] });
+};
 
-const EMPTY_BRANCH = { name: "", city: "", state: "", country: "India", address: "", head_name: "", contact_email: "", contact_phone: "", status: "active", lat: null, lng: null };
+const EMPTY_BRANCH = { name: "", city: "", state: "", country: "India", address: "", head_name: "", contact_email: "", contact_phone: "", status: "active", lat: null, lng: null, pin_source: null };
 
 const BranchManager = ({ onChanged, onLocate }) => {
   const { user } = useAuth();
@@ -55,12 +60,13 @@ const BranchManager = ({ onChanged, onLocate }) => {
   }, [load]);
 
   const openNew = () => { setEditing(null); setForm(EMPTY_BRANCH); setOpen(true); };
+  const pinChange = useCallback((lat, lng, pin_source) => setForm((f) => ({ ...f, lat, lng, pin_source })), []);
   const openEdit = (b) => {
     setEditing(b);
     setForm({
       name: b.name || "", city: b.city || "", state: b.state || "", country: b.country || "India", address: b.address || "",
       head_name: b.head_name || "", contact_email: b.contact_email || "", contact_phone: b.contact_phone || "",
-      status: b.status || "active", lat: b.lat ?? null, lng: b.lng ?? null,
+      status: b.status || "active", lat: b.lat ?? null, lng: b.lng ?? null, pin_source: b.pin_source || null,
     });
     setOpen(true);
   };
@@ -70,7 +76,7 @@ const BranchManager = ({ onChanged, onLocate }) => {
     try {
       if (editing) await api.put(`/locations/branches/${editing.id}`, form);
       else await api.post("/locations/branches", form);
-      toast.success(editing ? "Branch updated" : `Branch created — ${form.city} pinned on the map`);
+      toast.success(editing ? "Branch updated" : form.pin_source === "exact" ? "Branch created with its exact pin" : `Branch created — pinned at ${form.city} centre for now`);
       setOpen(false);
       load();
       onChanged && onChanged();
@@ -125,7 +131,12 @@ const BranchManager = ({ onChanged, onLocate }) => {
                   <div className="font-semibold text-gray-900">{b.name}</div>
                   {b.address && <div className="text-xs text-gray-400">{b.address}</div>}
                 </TableCell>
-                <TableCell className="text-sm text-gray-600">{b.city}{b.country ? `, ${b.country}` : ""}</TableCell>
+                <TableCell className="text-sm text-gray-600">
+                  {b.city}{b.country ? `, ${b.country}` : ""}
+                  <div className="mt-0.5">{b.pin_source === "exact"
+                    ? <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700" data-testid={`branch-pin-exact-${b.id}`}><CheckCircle2 className="h-3 w-3" /> Exact pin</span>
+                    : <span className="inline-flex items-center gap-1 text-[11px] text-amber-700" data-testid={`branch-pin-approx-${b.id}`}><AlertTriangle className="h-3 w-3" /> {b.lat == null ? "No pin" : "City centre pin"}</span>}</div>
+                </TableCell>
                 <TableCell className="text-sm text-gray-600">{b.manager_name || "—"}</TableCell>
                 <TableCell className="text-xs text-gray-500">{b.contact_email || "—"}{b.contact_phone ? ` · ${b.contact_phone}` : ""}</TableCell>
                 <TableCell>
@@ -159,10 +170,10 @@ const BranchManager = ({ onChanged, onLocate }) => {
             </div>
             <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <LocationFields country={form.country} state={form.state} city={form.city} prefix="branch-form" compact
-                onChange={(v) => setForm((f) => ({ ...f, ...v, lat: null, lng: null }))} />
+                onChange={(v) => setForm((f) => ({ ...f, ...v, ...(v.city !== undefined && v.city !== f.city ? { lat: null, lng: null, pin_source: null } : {}) }))} />
             </div>
             <div className="col-span-2">
-              <PinPicker city={form.city} state={form.state} lat={form.lat} lng={form.lng} onChange={(lat, lng) => setForm((f) => ({ ...f, lat, lng }))} />
+              <PinPicker city={form.city} lat={form.lat} lng={form.lng} source={form.pin_source} onChange={pinChange} />
             </div>
             <div className="col-span-2 space-y-1">
               <Label>Status</Label>
@@ -219,13 +230,14 @@ export default function LocationsPage() {
   // Auto-fit to all visible pins whenever data changes
   useEffect(() => {
     const m = mapRef.current;
-    if (!m || !data?.cities?.length) return;
-    const pts = data.cities.map((c) => [c.lat, c.lng]);
-    if (pts.length === 1) m.setView(pts[0], 10);
-    else m.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 12 });
+    if (!m || !data) return;
+    const pts = [...data.cities.map((c) => [c.lat, c.lng]), ...(data.branches || []).filter((b) => b.lat != null).map((b) => [b.lat, b.lng])];
+    if (!pts.length) return;
+    if (pts.length === 1) m.setView(pts[0], 12);
+    else m.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 13 });
   }, [data]);
 
-  const flyTo = (c) => mapRef.current?.flyTo([c.lat, c.lng], 11, { duration: 0.8 });
+  const flyTo = (c) => mapRef.current?.flyTo([c.lat, c.lng], 12, { duration: 0.8 });
 
   // Keep Leaflet correctly sized when its container changes (panel toggles, resize, layout shifts)
   useEffect(() => {
@@ -242,6 +254,8 @@ export default function LocationsPage() {
     return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
   const toggle = (key) => setEnabled((e) => ({ ...e, [key]: !e[key] }));
+  const branchPins = data.branches || [];
+  const needFix = branchPins.filter((b) => b.pin_source !== "exact");
 
   return (
     <div className="space-y-5 max-w-7xl" data-testid="locations-page">
@@ -256,8 +270,19 @@ export default function LocationsPage() {
         </div>
       </div>
 
+      {needFix.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex gap-3" data-testid="pins-need-fix">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <div>
+            <span className="font-semibold">{needFix.length === 1 ? "1 branch is" : `${needFix.length} branches are`} pinned at the city centre, not the office: </span>
+            {needFix.map((b) => b.name).join(", ")}.
+            <span className="text-amber-800"> Edit the branch below and tap <b>Use my location</b> at the office, or paste its Google Maps link. Attendance uses this pin.</span>
+          </div>
+        </div>
+      )}
+
       {/* Layer toggles */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {LAYERS.map((l) => (
           <button
             key={l.key}
@@ -277,6 +302,7 @@ export default function LocationsPage() {
             </span>
           </button>
         ))}
+        <span className="text-xs text-gray-400 sm:ml-2">Branches show their exact pin · clients and team show at their city's centre</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
@@ -284,46 +310,53 @@ export default function LocationsPage() {
         <Card className="border-gray-200/80 shadow-sm overflow-hidden">
           <CardContent className="p-0">
             <div style={{ height: "calc(100vh - 320px)", minHeight: 420 }} data-testid="locations-map" className="map-wrapper" ref={mapWrapRef}>
-              <MapContainer ref={mapRef} center={[22, 55]} zoom={4} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+              <MapContainer ref={mapRef} center={[11.1, 77.6]} zoom={7} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                {data.cities.map((c) =>
-                  LAYERS.map((l) => {
-                    const items = c[l.key];
-                    if (!enabled[l.key] || !items?.length) return null;
-                    return (
-                      <Marker
-                        key={`${c.city}-${l.key}`}
-                        position={[c.lat + l.offset[0], c.lng + l.offset[1]]}
-                        icon={makeIcon(l.color, items.length)}
-                      >
-                        <Popup>
-                          <div style={{ minWidth: 180 }}>
-                            <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                              {c.city}, {c.country} — {l.label}
+                {data.cities.map((c) => {
+                  const nc = enabled.clients ? c.clients.length : 0;
+                  const ne = enabled.employees ? c.employees.length : 0;
+                  if (!nc && !ne) return null;
+                  return (
+                    <Marker key={`city-${c.city}`} position={[c.lat, c.lng]} icon={cityIcon(nc, ne)}>
+                      <Popup>
+                        <div style={{ minWidth: 190, maxHeight: 260, overflowY: "auto" }}>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>{c.city}{c.country ? `, ${c.country}` : ""}</div>
+                          {nc > 0 && <div style={{ fontSize: 11, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: ".05em", marginTop: 4 }}>Clients</div>}
+                          {nc > 0 && c.clients.map((it) => (
+                            <div key={it.id} style={{ fontSize: 12, padding: "2px 0" }}>
+                              <Link to={`/clients/${it.id}`} style={{ color: "#F26B21", fontWeight: 600 }}>{it.name}</Link>
+                              <span style={{ color: "#9CA3AF", marginLeft: 6 }}>{it.industry || ""}</span>
                             </div>
-                            {items.map((it) => (
-                              <div key={it.id} style={{ fontSize: 12, padding: "2px 0" }}>
-                                {l.key === "clients" ? (
-                                  <Link to={`/clients/${it.id}`} style={{ color: "#F26B21", fontWeight: 600 }}>{it.name}</Link>
-                                ) : l.key === "employees" ? (
-                                  <Link to={`/employees/${it.id}`} style={{ color: "#2563EB", fontWeight: 600 }}>{it.name}</Link>
-                                ) : (
-                                  <span style={{ fontWeight: 600 }}>{it.name}</span>
-                                )}
-                                <span style={{ color: "#9CA3AF", marginLeft: 6 }}>
-                                  {it.industry || it.designation || it.head_name || ""}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </Popup>
-                      </Marker>
-                    );
-                  })
-                )}
+                          ))}
+                          {ne > 0 && <div style={{ fontSize: 11, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: ".05em", marginTop: 6 }}>Team</div>}
+                          {ne > 0 && c.employees.map((it) => (
+                            <div key={it.id} style={{ fontSize: 12, padding: "2px 0" }}>
+                              <Link to={`/employees/${it.id}`} style={{ color: "#2563EB", fontWeight: 600 }}>{it.name}</Link>
+                              <span style={{ color: "#9CA3AF", marginLeft: 6 }}>{it.designation || ""}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  );
+                })}
+                {enabled.branches && branchPins.filter((b) => b.lat != null).map((b) => (
+                  <Marker key={`branch-${b.id}`} position={[b.lat, b.lng]} icon={branchIcon(b.pin_source === "exact")} zIndexOffset={500}>
+                    <Popup>
+                      <div style={{ minWidth: 180 }}>
+                        <div style={{ fontWeight: 700 }}>{b.name}</div>
+                        <div style={{ fontSize: 12, color: "#6B7280" }}>{b.address || b.city}</div>
+                        {b.head_name && <div style={{ fontSize: 12, color: "#6B7280" }}>Head: {b.head_name}</div>}
+                        <div style={{ fontSize: 11, marginTop: 4, color: b.pin_source === "exact" ? "#047857" : "#B45309", fontWeight: 600 }}>
+                          {b.pin_source === "exact" ? "Exact office pin" : "Approximate — city centre"}
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
               </MapContainer>
             </div>
           </CardContent>
@@ -332,20 +365,25 @@ export default function LocationsPage() {
         {/* City list */}
         <div className="space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
           {data.cities.map((c) => (
-            <Card key={c.city} className="border-gray-200/80 shadow-sm cursor-pointer hover:border-[#F26B21]/50 transition-colors" onClick={() => flyTo(c)} data-testid={`city-card-${c.city.replace(/\s+/g, "-").toLowerCase()}`}>
+            <Card key={c.city} className="border-gray-200/80 shadow-sm cursor-pointer hover:border-[#F26B21]/50 transition-colors" onClick={() => flyTo(c.branches?.find((b) => b.lat != null) || c)} data-testid={`city-card-${c.city.replace(/\s+/g, "-").toLowerCase()}`}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="font-semibold text-gray-900 text-sm">{c.city}</div>
                   <span className="text-[10px] uppercase tracking-widest text-gray-400">{c.country}</span>
                 </div>
-                <div className="mt-2 flex gap-4 text-xs text-gray-500">
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                   {c.clients.length > 0 && <span className="flex items-center gap-1"><Users className="h-3 w-3 text-[#F26B21]" />{c.clients.length} client{c.clients.length > 1 ? "s" : ""}</span>}
-                  {c.branches.length > 0 && <span className="flex items-center gap-1"><Building2 className="h-3 w-3 text-gray-700" />{c.branches.length} branch</span>}
+                  {c.branches.length > 0 && <span className="flex items-center gap-1"><Building2 className="h-3 w-3 text-gray-700" />{c.branches.length} branch{c.branches.length > 1 ? "es" : ""}</span>}
                   {c.employees.length > 0 && <span className="flex items-center gap-1"><UserCheck className="h-3 w-3 text-blue-600" />{c.employees.length} team</span>}
                 </div>
               </CardContent>
             </Card>
           ))}
+          {(data.unplaced?.clients > 0 || data.unplaced?.employees > 0) && (
+            <p className="text-xs text-gray-400 px-1" data-testid="map-unplaced">
+              Not on the map (no city set): {[data.unplaced.clients && `${data.unplaced.clients} client${data.unplaced.clients > 1 ? "s" : ""}`, data.unplaced.employees && `${data.unplaced.employees} team`].filter(Boolean).join(" · ")}
+            </p>
+          )}
         </div>
       </div>
 

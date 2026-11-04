@@ -26,6 +26,7 @@ const TABS = [
   { name: "Pipeline", path: "/sales/pipeline" },
   { name: "Quotes", path: "/sales/quotes" },
   { name: "Targets", path: "/sales/targets" },
+  { name: "Lead Flow", path: "/lead-flow" },
 ];
 
 export default function SalesLayout({ title, subtitle, children, actions }) {

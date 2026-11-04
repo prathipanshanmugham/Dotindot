@@ -193,7 +193,9 @@ class TestMap:
         # normalize keys
         keys_lower = {k.lower(): k for k in cc.keys()}
         assert any("mumbai" in k for k in keys_lower), "Mumbai missing from city_coords"
-        assert any("kerala" in k.lower() for k in cc.keys()), "capital Kerala key missing"
+        # v3.0: no more state-level fallback keys (they put e.g. Erode branches on Chennai); every listed city has its own pin
+        assert not any(k.lower() == "kerala" for k in cc.keys()), "state-capital fallback keys should be gone"
+        assert "Erode" in cc and abs(cc["Erode"]["lat"] - 11.34) < 0.1
 
     def test_branch_create_auto_coords(self, tokens):
         payload = {"name": "TEST_Bengaluru", "country": "India", "state": "Karnataka", "city": "Bengaluru"}

@@ -46,6 +46,13 @@ from routes_daily import router as daily_router
 from routes_client_dashboard import router as client_dashboard_router
 from routes_holidays import router as holidays_router
 from routes_timesheets import router as timesheets_router
+from routes_support import router as support_router
+from routes_lead_flow import router as lead_flow_router
+from routes_hr import router as hr_router
+from routes_payroll import router as payroll_router
+from routes_loans import router as loans_router
+from routes_investors import router as investors_router
+from routes_ai import router as ai_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -57,7 +64,8 @@ for r in (auth_router, users_router, clients_router, projects_router, misc_route
           employees_router, logs_router, partnerships_router, locations_router, exports_router, reports_router,
           access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router,
           passwords_router, dashboard_router, records_router, agents_router, org_router,
-          api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router):
+          api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router,
+          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router):
     app.include_router(r, prefix="/api")
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
@@ -126,6 +134,32 @@ async def startup():
     await db.timesheets.create_index("id", unique=True)
     await db.timesheets.create_index([("user_id", 1), ("week_start", 1)], unique=True)
     await db.timesheets.create_index([("week_start", 1), ("status", 1)])
+    # v3.0
+    await db.tickets.create_index("id", unique=True)
+    await db.tickets.create_index([("kind", 1), ("status", 1)])
+    await db.tickets.create_index("client_id")
+    await db.tickets.create_index("assignee_id")
+    await db.client_leads.create_index("id", unique=True)
+    await db.client_leads.create_index([("client_id", 1), ("date", -1)])
+    await db.lead_intake_keys.create_index("key", unique=True)
+    await db.hr_onboarding.create_index("id", unique=True)
+    await db.hr_offboarding.create_index("id", unique=True)
+    await db.hr_kt.create_index("id", unique=True)
+    await db.hr_skill_plans.create_index("id", unique=True)
+    await db.salary_structures.create_index("user_id", unique=True)
+    await db.payroll_runs.create_index("month", unique=True)
+    await db.payslips.create_index("id", unique=True)
+    await db.payslips.create_index([("run_id", 1), ("user_id", 1)])
+    await db.pay_items.create_index("id", unique=True)
+    await db.pay_items.create_index([("user_id", 1), ("month", 1)])
+    await db.incentive_plans.create_index("id", unique=True)
+    await db.loans.create_index("id", unique=True)
+    await db.investors.create_index("id", unique=True)
+    await db.investments.create_index("investor_id")
+    await db.investor_returns.create_index("investor_id")
+    await db.investor_users.create_index("email", unique=True)
+    await db.ai_tokens.create_index("token_hash", unique=True)
+    await db.ai_access_log.create_index("at")
     # Ignore-proof cleanup: remove any stale test users (test_*@dotindot.test) on every startup
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
     if removed.deleted_count:

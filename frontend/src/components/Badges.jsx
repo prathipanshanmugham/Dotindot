@@ -9,6 +9,7 @@ export const ROLE_LABELS = {
   employee: "Employee",
   ads_manager: "Ads Manager",
   social_manager: "Social Manager",
+  hr: "HR Manager",
 };
 
 export const PROJECT_STATUSES = ["kickoff", "in_progress", "review", "completed", "on_hold"];

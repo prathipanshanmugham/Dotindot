@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FolderKanban, CheckCircle2, Flag, Megaphone, TrendingUp, Target, Share2, IndianRupee, Download, CalendarDays, Users, FileSignature, Loader2 } from "lucide-react";
+import { FolderKanban, CheckCircle2, Flag, Megaphone, TrendingUp, Target, Share2, IndianRupee, Download, CalendarDays, Users, FileSignature, Loader2, GitBranch } from "lucide-react";
+import { LeadSankey, SourceTable } from "@/components/LeadFlowChart";
 
 export const DEFAULT_PERIODS = [
   { value: "this_month", label: "This month" }, { value: "last_month", label: "Last month" },
@@ -186,6 +187,14 @@ export default function ClientDashboardView({ data: d }) {
             )}
           </Section>
         </div>
+      )}
+
+      {d.leads?.totals?.leads > 0 && (
+        <Section title="Leads we brought in" icon={GitBranch} testid="client-leads"
+          right={<span className="text-xs text-gray-500"><span className="font-semibold text-gray-900 font-mono">{d.leads.totals.leads}</span> leads · <span className="font-semibold text-gray-900 font-mono">{d.leads.totals.won}</span> converted ({d.leads.totals.win_rate}%){d.leads.totals.cost_per_lead ? <> · <span className="font-mono">{inr(d.leads.totals.cost_per_lead)}</span> per lead</> : null}</span>}>
+          <LeadSankey flow={d.leads} height={300} />
+          <div className="mt-3"><SourceTable sources={d.leads.sources} winLabel="Converted" showSpend testid="client-lead-sources" /></div>
+        </Section>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

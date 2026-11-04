@@ -55,10 +55,19 @@ import OrgStructurePage from "@/pages/org/OrgStructurePage";
 import DailyPage from "@/pages/daily/DailyPage";
 import ClientDashboardPage from "@/pages/ClientDashboardPage";
 import { PortalLoginPage, PortalDashboardPage } from "@/pages/portal/PortalPages";
+import SupportPage from "@/pages/support/SupportPage";
+import LeadFlowPage from "@/pages/sales/LeadFlowPage";
+import { HROverviewPage, HRPeoplePage, OnboardingPage, OffboardingPage, SkillsPage, KTPage } from "@/pages/hr/HRPages";
+import { PayrollPage, IncentivesPage } from "@/pages/hr/PayrollPages";
+import MyHRPage from "@/pages/hr/MyHRPage";
+import LoansPage from "@/pages/finance/LoansPage";
+import InvestorsPage from "@/pages/investors/InvestorsPage";
+import { InvestorLoginPage, InvestorDashboardPage } from "@/pages/investors/InvestorPortalPages";
+import AiSettingsPage from "@/pages/settings/AiSettingsPage";
 
 const FIN_ANY = [
   "finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
-  "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue",
+  "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue", "finance.loans",
 ];
 const SALES_ANY = ["sales.pipeline", "sales.quotes", "sales.targets"];
 
@@ -118,6 +127,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/portal/login" element={<PortalLoginPage />} />
           <Route path="/portal" element={<PortalDashboardPage />} />
+          <Route path="/investor/login" element={<InvestorLoginPage />} />
+          <Route path="/investor" element={<InvestorDashboardPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Protected><HomeDashboard /></Protected>} />
           <Route path="/dashboard/ceo" element={<Protected perm="ceo_dashboard"><DashboardRoute kind="ceo" /></Protected>} />
@@ -142,6 +153,8 @@ function App() {
           <Route path="/finance/marketing" element={<Protected perm="finance.marketing"><MarketingPage /></Protected>} />
           <Route path="/finance/profit" element={<Protected perm="finance.project_profit"><ProjectProfitPage /></Protected>} />
           <Route path="/finance/employees" element={<Protected perm="finance.employee_revenue"><EmployeeRevenuePage /></Protected>} />
+          <Route path="/finance/loans" element={<Protected perm="finance.loans"><LoansPage /></Protected>} />
+          <Route path="/investors" element={<Protected perm="investors"><InvestorsPage /></Protected>} />
           <Route path="/my-expenses" element={<Protected><MyExpensesPage /></Protected>} />
           <Route path="/sales" element={<Protected perm={SALES_ANY}><SalesOverview /></Protected>} />
           <Route path="/sales/pipeline" element={<Protected perm="sales.pipeline"><PipelinePage /></Protected>} />
@@ -151,6 +164,7 @@ function App() {
           <Route path="/sales/quotes/:id" element={<Protected perm="sales.quotes"><QuoteViewPage /></Protected>} />
           <Route path="/sales/quotes/:id/edit" element={<Protected perm="sales.quotes" roles={["admin", "sales"]}><QuoteBuilderPage /></Protected>} />
           <Route path="/sales/targets" element={<Protected perm="sales.targets"><TargetsPage /></Protected>} />
+          <Route path="/lead-flow" element={<Protected perm={["lead_flow", "sales.pipeline"]}><LeadFlowPage /></Protected>} />
           <Route path="/hud" element={<Protected perm="sales.hud" bare><SalesHudPage /></Protected>} />
           <Route path="/ads" element={<Protected perm="ads"><AdsPage /></Protected>} />
           <Route path="/ads/:id" element={<Protected perm="ads"><AdCampaignDetailPage /></Protected>} />
@@ -160,6 +174,16 @@ function App() {
           <Route path="/assets" element={<Protected perm="assets"><AssetsPage /></Protected>} />
           <Route path="/employees" element={<Protected perm="employees"><EmployeesPage /></Protected>} />
           <Route path="/employees/:id" element={<Protected perm="employees"><EmployeeProfilePage /></Protected>} />
+          <Route path="/hr" element={<Protected perm="hr"><HROverviewPage /></Protected>} />
+          <Route path="/hr/people" element={<Protected perm="hr"><HRPeoplePage /></Protected>} />
+          <Route path="/hr/payroll" element={<Protected perm="payroll"><PayrollPage /></Protected>} />
+          <Route path="/hr/incentives" element={<Protected perm="payroll"><IncentivesPage /></Protected>} />
+          <Route path="/hr/onboarding" element={<Protected><OnboardingPage /></Protected>} />
+          <Route path="/hr/offboarding" element={<Protected><OffboardingPage /></Protected>} />
+          <Route path="/hr/skills" element={<Protected perm="hr"><SkillsPage /></Protected>} />
+          <Route path="/hr/kt" element={<Protected><KTPage /></Protected>} />
+          <Route path="/my-hr" element={<Protected><MyHRPage /></Protected>} />
+          <Route path="/support" element={<Protected><SupportPage /></Protected>} />
           <Route path="/partnerships" element={<Protected perm="partnerships"><PartnershipsPage /></Protected>} />
           <Route path="/agents" element={<Protected perm="ai_agents"><AgentsPage /></Protected>} />
           <Route path="/agents/:id" element={<Protected perm="ai_agents"><AgentDetailPage /></Protected>} />
@@ -169,6 +193,7 @@ function App() {
           <Route path="/logs" element={<Protected perm="logs"><LogsPage /></Protected>} />
           <Route path="/reports" element={<Protected perm="reports"><ReportsPage /></Protected>} />
           <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
+          <Route path="/settings/ai" element={<Protected perm="ai_settings"><AiSettingsPage /></Protected>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>

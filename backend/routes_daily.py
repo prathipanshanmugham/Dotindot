@@ -69,7 +69,11 @@ def haversine_m(lat1, lng1, lat2, lng2):
 
 
 async def _branches():
-    return await db.branches.find({}, {"_id": 0, "id": 1, "name": 1, "city": 1, "lat": 1, "lng": 1}).to_list(500)
+    from routes_locations import pin_source_of
+    rows = await db.branches.find({}, {"_id": 0, "id": 1, "name": 1, "city": 1, "lat": 1, "lng": 1, "pin_source": 1}).to_list(500)
+    for b in rows:
+        b["pin_source"] = pin_source_of(b)
+    return rows
 
 
 def _home_branch(u: dict):
@@ -248,7 +252,11 @@ async def check_in(body: CheckIn, user: dict = Depends(get_current_user)):
         if near:
             b, dist = near
             fields.update({"nearest_branch_id": b["id"], "nearest_branch_name": b["name"], "distance_m": round(dist)})
-            fields["on_site"] = dist <= float(s["geofence_m"]) + float(body.accuracy or 0) * 0.5
+            # v3.0: a branch pinned only at its city centre can't prove on/off site to the metre — allow 3 km
+            approx = b.get("pin_source") != "exact"
+            radius = max(float(s["geofence_m"]), 3000.0) if approx else float(s["geofence_m"])
+            fields["on_site"] = dist <= radius + float(body.accuracy or 0) * 0.5
+            fields["branch_pin_approx"] = approx
     else:
         fields["check_in_location"] = None
         fields["on_site"] = None

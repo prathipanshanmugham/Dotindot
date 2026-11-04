@@ -49,7 +49,42 @@ COLLECTIONS = {
     "portal_users": {"label": "Client Portal Logins", "search": ["name", "email"]},
     "holidays": {"label": "Holidays", "search": ["name", "date"]},
     "timesheets": {"label": "Timesheets", "search": ["user_name", "week_start"]},
+    # v3.0
+    "client_leads": {"label": "Client Leads", "search": ["name", "phone", "email"]},
+    "tickets": {"label": "Support Tickets", "search": ["number", "subject"]},
+    "hr_onboarding": {"label": "Onboarding", "search": ["user_name"]},
+    "hr_offboarding": {"label": "Offboarding", "search": ["user_name"]},
+    "hr_kt": {"label": "Knowledge Transfer", "search": ["topic", "from_name"]},
+    "hr_skill_plans": {"label": "Skill Development Plans", "search": ["skill", "user_name"]},
+    "salary_structures": {"label": "Salary Structures", "search": ["user_name"]},
+    "payroll_runs": {"label": "Payroll Runs", "search": ["month"]},
+    "payslips": {"label": "Payslips", "search": ["user_name", "month"]},
+    "pay_items": {"label": "Incentives, Bonus & Commission", "search": ["user_name", "title"]},
+    "incentive_plans": {"label": "Incentive Plans", "search": ["name"]},
+    "loans": {"label": "Loans", "search": ["name", "counterparty"]},
+    "investors": {"label": "Investors", "search": ["name", "email"]},
+    "investments": {"label": "Investments", "search": ["note", "instrument"]},
+    "investor_returns": {"label": "Investor Returns", "search": ["note", "kind"]},
+    "investor_updates": {"label": "Investor Updates", "search": ["title"]},
+    "investor_users": {"label": "Investor Logins", "search": ["name", "email"]},
+    "ai_tokens": {"label": "AI Access Tokens", "search": ["name"]},
+    "ai_access_log": {"label": "AI Access Log", "search": ["token_name", "tool"]},
 }
+
+# Collections that hold platform internals — never listed or wiped.
+HIDDEN_COLLECTIONS = {"migrations", "deleted_records"}
+
+
+async def known_collection(coll: str) -> dict:
+    """Spec for a collection — the curated ones above, or (v3.0) any other collection that exists in the database,
+    so a super admin can reach every piece of data."""
+    if coll in COLLECTIONS:
+        return COLLECTIONS[coll]
+    if coll in HIDDEN_COLLECTIONS or coll.startswith("system."):
+        raise HTTPException(status_code=404, detail="Unknown collection")
+    if coll in await db.list_collection_names():
+        return {"label": coll.replace("_", " ").title(), "search": [], "extra": True}
+    raise HTTPException(status_code=404, detail="Unknown collection")
 
 # child collection, foreign-key field, cascade mode: delete | unset | pull(array)
 DEPS = {
@@ -73,7 +108,15 @@ DEPS = {
     "ai_agents": [("ai_agent_usage", "agent_id", "delete"), ("api_credit_txns", "agent_id", "unset"), ("api_accounts", "agent_ids", "pull")],
     "api_accounts": [("api_credit_txns", "account_id", "delete")],
     "org_nodes": [("org_nodes", "parent_id", "unset")],
+    "investors": [("investments", "investor_id", "delete"), ("investor_returns", "investor_id", "delete"), ("investor_users", "investor_id", "delete")],
+    "payroll_runs": [("payslips", "run_id", "delete")],
+    "incentive_plans": [("pay_items", "plan_id", "unset")],
 }
+# v3.0: people-linked HR / payroll records go with the person; client-linked leads & tickets go with the client.
+DEPS["users"] += [("salary_structures", "user_id", "delete"), ("payslips", "user_id", "delete"), ("pay_items", "user_id", "delete"),
+                  ("hr_onboarding", "user_id", "delete"), ("hr_offboarding", "user_id", "delete"), ("hr_skill_plans", "user_id", "delete"),
+                  ("tickets", "assignee_id", "unset"), ("ai_tokens", "created_by", "unset")]
+DEPS["clients"] += [("client_leads", "client_id", "delete"), ("tickets", "client_id", "delete")]
 
 
 async def require_super_admin(user: dict = Depends(get_current_user)) -> dict:
@@ -82,11 +125,8 @@ async def require_super_admin(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
-def _spec(coll: str):
-    spec = COLLECTIONS.get(coll)
-    if not spec:
-        raise HTTPException(status_code=404, detail="Unknown collection")
-    return spec
+async def _spec(coll: str):
+    return await known_collection(coll)
 
 
 async def _dependents(coll: str, rid: str):
@@ -152,6 +192,10 @@ async def list_collections(user: dict = Depends(require_super_admin)):
     out = []
     for key, spec in COLLECTIONS.items():
         out.append({"key": key, "label": spec["label"], "count": await db[key].count_documents({})})
+    for key in sorted(await db.list_collection_names()):
+        if key in COLLECTIONS or key in HIDDEN_COLLECTIONS or key.startswith("system."):
+            continue
+        out.append({"key": key, "label": key.replace("_", " ").title(), "count": await db[key].count_documents({}), "extra": True})
     return out
 
 
@@ -213,7 +257,7 @@ async def empty_recycle_bin(user: dict = Depends(require_super_admin)):
 async def list_records(coll: str, search: Optional[str] = None,
                        page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
                        user: dict = Depends(require_super_admin)):
-    spec = _spec(coll)
+    spec = await _spec(coll)
     q = {}
     if search and spec["search"]:
         q["$or"] = [{f: {"$regex": search, "$options": "i"}} for f in spec["search"]]
@@ -225,7 +269,7 @@ async def list_records(coll: str, search: Optional[str] = None,
 
 @router.get("/workspace/{coll}/{rid}")
 async def get_record(coll: str, rid: str, user: dict = Depends(require_super_admin)):
-    _spec(coll)
+    await _spec(coll)
     doc = await db[coll].find_one({"id": rid}, SAFE_PROJECTION)
     if not doc:
         raise HTTPException(status_code=404, detail="Record not found")
@@ -234,7 +278,7 @@ async def get_record(coll: str, rid: str, user: dict = Depends(require_super_adm
 
 @router.put("/workspace/{coll}/{rid}")
 async def edit_record(coll: str, rid: str, body: dict = Body(...), user: dict = Depends(require_super_admin)):
-    _spec(coll)
+    await _spec(coll)
     existing = await db[coll].find_one({"id": rid})
     if not existing:
         raise HTTPException(status_code=404, detail="Record not found")
@@ -250,7 +294,7 @@ async def edit_record(coll: str, rid: str, body: dict = Body(...), user: dict = 
 @router.get("/workspace/{coll}/{rid}/dependents")
 async def get_dependents(coll: str, rid: str, user: dict = Depends(require_super_admin)):
     """Pre-delete check: dependent record counts for this record."""
-    _spec(coll)
+    await _spec(coll)
     if not await db[coll].find_one({"id": rid}):
         raise HTTPException(status_code=404, detail="Record not found")
     deps = await _dependents(coll, rid)
@@ -258,8 +302,8 @@ async def get_dependents(coll: str, rid: str, user: dict = Depends(require_super
 
 
 @router.delete("/workspace/{coll}/{rid}")
-async def delete_record(coll: str, rid: str, cascade: bool = False, user: dict = Depends(require_super_admin)):
-    _spec(coll)
+async def delete_record(coll: str, rid: str, cascade: bool = False, permanent: bool = False, user: dict = Depends(require_super_admin)):
+    await _spec(coll)
     existing = await db[coll].find_one({"id": rid})
     if not existing:
         raise HTTPException(status_code=404, detail="Record not found")
@@ -272,24 +316,26 @@ async def delete_record(coll: str, rid: str, cascade: bool = False, user: dict =
             "dependents": {k: v["count"] for k, v in deps.items()},
         })
     ops = await _collect_cascade_ops(coll, rid) if (deps and cascade) else []
-    await _snapshot(coll, existing, ops, user)
+    if not permanent:
+        await _snapshot(coll, existing, ops, user)
     if ops:
         await _apply_cascade(ops)
     await db[coll].delete_one({"id": rid})
     label = existing.get("name") or existing.get("title") or existing.get("number") or rid
-    await log_activity(user, "workspace_deleted", coll, rid,
-                       f"{label}" + (" (+cascade)" if ops else "") + " — recoverable 24h")
-    return {"ok": True, "cascaded": bool(ops), "recoverable_hours": 24}
+    await log_activity(user, "workspace_deleted_forever" if permanent else "workspace_deleted", coll, rid,
+                       f"{label}" + (" (+cascade)" if ops else "") + (" — deleted forever" if permanent else " — recoverable 24h"))
+    return {"ok": True, "cascaded": bool(ops), "recoverable_hours": 0 if permanent else 24, "permanent": permanent}
 
 
 class BulkDeleteBody(BaseModel):
     ids: List[str]
     cascade: bool = False
+    permanent: bool = False
 
 
 @router.post("/workspace/{coll}/bulk-delete")
 async def bulk_delete(coll: str, body: BulkDeleteBody, user: dict = Depends(require_super_admin)):
-    _spec(coll)
+    await _spec(coll)
     deleted, skipped = 0, []
     for rid in body.ids[:200]:
         existing = await db[coll].find_one({"id": rid})
@@ -307,11 +353,41 @@ async def bulk_delete(coll: str, body: BulkDeleteBody, user: dict = Depends(requ
             skipped.append({"id": rid, "reason": f"has dependents: {', '.join(deps.keys())}"})
             continue
         ops = await _collect_cascade_ops(coll, rid) if deps else []
-        await _snapshot(coll, existing, ops, user)
+        if not body.permanent:
+            await _snapshot(coll, existing, ops, user)
         if ops:
             await _apply_cascade(ops)
         await db[coll].delete_one({"id": rid})
         deleted += 1
     await log_activity(user, "workspace_bulk_deleted", coll, None,
-                       f"{deleted} records deleted (recoverable 24h), {len(skipped)} skipped")
-    return {"deleted": deleted, "skipped": skipped}
+                       f"{deleted} records {'deleted forever' if body.permanent else 'deleted (recoverable 24h)'}, {len(skipped)} skipped")
+    return {"deleted": deleted, "skipped": skipped, "permanent": body.permanent}
+
+
+class WipeBody(BaseModel):
+    confirm: str
+
+
+@router.post("/workspace/{coll}/wipe")
+async def wipe_collection(coll: str, body: WipeBody, user: dict = Depends(require_super_admin)):
+    """v3.0: delete EVERY record in a module, forever (no recycle bin). Linked records are cascaded the same way
+    single deletes are (deleted / unlinked). Users: super admins and your own account are always kept."""
+    spec = await _spec(coll)
+    if body.confirm != "DELETE ALL":
+        raise HTTPException(status_code=400, detail="Type DELETE ALL to confirm")
+    q = {}
+    if coll == "users":
+        q = {"role": {"$ne": "super_admin"}, "id": {"$ne": user["id"]}}
+    ids = [d["id"] for d in await db[coll].find(q, {"_id": 0, "id": 1}).to_list(200000) if d.get("id")]
+    for child, field, mode in DEPS.get(coll, []):
+        if not ids:
+            break
+        if mode == "delete":
+            await db[child].delete_many({field: {"$in": ids}})
+        elif mode == "unset":
+            await db[child].update_many({field: {"$in": ids}}, {"$set": {field: None}})
+        else:
+            await db[child].update_many({field: {"$in": ids}}, {"$pull": {field: {"$in": ids}}})
+    res = await db[coll].delete_many(q)
+    await log_activity(user, "workspace_wiped", coll, None, f"All {spec['label']} deleted forever ({res.deleted_count} records)")
+    return {"ok": True, "deleted": res.deleted_count}

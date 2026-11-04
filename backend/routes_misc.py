@@ -142,6 +142,16 @@ async def notifications(user: dict = Depends(get_current_user)):
     items.extend(await daily_alerts(user))
     from routes_timesheets import timesheet_alerts
     items.extend(await timesheet_alerts(user))
+    # v3.0
+    from routes_support import support_alerts
+    from routes_hr import hr_alerts
+    from routes_payroll import payroll_alerts
+    from routes_loans import loan_alerts
+    for fn in (support_alerts, hr_alerts, payroll_alerts, loan_alerts):
+        try:
+            items.extend(await fn(user))
+        except Exception:  # a broken feed must never take the bell down
+            pass
 
     items.sort(key=lambda x: x["date"])
     return {"items": items, "count": len(items)}

@@ -15,15 +15,20 @@ from database import db
 from auth import get_current_user
 
 PERMISSION_GROUPS = {
-    "Core": ["ceo_dashboard", "clients", "clients.delete", "client_portal", "projects", "projects.delete"],
+    "Core": ["ceo_dashboard", "clients", "clients.delete", "client_portal", "projects", "projects.delete",
+             "support", "support.manage", "support.delete"],
     "Finance": ["finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
-                "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue", "finance.delete"],
-    "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud", "sales.delete"],
+                "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue",
+                "finance.loans", "finance.delete"],
+    "Investors": ["investors", "investors.manage", "investors.delete"],
+    "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud", "lead_flow", "lead_flow.manage", "sales.delete"],
+    "HR": ["hr", "hr.manage", "hr.delete", "payroll", "payroll.manage", "payroll.delete"],
     "Growth": ["ads", "ads.delete", "social", "social.delete", "influencers", "influencers.delete"],
     "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete",
                    "ai_agents", "ai_agents.manage", "ai_agents.delete", "org_structure", "org_structure.manage", "org_structure.delete",
                    "daily_reports", "daily_reports.team", "daily_reports.delete", "holidays.manage"],
-    "System": ["logs", "logs.delete", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal", "password_manager.delete"],
+    "System": ["logs", "logs.delete", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal", "password_manager.delete",
+               "ai_settings"],
 }
 
 ALL_KEYS = {k for keys in PERMISSION_GROUPS.values() for k in keys}
@@ -35,27 +40,37 @@ _FINANCE_ALL = set(PERMISSION_GROUPS["Finance"]) - {"finance.delete"}
 # v2.7: every role files daily reports / attendance.
 _V26_EVERYONE = {"ai_agents", "org_structure", "daily_reports"}
 
+_INVESTOR_KEYS = {"investors", "investors.manage", "investors.delete"}
+
 ROLE_DEFAULTS = {
     "super_admin": set(ALL_KEYS),
     # v2.6: Admin / CEO can delete everything by default (permanent user deletion stays super-admin only).
-    "admin": set(ALL_KEYS),
+    # v3.0: investor records stay with the super admin unless granted in Settings → Role permissions.
+    "admin": set(ALL_KEYS) - _INVESTOR_KEYS,
     "finance": {"clients", "projects", *_FINANCE_ALL, "sales.pipeline", "sales.quotes", "sales.targets",
-                "employees", "training", "partnerships", "assets", "locations", "reports", *_V26_EVERYONE},
+                "employees", "training", "partnerships", "assets", "locations", "reports", *_V26_EVERYONE,
+                "payroll", "support"},
     "sales": {"clients", "projects", "sales.pipeline", "sales.quotes", "sales.targets", "sales.hud",
-              "employees", "training", "partnerships", "influencers", "locations", "reports", *_V26_EVERYONE, "client_portal"},
+              "employees", "training", "partnerships", "influencers", "locations", "reports", *_V26_EVERYONE, "client_portal",
+              "lead_flow", "lead_flow.manage", "support"},
     "pm": {"clients", "projects", "finance.project_profit", "sales.pipeline", "sales.quotes", "sales.targets",
            "employees", "training", "partnerships", "locations", "reports", *_V26_EVERYONE, "ai_agents.manage",
-           "client_portal", "daily_reports.team"},
+           "client_portal", "daily_reports.team", "lead_flow", "support", "support.manage"},
     "employee": {"projects", "employees", "training", *_V26_EVERYONE},
-    "ads_manager": {"ads", "clients", *_V26_EVERYONE},
-    "social_manager": {"social", "influencers", "clients", *_V26_EVERYONE},
+    "ads_manager": {"ads", "clients", *_V26_EVERYONE, "lead_flow", "lead_flow.manage"},
+    "social_manager": {"social", "influencers", "clients", *_V26_EVERYONE, "lead_flow"},
+    # v3.0: HR Manager — people records, onboarding/offboarding, skills, KT, payroll, attendance.
+    "hr": {"employees", "training", "training.delete", "hr", "hr.manage", "hr.delete", "payroll", "payroll.manage",
+           "daily_reports", "daily_reports.team", "holidays.manage", "org_structure", "org_structure.manage", "ai_agents",
+           "locations", "reports", "support", "support.manage"},
 }
 
 # Keys introduced in v2.6 per role — merged once into DB-saved role defaults (see migrate_role_defaults_v26).
 V26_NEW_KEYS = {role: (keys & {"ai_agents", "ai_agents.manage", "ai_agents.delete",
                                "org_structure", "org_structure.manage", "org_structure.delete"})
                 for role, keys in ROLE_DEFAULTS.items()}
-V26_NEW_KEYS["admin"] = V26_NEW_KEYS["admin"] | (DELETE_KEYS_SET - {"daily_reports.delete"})
+V26_NEW_KEYS["admin"] = V26_NEW_KEYS["admin"] | (DELETE_KEYS_SET - {"daily_reports.delete", "support.delete", "hr.delete",
+                                                                  "payroll.delete", "investors.delete"})
 _V27 = {"finance.api_credits", "daily_reports", "daily_reports.team", "daily_reports.delete", "client_portal"}
 V27_NEW_KEYS = {role: (keys & _V27) for role, keys in ROLE_DEFAULTS.items()}
 for _r in V26_NEW_KEYS:
@@ -63,7 +78,12 @@ for _r in V26_NEW_KEYS:
 # v2.8: holiday calendar management (timesheets reuse daily_reports / daily_reports.team)
 _V28 = {"holidays.manage"}
 V28_NEW_KEYS = {role: (keys & _V28) for role, keys in ROLE_DEFAULTS.items()}
-ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS), ("role_defaults_v28", V28_NEW_KEYS)]
+# v3.0: support desk, lead flow, HR + payroll, loans, investors, AI settings
+_V30 = {"support", "support.manage", "support.delete", "lead_flow", "lead_flow.manage", "hr", "hr.manage", "hr.delete",
+        "payroll", "payroll.manage", "payroll.delete", "finance.loans", "investors", "investors.manage", "investors.delete", "ai_settings"}
+V30_NEW_KEYS = {role: (keys & _V30) for role, keys in ROLE_DEFAULTS.items()}
+ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS), ("role_defaults_v28", V28_NEW_KEYS),
+                   ("role_defaults_v30", V30_NEW_KEYS)]
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
@@ -201,6 +221,7 @@ PATH_PERMISSIONS = [
     ("/api/finance/marketing", ("finance.marketing",)),
     ("/api/finance/project-profit", ("finance.project_profit",)),
     ("/api/finance/employee-revenue", ("finance.employee_revenue",)),
+    ("/api/finance/loans", ("finance.loans",)),
     # NOTE: /api/finance/expenses intentionally NOT gated — all roles may submit/view own (v1 behavior);
     # approval actions remain role-guarded in the route.
     ("/api/sales/hud", ("sales.hud",)),
@@ -221,6 +242,19 @@ PATH_PERMISSIONS = [
     ("/api/daily", ("daily_reports",)),
     ("/api/timesheets", ("daily_reports",)),
     ("/api/org", ("org_structure",)),
+    ("/api/lead-flow", ("lead_flow", "sales.pipeline")),
+    ("/api/client-leads", ("lead_flow",)),
+    ("/api/hr/payroll", ("payroll",)),
+    # KT handovers + onboarding/offboarding checklists: participants (task owners, handover receivers) reach them too;
+    # the routes check membership themselves.
+    ("/api/hr/kt", None),
+    ("/api/hr/process", None),
+    ("/api/hr/onboarding", None),
+    ("/api/hr/offboarding", None),
+    ("/api/hr/meta", None),
+    ("/api/hr", ("hr",)),
+    ("/api/investors", ("investors",)),
+    ("/api/ai-settings", ("ai_settings",)),
     ("/api/logs", ("logs",)),
     ("/api/reports", ("reports",)),
     ("/api/access", ("access_control",)),

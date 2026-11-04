@@ -3,14 +3,14 @@ import { useAuth } from "@/context/AuthContext";
 import { RoleBadge } from "@/components/Badges";
 import { DotindotLogo } from "@/components/DotindotLogo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Building2, ShieldCheck, ArrowRight, IndianRupee, Clock } from "lucide-react";
+import { User, Building2, ShieldCheck, ArrowRight, IndianRupee, Clock, Sparkles } from "lucide-react";
 import { ChangePasswordCard } from "@/pages/settings/ChangePasswordCard";
 import { RolePermissionsCard } from "@/pages/settings/RolePermissionsCard";
 import { WorkspaceManager } from "@/pages/settings/WorkspaceManager";
 import { RecycleBin } from "@/pages/settings/RecycleBin";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, hasPerm } = useAuth();
 
   return (
     <div className="space-y-6 max-w-5xl" data-testid="settings-page">
@@ -64,7 +64,7 @@ export default function SettingsPage() {
             </div>
             <div className="rounded-lg border border-gray-100 bg-gray-50/60 px-4 py-3">
               <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-1"><ShieldCheck className="h-3 w-3" /> Access control</div>
-              <div className="font-semibold text-gray-800">Role-based (5 roles)</div>
+              <div className="font-semibold text-gray-800">Role-based (9 roles)</div>
             </div>
           </div>
           <p className="text-xs text-gray-400">
@@ -72,6 +72,21 @@ export default function SettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      {hasPerm("ai_settings") && (
+        <Link to="/settings/ai" className="block group" data-testid="settings-ai-link">
+          <Card className="border-gray-200/80 shadow-sm group-hover:border-orange-200 transition-colors">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white flex items-center justify-center shrink-0"><Sparkles className="h-5 w-5" /></div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-gray-900">AI settings</div>
+                <p className="text-xs text-gray-500 mt-0.5">Connect AI providers, choose which data AI agents can read or change, issue agent tokens and see every AI request.</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-[#F26B21] shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       <ChangePasswordCard />
 

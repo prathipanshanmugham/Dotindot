@@ -20,7 +20,7 @@ import { Plus, Trash2, AlertTriangle, History } from "lucide-react";
 import { toast } from "sonner";
 import { LoginHistoryDialog, fmtWhen } from "@/pages/users/LoginHistoryDialog";
 
-const ROLES = ["super_admin", "admin", "finance", "sales", "pm", "employee", "ads_manager", "social_manager"];
+const ROLES = ["super_admin", "admin", "finance", "sales", "pm", "employee", "ads_manager", "social_manager", "hr"];
 
 export default function UsersPage() {
   const { user: me } = useAuth();

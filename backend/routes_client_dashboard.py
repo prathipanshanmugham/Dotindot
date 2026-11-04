@@ -153,7 +153,12 @@ async def build_client_dashboard(client_id: str, p: dict) -> dict:
         contracts.append({"title": ct.get("title"), "value": ct.get("value"), "start_date": ct.get("start_date"), "expiry_date": exp,
                           "days_left": days_left, "status": "expired" if days_left is not None and days_left < 0 else "active"})
 
+    # v3.0 leads generated for the client (lead flow)
+    from routes_lead_flow import client_lead_flow
+    leads = await client_lead_flow([client_id], p["start"], p["end"])
+
     return {
+        "leads": leads,
         "client": {"id": c["id"], "name": c["name"], "company": c.get("company"), "industry": c.get("industry"), "city": c.get("city"),
                    "region": c.get("region"), "status": c.get("status"), "service_type": c.get("service_type"), "retainer": c.get("retainer", False)},
         "period": p,
@@ -303,6 +308,20 @@ def build_client_report_pdf(d: dict, prepared_by: str = "") -> bytes:
                            [0.34, 0.14, 0.14, 0.14, 0.1, 0.14], right=(2, 3, 4, 5)))
     elif not any(m["spend"] for m in monthly):
         story.append(Paragraph("No ad campaigns in this period.", EMPTY))
+
+    # leads (v3.0)
+    lf = d.get("leads") or {}
+    if (lf.get("totals") or {}).get("leads"):
+        lt = lf["totals"]
+        story.append(Paragraph("Leads", H2))
+        story.append(Paragraph(f"<b>{lt['leads']}</b> new lead{'s' if lt['leads'] != 1 else ''} · <b>{lt['qualified']}</b> qualified · "
+                               f"<b>{lt['won']}</b> converted ({lt['win_rate']}%)"
+                               + (f" · cost per lead {inr(lt['cost_per_lead'])}" if lt.get("cost_per_lead") else ""), CELL))
+        story.append(Spacer(1, 4))
+        story.append(table(["Source", "Leads", "Qualified", "Converted", "Conversion", "Cost / lead"],
+                           [[Paragraph(esc(r["label"]), CELL), str(r["leads"]), str(r["qualified"]), str(r["won"]), f"{r['win_rate']}%",
+                             inr(r["cost_per_lead"]) if r.get("cost_per_lead") else "—"] for r in lf.get("sources", [])],
+                           [0.34, 0.12, 0.13, 0.13, 0.13, 0.15], right=(1, 2, 3, 4, 5)))
 
     # social
     story.append(Paragraph("Social media", H2))

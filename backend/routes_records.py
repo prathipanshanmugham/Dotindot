@@ -8,7 +8,7 @@ from database import db
 from auth import get_current_user, log_activity
 from permissions import has_permission
 from routes_workspace import (COLLECTIONS, _dependents, _collect_cascade_ops, _apply_cascade, _snapshot,
-                              _guard_user_delete)
+                              _guard_user_delete, known_collection)
 
 router = APIRouter()
 
@@ -29,6 +29,15 @@ DELETE_KEYS = {
     "daily_reports": "daily_reports.delete",
     "timesheets": "daily_reports.delete", "holidays": "holidays.manage",
     "portal_users": "clients.delete",
+    # v3.0
+    "client_leads": "sales.delete", "tickets": "support.delete",
+    "hr_onboarding": "hr.delete", "hr_offboarding": "hr.delete", "hr_kt": "hr.delete", "hr_skill_plans": "hr.delete",
+    "salary_structures": "payroll.delete", "payroll_runs": "payroll.delete", "payslips": "payroll.delete",
+    "pay_items": "payroll.delete", "incentive_plans": "payroll.delete",
+    "loans": "finance.delete",
+    "investors": "investors.delete", "investments": "investors.delete", "investor_returns": "investors.delete",
+    "investor_updates": "investors.delete", "investor_users": "investors.delete",
+    "ai_tokens": "ai_settings", "ai_access_log": "ai_settings",
 }
 
 # Line items stored inside a parent record that can be removed one by one: collection -> {array field: module delete key}
@@ -41,6 +50,9 @@ SUB_ITEMS = {
     "partnerships": {"benefits": "partnerships.delete"},
     "ai_agents": {"prompts": "ai_agents.delete"},
     "daily_reports": {"tasks": "daily_reports.delete"},
+    "loans": {"payments": "finance.delete"},
+    "tickets": {"messages": "support.delete"},
+    "hr_onboarding": {"tasks": "hr.delete"}, "hr_offboarding": {"tasks": "hr.delete"}, "hr_kt": {"sessions": "hr.delete"},
 }
 
 
@@ -48,43 +60,55 @@ def _label(doc):
     return doc.get("name") or doc.get("title") or doc.get("number") or doc.get("description") or doc.get("email") or doc.get("action") or doc["id"]
 
 
-def _require(user: dict, coll: str):
-    if coll not in COLLECTIONS or coll not in DELETE_KEYS:
-        raise HTTPException(status_code=404, detail="Unknown collection")
-    if not has_permission(user, DELETE_KEYS[coll]):
-        raise HTTPException(status_code=403, detail=f"You don't have delete permission for this module ({DELETE_KEYS[coll]})")
+async def _require(user: dict, coll: str):
+    await known_collection(coll)
+    key = DELETE_KEYS.get(coll, "__super_admin__")  # anything not mapped: super admin only
+    if not has_permission(user, key):
+        raise HTTPException(status_code=403, detail=f"You don't have delete permission for this module ({key})")
 
 
-async def hard_delete(coll: str, existing: dict, user: dict, action: str = "record_deleted") -> dict:
-    """Snapshot → cascade → delete → audit. Shared by module endpoints and user deletion."""
+def _check_permanent(user: dict, permanent: bool):
+    if permanent and user.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Only a super admin can delete forever (skipping the recycle bin)")
+
+
+async def hard_delete(coll: str, existing: dict, user: dict, action: str = "record_deleted", permanent: bool = False) -> dict:
+    """Snapshot → cascade → delete → audit. Shared by module endpoints and user deletion.
+    v3.0: permanent=True (super admin only) skips the recycle-bin snapshot — the record is gone for good."""
+    _check_permanent(user, permanent)
     if coll == "users":
         await _guard_user_delete(user, existing["id"])
     ops = await _collect_cascade_ops(coll, existing["id"])
-    await _snapshot(coll, existing, ops, user)
+    if not permanent:
+        await _snapshot(coll, existing, ops, user)
     if ops:
         await _apply_cascade(ops)
     await db[coll].delete_one({"id": existing["id"]})
-    await log_activity(user, action, coll, existing["id"], f"{_label(existing)}" + (" (+cascade)" if ops else "") + " — recoverable 24h")
-    return {"ok": True, "cascaded": bool(ops), "recoverable_hours": 24}
+    tail = " — deleted forever" if permanent else " — recoverable 24h"
+    await log_activity(user, "record_deleted_forever" if permanent else action, coll, existing["id"],
+                       f"{_label(existing)}" + (" (+cascade)" if ops else "") + tail)
+    return {"ok": True, "cascaded": bool(ops), "recoverable_hours": 0 if permanent else 24, "permanent": permanent}
 
 
 @router.get("/records/{coll}/{rid}/dependents")
 async def record_dependents(coll: str, rid: str, user: dict = Depends(get_current_user)):
-    _require(user, coll)
+    await _require(user, coll)
     return {k: v["count"] for k, v in (await _dependents(coll, rid)).items()}
 
 
 @router.delete("/records/{coll}/{rid}")
-async def delete_one(coll: str, rid: str, user: dict = Depends(get_current_user)):
-    _require(user, coll)
+async def delete_one(coll: str, rid: str, permanent: bool = False, user: dict = Depends(get_current_user)):
+    await _require(user, coll)
+    _check_permanent(user, permanent)
     existing = await db[coll].find_one({"id": rid})
     if not existing:
         raise HTTPException(status_code=404, detail="Record not found")
-    return await hard_delete(coll, existing, user)
+    return await hard_delete(coll, existing, user, permanent=permanent)
 
 
 class BulkBody(BaseModel):
     ids: List[str]
+    permanent: bool = False
 
 
 @router.delete("/records/{coll}/{rid}/items/{field}/{item_id}")
@@ -111,7 +135,8 @@ async def delete_sub_item(coll: str, rid: str, field: str, item_id: str, user: d
 
 @router.post("/records/{coll}/bulk-delete")
 async def delete_many(coll: str, body: BulkBody, user: dict = Depends(get_current_user)):
-    _require(user, coll)
+    await _require(user, coll)
+    _check_permanent(user, body.permanent)
     deleted, skipped = 0, []
     for rid in body.ids[:500]:
         existing = await db[coll].find_one({"id": rid})
@@ -119,12 +144,13 @@ async def delete_many(coll: str, body: BulkBody, user: dict = Depends(get_curren
             skipped.append({"id": rid, "reason": "not found"})
             continue
         try:
-            await hard_delete(coll, existing, user, action="record_deleted")
+            await hard_delete(coll, existing, user, action="record_deleted", permanent=body.permanent)
             deleted += 1
         except HTTPException as e:
             skipped.append({"id": rid, "reason": e.detail})
-    await log_activity(user, "records_bulk_deleted", coll, None, f"{deleted} {COLLECTIONS[coll]['label']} deleted (recoverable 24h), {len(skipped)} skipped")
-    return {"deleted": deleted, "skipped": skipped}
+    how = "deleted forever" if body.permanent else "deleted (recoverable 24h)"
+    await log_activity(user, "records_bulk_deleted", coll, None, f"{deleted} {(await known_collection(coll))['label']} {how}, {len(skipped)} skipped")
+    return {"deleted": deleted, "skipped": skipped, "permanent": body.permanent}
 
 
 class PurgeBody(BaseModel):

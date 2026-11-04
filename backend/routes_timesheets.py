@@ -24,7 +24,7 @@ from routes_holidays import holidays_between, holiday_for
 router = APIRouter()
 HM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 ROLE_LABELS = {"admin": "Admin / CEO", "finance": "Finance", "sales": "Sales", "pm": "Project Manager", "employee": "Employee",
-               "ads_manager": "Ads Manager", "social_manager": "Social Media Manager"}
+               "ads_manager": "Ads Manager", "social_manager": "Social Media Manager", "hr": "HR Manager"}
 
 
 def _now():

@@ -12,7 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, KeyRound, ChevronDown } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { TicketThread, STATUS_TONE } from "@/pages/support/SupportPage";
+import { Pill, ago } from "@/components/kit";
+import { LogOut, KeyRound, ChevronDown, LayoutDashboard, LifeBuoy, Plus, Star, Send } from "lucide-react";
 
 const hasToken = () => { try { return !!localStorage.getItem(PORTAL_TOKEN); } catch { return false; } };
 
@@ -80,6 +85,114 @@ function ChangePassword({ open, onClose }) {
   );
 }
 
+function PortalSupport() {
+  const [d, setD] = useState(null);
+  const [openId, setOpenId] = useState(null);
+  const [t, setT] = useState(null);
+  const [newOpen, setNewOpen] = useState(false);
+  const [f, setF] = useState({ subject: "", body: "", category: "website", priority: "normal" });
+  const [reply, setReply] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = () => portalApi.get("/portal/tickets").then((r) => setD(r.data)).catch((e) => e.response?.status !== 401 && toast.error(apiError(e)));
+  useEffect(() => { load(); }, []);
+  useEffect(() => { setT(null); if (openId) portalApi.get(`/portal/tickets/${openId}`).then((r) => setT(r.data)).catch((e) => toast.error(apiError(e))); }, [openId]);
+  const create = async () => {
+    setBusy(true);
+    try {
+      const { data } = await portalApi.post("/portal/tickets", f);
+      toast.success(`Ticket ${data.number} sent — we'll reply here`);
+      setNewOpen(false); setF({ subject: "", body: "", category: "website", priority: "normal" }); load(); setOpenId(data.id);
+    } catch (e) { toast.error(apiError(e)); } finally { setBusy(false); }
+  };
+  const send = async () => {
+    if (!reply.trim()) return;
+    setBusy(true);
+    try { const { data } = await portalApi.post(`/portal/tickets/${openId}/messages`, { body: reply }); setT(data); setReply(""); load(); }
+    catch (e) { toast.error(apiError(e)); } finally { setBusy(false); }
+  };
+  const act = async (path, body) => {
+    try { const { data } = await portalApi.post(`/portal/tickets/${openId}/${path}`, body || {}); setT(data); load(); }
+    catch (e) { toast.error(apiError(e)); }
+  };
+  if (!d) return <div className="h-48 flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+  return (
+    <div className="space-y-4" data-testid="portal-support">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Support</h2>
+          <p className="text-sm text-gray-500">Ask us anything — website issues, campaign changes, billing or reports. We reply right here.</p>
+        </div>
+        <Button onClick={() => setNewOpen(true)} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="portal-new-ticket"><Plus className="h-4 w-4 mr-1.5" /> New ticket</Button>
+      </div>
+      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+        {d.tickets.length === 0 ? <p className="text-sm text-gray-400 text-center py-12">No tickets yet.</p> : (
+          <ul className="divide-y divide-gray-100">
+            {d.tickets.map((x) => (
+              <li key={x.id} className="px-4 py-3 hover:bg-orange-50/40 cursor-pointer flex items-start gap-3" onClick={() => setOpenId(x.id)} data-testid={`portal-ticket-${x.id}`}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">{x.unread_for_requester && <span className="h-2 w-2 rounded-full bg-[#F26B21]" />}<span className="font-mono text-xs text-gray-400">{x.number}</span>
+                    <span className="font-semibold text-gray-900 truncate">{x.subject}</span></div>
+                  <div className="text-xs text-gray-500 truncate">{x.category_label}{x.last_message?.preview ? ` · ${x.last_message.author_name}: “${x.last_message.preview.slice(0, 70)}”` : ""}</div>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0"><Pill tone={STATUS_TONE[x.status]}>{x.status_label}</Pill><span className="text-[11px] text-gray-400">{ago(x.last_activity_at)}</span></div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+        <DialogContent className="max-w-lg" data-testid="portal-ticket-dialog">
+          <DialogHeader><DialogTitle>New support ticket</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Topic</Label><Select value={f.category} onValueChange={(v) => setF((x) => ({ ...x, category: v }))}>
+                <SelectTrigger data-testid="pt-category"><SelectValue /></SelectTrigger><SelectContent>{d.categories.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent></Select></div>
+              <div className="space-y-1"><Label>How urgent?</Label><Select value={f.priority} onValueChange={(v) => setF((x) => ({ ...x, priority: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{d.priorities.filter((p) => p.value !== "urgent").map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent></Select></div>
+            </div>
+            <div className="space-y-1"><Label>Subject</Label><Input value={f.subject} onChange={(e) => setF((x) => ({ ...x, subject: e.target.value }))} data-testid="pt-subject" /></div>
+            <div className="space-y-1"><Label>Tell us more</Label><Textarea rows={5} value={f.body} onChange={(e) => setF((x) => ({ ...x, body: e.target.value }))} data-testid="pt-body" /></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setNewOpen(false)}>Cancel</Button>
+            <Button onClick={create} disabled={busy || f.subject.trim().length < 3 || !f.body.trim()} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="pt-submit">Send</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
+        <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col" data-testid="portal-ticket-sheet">
+          {!t ? <div className="h-48 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div> : (
+            <>
+              <SheetHeader className="p-5 pb-3 border-b border-gray-100 text-left">
+                <div className="flex items-center gap-2 text-xs text-gray-500"><span className="font-mono font-semibold text-gray-700">{t.number}</span><Pill tone={STATUS_TONE[t.status]}>{t.status_label}</Pill><span>{t.category_label}</span></div>
+                <SheetTitle className="text-lg leading-snug pr-6">{t.subject}</SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto p-5"><TicketThread ticket={t} audience="portal" /></div>
+              <div className="border-t border-gray-100 p-4 space-y-2">
+                {["resolved", "closed"].includes(t.status) ? (
+                  <div className="space-y-2">
+                    {t.rating ? <p className="text-sm text-gray-600 flex items-center gap-1"><Star className="h-4 w-4 text-amber-500 fill-amber-400" /> You rated this {t.rating.score}/5 — thank you!</p> : (
+                      <div><p className="text-sm text-gray-700 mb-1.5">How did we do?</p>
+                        <div className="flex gap-1">{[1, 2, 3, 4, 5].map((n) => (
+                          <button key={n} type="button" onClick={() => act("rate", { score: n })} className="p-1" aria-label={`${n} stars`} data-testid={`rate-${n}`}><Star className="h-6 w-6 text-amber-400 hover:fill-amber-400" /></button>))}</div></div>
+                    )}
+                    <p className="text-xs text-gray-400">Still not right? Reply below and we'll pick it up again.</p>
+                  </div>
+                ) : null}
+                <Textarea rows={3} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write a reply…" data-testid="pt-reply" />
+                <div className="flex justify-end gap-2">
+                  {!["resolved", "closed"].includes(t.status) && <Button variant="outline" size="sm" onClick={() => act("resolve")} data-testid="pt-resolve">Mark as solved</Button>}
+                  <Button size="sm" disabled={busy || !reply.trim()} onClick={send} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="pt-send"><Send className="h-3.5 w-3.5 mr-1.5" /> Send</Button>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
 export function PortalDashboardPage() {
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
@@ -87,6 +200,7 @@ export function PortalDashboardPage() {
   const [period, setPeriod] = useState({ period: "this_month" });
   const [downloading, setDownloading] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
+  const [tab, setTab] = useState(() => (window.location.hash.includes("support") || new URLSearchParams(window.location.search).get("tab") === "support" ? "support" : "overview"));
   const params = period.period === "custom" ? period : { period: period.period };
 
   const signOut = () => { try { localStorage.removeItem(PORTAL_TOKEN); } catch { /* ignore */ } navigate("/portal/login", { replace: true }); };
@@ -132,13 +246,25 @@ export function PortalDashboardPage() {
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Hi {me?.name?.split(" ")[0] || "there"}</h1>
-          <p className="text-sm text-gray-500 mt-1">Here's how your work with dotindot is going.</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Hi {me?.name?.split(" ")[0] || "there"}</h1>
+            <p className="text-sm text-gray-500 mt-1">Here's how your work with dotindot is going.</p>
+          </div>
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5" data-testid="portal-tabs">
+            {[["overview", "Overview", LayoutDashboard], ["support", "Support", LifeBuoy]].map(([k, label, Icon]) => (
+              <button key={k} type="button" onClick={() => setTab(k)} data-testid={`portal-tab-${k}`}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-[#FFF7ED] text-[#F26B21]" : "text-gray-600"}`}><Icon className="h-4 w-4" />{label}</button>
+            ))}
+          </div>
         </div>
-        <PeriodBar value={period} onChange={setPeriod} periods={me?.periods || DEFAULT_PERIODS} onDownload={download} downloading={downloading} />
-        {d ? <ClientDashboardView data={d} /> : <div className="h-64 flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>}
-        <p className="text-xs text-gray-400 text-center pt-4">Questions about anything here? Reply to your account manager — we're happy to walk you through it.</p>
+        {tab === "support" ? <PortalSupport /> : (
+          <>
+            <PeriodBar value={period} onChange={setPeriod} periods={me?.periods || DEFAULT_PERIODS} onDownload={download} downloading={downloading} />
+            {d ? <ClientDashboardView data={d} /> : <div className="h-64 flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>}
+          </>
+        )}
+        <p className="text-xs text-gray-400 text-center pt-4">Questions about anything here? <button type="button" className="text-[#F26B21] font-semibold" onClick={() => setTab("support")}>Open a support ticket</button> — we're happy to walk you through it.</p>
       </main>
       <ChangePassword open={pwOpen} onClose={() => setPwOpen(false)} />
     </div>

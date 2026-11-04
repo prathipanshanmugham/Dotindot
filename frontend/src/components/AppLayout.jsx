@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
   PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu, Lock, Bot, Network, CalendarCheck,
+  LifeBuoy, Workflow, Contact, IdCard, Landmark, BrainCircuit,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -26,12 +27,14 @@ const NAV = [
       { name: "Clients", path: "/clients", icon: Users, perm: ["clients"] },
       { name: "Projects", path: "/projects", icon: FolderKanban, perm: ["projects"] },
       { name: "Daily Reporting", path: "/daily", icon: CalendarCheck, perm: ["daily_reports"] },
+      { name: "Support", path: "/support", icon: LifeBuoy },
     ],
   },
   {
     section: "Growth",
     items: [
       { name: "Sales", path: "/sales", icon: TrendingUp, perm: ["sales.pipeline", "sales.quotes", "sales.targets"] },
+      { name: "Lead Flow", path: "/lead-flow", icon: Workflow, perm: ["lead_flow", "sales.pipeline"] },
       { name: "Sales View", path: "/hud", icon: MonitorPlay, perm: ["sales.hud"] },
       { name: "Ads", path: "/ads", icon: Megaphone, perm: ["ads"] },
       { name: "Social Media", path: "/social", icon: CalendarDays, perm: ["social"] },
@@ -43,16 +46,25 @@ const NAV = [
     items: [
       {
         name: "Finance", path: "/finance", icon: IndianRupee,
-        perm: ["finance.ledger", "finance.subscriptions", "finance.budgets", "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.employee_revenue"],
+        perm: ["finance.ledger", "finance.subscriptions", "finance.budgets", "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.employee_revenue", "finance.loans"],
       },
+      { name: "Investors", path: "/investors", icon: Landmark, perm: ["investors"] },
       { name: "Project Profit", path: "/finance/profit", icon: PieChart, perm: ["finance.project_profit"], when: (u, hasPerm) => !hasPerm("finance.ledger") },
       { name: "My Expenses", path: "/my-expenses", icon: ReceiptText, when: (u) => !["super_admin", "admin", "finance"].includes(u?.role) },
-      { name: "Employees", path: "/employees", icon: UserCheck, perm: ["employees"] },
-      { name: "Org Structure", path: "/org", icon: Network, perm: ["org_structure"] },
       { name: "AI Agents", path: "/agents", icon: Bot, perm: ["ai_agents"] },
       { name: "Assets", path: "/assets", icon: Boxes, perm: ["assets"] },
       { name: "Partnerships", path: "/partnerships", icon: Handshake, perm: ["partnerships"] },
       { name: "Locations", path: "/locations", icon: MapPin, perm: ["locations"] },
+    ],
+  },
+  {
+    section: "People",
+    items: [
+      { name: "HR", path: "/hr", icon: Contact, perm: ["hr"] },
+      { name: "Payroll", path: "/hr/payroll", icon: Contact, perm: ["payroll"], when: (u, hasPerm) => !hasPerm("hr") },
+      { name: "My HR & Payslips", path: "/my-hr", icon: IdCard },
+      { name: "Employees", path: "/employees", icon: UserCheck, perm: ["employees"] },
+      { name: "Org Structure", path: "/org", icon: Network, perm: ["org_structure"] },
     ],
   },
   {
@@ -63,7 +75,8 @@ const NAV = [
       { name: "Access Control", path: "/access", icon: KeyRound, perm: ["access_control"] },
       { name: "Password Manager", path: "/passwords", icon: Lock, perm: ["password_manager"] },
       { name: "User Management", path: "/admin/users", icon: ShieldCheck, perm: ["user_management"] },
-      { name: "Settings", path: "/settings", icon: Settings },
+      { name: "AI Settings", path: "/settings/ai", icon: BrainCircuit, perm: ["ai_settings"] },
+      { name: "Settings", path: "/settings", icon: Settings, end: true },
     ],
   },
 ];
@@ -187,6 +200,7 @@ const SidebarInner = ({ user, hasPerm, onNavigate }) => {
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  end={item.end}
                   onClick={onNavigate}
                   data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
                   className={({ isActive }) =>
