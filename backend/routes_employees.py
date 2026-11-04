@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -33,9 +34,9 @@ async def directory(
         q["city"] = city
     if search:
         q["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"designation": {"$regex": search, "$options": "i"}},
-            {"skills": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": re.escape(search), "$options": "i"}},
+            {"designation": {"$regex": re.escape(search), "$options": "i"}},
+            {"skills": {"$regex": re.escape(search), "$options": "i"}},
         ]
     users = await db.users.find(q, PROFILE_FIELDS).sort("name", 1).to_list(500)
     return users

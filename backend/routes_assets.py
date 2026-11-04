@@ -1,5 +1,6 @@
 """Asset management. Module gated by 'assets' permission (middleware).
 Writes: admin + super_admin. Finance has read via role defaults."""
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
@@ -104,8 +105,8 @@ async def list_assets(
     if assigned_to:
         q["assigned_to"] = assigned_to
     if search:
-        q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"code": {"$regex": search, "$options": "i"}},
-                    {"serial_no": {"$regex": search, "$options": "i"}}]
+        q["$or"] = [{"name": {"$regex": re.escape(search), "$options": "i"}}, {"code": {"$regex": re.escape(search), "$options": "i"}},
+                    {"serial_no": {"$regex": re.escape(search), "$options": "i"}}]
     branches = branch_scope(user)
     if branches is not None:
         q["branch_id"] = {"$in": branches} if not branch_id else branch_id

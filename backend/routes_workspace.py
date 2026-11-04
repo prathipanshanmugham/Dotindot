@@ -5,6 +5,7 @@ tombstone user-delete in User Management). Dependent records are detected and ei
 cascade-handled (delete / unset / pull) or the delete is refused with a 409 + counts.
 Every action is written to activity_logs.
 """
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
@@ -260,7 +261,7 @@ async def list_records(coll: str, search: Optional[str] = None,
     spec = await _spec(coll)
     q = {}
     if search and spec["search"]:
-        q["$or"] = [{f: {"$regex": search, "$options": "i"}} for f in spec["search"]]
+        q["$or"] = [{f: {"$regex": re.escape(search), "$options": "i"}} for f in spec["search"]]
     total = await db[coll].count_documents(q)
     sort_field = "timestamp" if coll == "activity_logs" else "id"
     items = await db[coll].find(q, SAFE_PROJECTION).sort(sort_field, -1).skip((page - 1) * page_size).limit(page_size).to_list(page_size)

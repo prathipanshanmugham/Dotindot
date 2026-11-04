@@ -10,7 +10,7 @@ from database import db
 from auth import get_current_user, log_activity
 from permissions import (
     PERMISSION_GROUPS, ALL_KEYS, ROLE_DEFAULTS, VALID_ROLES, EDITABLE_ROLES,
-    effective_permissions, save_role_default,
+    effective_permissions, save_role_default, has_permission,
 )
 
 router = APIRouter()
@@ -102,6 +102,10 @@ async def set_overrides(user_id: str, body: OverridesBody, user: dict = Depends(
     invalid = [k for k in body.overrides if k not in ALL_KEYS]
     if invalid:
         raise HTTPException(status_code=400, detail=f"Unknown permission keys: {', '.join(invalid)}")
+    if user["role"] != "super_admin":
+        beyond = [k for k, v in body.overrides.items() if v and not has_permission(user, k)]
+        if beyond:
+            raise HTTPException(status_code=403, detail=f"You can't grant access you don't have yourself: {', '.join(sorted(beyond))}")
     await db.users.update_one({"id": user_id}, {"$set": {"permission_overrides": body.overrides}})
     changed = ", ".join(f"{'+' if v else '-'}{k}" for k, v in body.overrides.items()) or "cleared"
     await log_activity(user, "permissions_updated", "user", user_id, f"{target['name']}: {changed}")

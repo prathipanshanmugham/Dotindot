@@ -293,6 +293,15 @@ class TestPayroll:
         assert s["esi_applicable"] and s["ee_esi"] == 150 and s["er_esi"] == 650
         assert any(d["code"] == "LOAN" and d["amount"] == 2000 for d in s["deductions"])
 
+    def test_advance_recovery_never_exceeds_pay(self, sa, run, emp3):
+        sid = next(s["id"] for s in run["payslips"] if s["user_id"] == emp3["id"])
+        s = requests.put(f"{API}/hr/payroll/payslips/{sid}", headers=sa, json={"lop_days": 28}).json()
+        loan = sum(d["amount"] for d in s["deductions"] if d["code"] == "LOAN")
+        others = sum(d["amount"] for d in s["deductions"] if d["code"] != "LOAN")
+        assert loan == max(0, min(2000, s["gross"] - others)) and loan < 2000
+        assert s["net"] >= 0 and sum(l["amount"] for l in s["loan_lines"]) == loan
+        requests.put(f"{API}/hr/payroll/payslips/{sid}", headers=sa, json={"lop_days": 0})
+
     def test_future_increment_does_not_apply_early(self, sa, run, emp):
         r = requests.put(f"{API}/hr/payroll/structures", headers=sa, json={"user_id": emp["id"], "effective_from": "2026-12-01",
                                                                           "monthly": {"basic": 40000, "hra": 16000, "special": 9000}, "reason": "Increment"})
@@ -429,3 +438,82 @@ class TestAI:
         r = requests.put(f"{API}/ai-settings/providers/anthropic", headers=sa, json={"api_key": key, "model": "claude-sonnet-5-5"})
         assert r.status_code == 200 and key not in r.text and r.json()["providers"]["anthropic"]["key_hint"] == "…" + key[-4:]
         requests.put(f"{API}/ai-settings/providers/anthropic", headers=sa, json={"remove": True})
+
+
+# ------------------------------------------------------------------ fixes from the independent review
+class TestReviewFixes:
+    def test_assigned_scope_cannot_be_widened_with_assignee(self, sa, emp, emp2):
+        t = requests.post(f"{API}/support/tickets", headers=emp["h"], json={"subject": f"Private HR {TAG}", "body": "Salary question", "category": "hr"}).json()
+        requests.put(f"{API}/support/tickets/{t['id']}", headers=sa, json={"assignee_id": emp["id"]})
+        for a in (emp["id"], "none", "user-finance"):
+            rows = requests.get(f"{API}/support/tickets", headers=emp2["h"], params={"scope": "assigned", "assignee": a}).json()
+            assert all(r["assignee_id"] == emp2["id"] for r in rows), a
+        assert requests.get(f"{API}/support/tickets", headers=emp["h"], params={"scope": "mine", "q": "(["}).status_code == 200
+
+    def test_admin_cannot_grant_investor_access(self, ceo, emp):
+        r = requests.put(f"{API}/access/users/{emp['id']}/permissions", headers=ceo, json={"overrides": {"investors": True}})
+        assert r.status_code == 403
+        assert requests.get(f"{API}/investors", headers=emp["h"]).status_code == 403
+
+    def test_uan_masked_outside_the_pf_return(self, sa, emp3):
+        requests.put(f"{API}/hr/people/{emp3['id']}", headers=sa, json={"uan": "101299887766"})
+        fin = _make_user(sa, "fin", "finance")
+        try:
+            r = requests.post(f"{API}/hr/payroll/runs", headers=sa, json={"month": "2025-10"})
+            if r.status_code == 409:
+                pytest.skip("an October 2025 run already exists on this database")
+            run = r.json()
+            try:
+                sid = next(s["id"] for s in run["payslips"] if s["user_id"] == emp3["id"])
+                slip = requests.get(f"{API}/hr/payroll/payslips/{sid}", headers=fin["h"]).json()
+                assert "101299887766" not in str(slip) and slip.get("uan_masked", "").endswith("7766")
+                st_fin = requests.get(f"{API}/hr/payroll/runs/{run['id']}/statutory", headers=fin["h"]).json()
+                assert "101299887766" not in str(st_fin)
+                st_sa = requests.get(f"{API}/hr/payroll/runs/{run['id']}/statutory", headers=sa).json()
+                assert "101299887766" in str(st_sa)  # payroll managers file the ECR
+            finally:
+                requests.delete(f"{API}/records/payroll_runs/{run['id']}", headers=sa, params={"permanent": True})
+        finally:
+            requests.delete(f"{API}/records/users/{fin['id']}", headers=sa, params={"permanent": True})
+
+    def test_ai_filters_and_hidden_fields(self, sa):
+        requests.put(f"{API}/ai-settings", headers=sa, json={"enabled": True, "access": {"employees": "read", "clients": "read", "hr": "read"}})
+        tok = requests.post(f"{API}/ai-settings/tokens", headers=sa, json={"name": f"T30 filters {TAG}", "access": {"employees": "read", "clients": "read", "hr": "read"},
+                                                                         "expires_days": 1}).json()
+        h = _bearer(tok["token"])
+        try:
+            assert requests.get(f"{API}/ai/v1/records/employees", headers=h, params={"filter[hr.date_of_birth]": "1998-12-02"}).status_code == 403
+            assert requests.get(f"{API}/ai/v1/records/employees", headers=h, params={"filter[deleted]": "true"}).status_code == 403
+            assert requests.get(f"{API}/ai/v1/records/employees", headers=h, params={"filter[role]": "employee"}).status_code == 200
+            c = requests.post(f"{API}/clients", headers=sa, json={"name": f"T30 Contacts {TAG}", "company": "c", "industry": "other", "status": "active",
+                                                                 "contacts": [{"name": "Ravi", "email": "ravi@c.example", "phone": "+91 90000 12345"}]}).json()
+            try:
+                rec = requests.get(f"{API}/ai/v1/records/clients/{c['id']}", headers=h).json()["record"]
+                assert "90000 12345" not in str(rec)
+            finally:
+                requests.delete(f"{API}/records/clients/{c['id']}", headers=sa, params={"permanent": True})
+        finally:
+            requests.post(f"{API}/ai-settings/tokens/{tok['id']}/revoke", headers=sa)
+
+    def test_exit_details_stay_with_hr(self, sa, hrm):
+        leaver = _make_user(sa, "leaver")
+        try:
+            r = requests.post(f"{API}/hr/offboarding", headers=hrm["h"], json={"user_id": leaver["id"], "type": "resignation", "last_working_day": date.today().isoformat(),
+                                                                             "reason": f"PRIVATE-REASON-{TAG}", "create_kt": False})
+            assert r.status_code in (200, 201), r.text
+            pid = r.json()["id"]
+            requests.put(f"{API}/hr/offboarding/{pid}", headers=hrm["h"], json={"exit_interview_notes": f"NOTES-{TAG}", "rehire_eligible": False})
+            mine = requests.get(f"{API}/hr/offboarding", headers=leaver["h"]).json()
+            assert any(d["id"] == pid for d in mine)
+            text = str(mine) + str(requests.get(f"{API}/hr/process/offboarding/{pid}", headers=leaver["h"]).json())
+            assert "PRIVATE-REASON" not in text and "NOTES-" not in text and "rehire_eligible" not in text
+            assert f"PRIVATE-REASON-{TAG}" in str(requests.get(f"{API}/hr/process/offboarding/{pid}", headers=hrm["h"]).json())
+        finally:
+            requests.delete(f"{API}/records/users/{leaver['id']}", headers=sa, params={"permanent": True})
+
+    def test_ctc_split_matches_cost_to_company(self, sa):
+        for ctc in (600000, 300000, 1800000):
+            pv = requests.post(f"{API}/hr/payroll/structures/preview", headers=sa, json={"ctc_annual": ctc}).json()
+            assert abs(pv["estimate"]["employer_cost"] * 12 - ctc) <= 24, (ctc, pv["estimate"]["employer_cost"] * 12)
+        pv = requests.post(f"{API}/hr/payroll/structures/preview", headers=sa, json={"ctc_annual": 600000, "basic_percent_of_gross": 40}).json()
+        assert abs(pv["estimate"]["employer_cost"] * 12 - 600000) <= 24

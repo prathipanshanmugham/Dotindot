@@ -550,13 +550,29 @@ async def start_onboarding(body: OnboardIn, user: dict = Depends(get_current_use
     return await _named(doc)
 
 
+EXIT_PRIVATE = ("reason", "exit_interview", "rehire_eligible")
+
+
+def _redact_exit(d: dict, user: dict) -> dict:
+    """Exit reason, interview notes, settlement figures and rehire eligibility stay with HR. The person leaving
+    still sees whether their full & final is settled."""
+    if has_permission(user, "hr"):
+        return d
+    for k in EXIT_PRIVATE:
+        d.pop(k, None)
+    fnf = d.pop("fnf", None)
+    if d.get("user_id") == user["id"] and isinstance(fnf, dict):
+        d["fnf"] = {"status": fnf.get("status")}
+    return d
+
+
 @router.get("/hr/offboarding")
 async def list_offboarding(status: Optional[str] = None, user: dict = Depends(get_current_user)):
     q = {"status": status} if status else {}
     if not has_permission(user, "hr"):  # your own checklist, plus any where you own a task (manager, buddy, IT…)
         q["$or"] = [{"tasks.assignee_id": user["id"]}, {"user_id": user["id"]}]
     rows = await db.hr_offboarding.find(q, {"_id": 0}).sort("last_working_day", -1).to_list(500)
-    return [await _named(d) for d in rows]
+    return [_redact_exit(await _named(d), user) for d in rows]
 
 
 async def _assets_of(uid: str):
@@ -621,6 +637,7 @@ async def get_process(kind: str, pid: str, user: dict = Depends(get_current_user
                 d.setdefault("assets", []).append({**a, "returned": False})
         if d.get("kt_id"):
             d["kt"] = await db.hr_kt.find_one({"id": d["kt_id"]}, {"_id": 0, "id": 1, "topic": 1, "status": 1})
+        return _redact_exit(await _named(d), user)
     return await _named(d)
 
 

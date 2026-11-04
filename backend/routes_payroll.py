@@ -92,14 +92,22 @@ def split_ctc(ctc_annual: float, cfg: dict, pf_applicable: bool = True, hra_pct:
     bp = float(basic_pct if basic_pct is not None else cfg["basic_percent_of_gross"]) / 100
     hp = float(hra_pct if hra_pct is not None else cfg["hra_percent_of_basic"]) / 100
 
-    def cost(g):
+    ceiling = float(cfg["pf_wage_ceiling"])
+
+    def pf_wage_of(g):
         basic = g * bp
-        er = 0.0
-        if pf_applicable:
-            base = min(basic, cfg["pf_wage_ceiling"]) if cfg["employer_pf_on_ceiling"] else basic
-            er = base * cfg["pf_employer_rate"] / 100
+        return max(basic, 0.5 * g) if cfg["labour_code_wages"] else basic
+
+    def employer_pf(g):
+        if not pf_applicable:
+            return 0.0
+        w = pf_wage_of(g)
+        base = min(w, ceiling) if cfg["employer_pf_on_ceiling"] else w
+        return base * cfg["pf_employer_rate"] / 100 + min(w, ceiling) * cfg["edli_rate"] / 100 + base * cfg["pf_admin_rate"] / 100
+
+    def cost(g):  # same parts as compute_slip's employer cost
         esi = g * cfg["esi_employer_rate"] / 100 if g <= cfg["esi_wage_limit"] else 0
-        return g + er + esi
+        return g + employer_pf(g) + esi
 
     lo, hi = 0.0, max(target, 1.0)
     for _ in range(60):
@@ -110,7 +118,7 @@ def split_ctc(ctc_annual: float, cfg: dict, pf_applicable: bool = True, hra_pct:
     hra = _r(basic * hp)
     special = max(0, gross - basic - hra)
     return {"basic": basic, "hra": hra, "special": special, "conveyance": 0, "other_allowances": [], "gross": gross,
-            "employer_pf": _r((min(basic, cfg["pf_wage_ceiling"]) if cfg["employer_pf_on_ceiling"] else basic) * cfg["pf_employer_rate"] / 100) if pf_applicable else 0,
+            "employer_pf": _r(employer_pf(gross)),
             "esi_applicable": gross <= cfg["esi_wage_limit"]}
 
 
@@ -184,15 +192,19 @@ def compute_slip(struct: dict, month: str, cfg: dict, *, lop_days: float = 0, jo
     tds_v = _r(tds if tds is not None else (struct.get("tds_monthly") or 0))
     if tds_v:
         deductions.append({"code": "TDS", "name": "Income tax (TDS)", "amount": tds_v})
-    for ln in loans:
-        if float(ln.get("amount") or 0):
-            deductions.append({"code": "LOAN", "name": ln.get("name") or "Advance recovery", "amount": _r(ln["amount"]), "loan_id": ln["loan_id"]})
     for it in items:
         if it.get("kind") == "deduction" and float(it.get("amount") or 0):
             deductions.append({"code": "DED", "name": it.get("title") or "Deduction", "amount": _r(it["amount"]), "item_id": it["id"]})
     for d in extra_deductions or []:
         if float(d.get("amount") or 0):
             deductions.append({"code": "ADJ", "name": d.get("name") or "Adjustment", "amount": _r(d["amount"]), "manual": True})
+    # advance recovery last, and only from what's left — a short month recovers less, never more than is paid
+    room = max(0, gross - sum(d["amount"] for d in deductions))
+    for ln in loans:
+        amt = min(_r(ln.get("amount") or 0), room)
+        if amt > 0:
+            deductions.append({"code": "LOAN", "name": ln.get("name") or "Advance recovery", "amount": amt, "loan_id": ln["loan_id"]})
+            room -= amt
     total_ded = sum(d["amount"] for d in deductions)
     net = max(0, gross - total_ded)
     er_cost = sum(e["amount"] for e in employer)
@@ -655,6 +667,19 @@ async def _attendance_lop(uid: str, month: str) -> float:
     return lop
 
 
+async def _uans(user_ids: List[str], full: bool) -> Dict[str, str]:
+    """UANs for the PF return. Full numbers only for payroll managers (they file the ECR); masked for everyone else."""
+    out = {}
+    async for u in db.users.find({"id": {"$in": list(user_ids)}}, {"_id": 0, "id": 1, "hr.uan_enc": 1}):
+        enc = (u.get("hr") or {}).get("uan_enc")
+        try:
+            v = decrypt_secret(enc) if enc else ""
+        except Exception:
+            v = ""
+        out[u["id"]] = v if (full or not v) else "••••" + v[-4:]
+    return out
+
+
 async def _loan_recoveries(uid: str) -> List[dict]:
     from routes_loans import loan_status
     out = []
@@ -688,17 +713,15 @@ async def _build_slip(run: dict, person: dict, struct: dict, cfg: dict, keep: Op
             v = ""
         return ("•" * max(0, min(len(v) - 4, 8)) + v[-4:]) if v else ""
 
-    try:
-        uan = decrypt_secret(hr["uan_enc"]) if hr.get("uan_enc") else ""
-    except Exception:
-        uan = ""
     return {"run_id": run["id"], "month": month, "user_id": person["id"], "user_name": person["name"],
             "employee_code": hr.get("employee_code", ""), "designation": person.get("designation", ""), "department": person.get("department", ""),
-            "branch_name": (branch or {}).get("name", ""), "join_date": person.get("join_date", ""), "uan": uan, "pan_masked": mask("pan"),
+            "branch_name": (branch or {}).get("name", ""), "join_date": person.get("join_date", ""), "uan_masked": mask("uan"), "pan_masked": mask("pan"),
             "bank_masked": mask("bank_account"), "bank_name": hr.get("bank_name", ""),
             "inputs": {"lop_days": keep.get("lop_days"), "tds": keep.get("tds"), "pt": keep.get("pt"),
                        "extra_earnings": keep.get("extra_earnings") or [], "extra_deductions": keep.get("extra_deductions") or [], "note": keep.get("note", "")},
-            "item_ids": [i["id"] for i in items], "loan_lines": loans, **calc, "updated_at": _now()}
+            "item_ids": [i["id"] for i in items],
+            "loan_lines": [{"loan_id": d["loan_id"], "name": d["name"], "amount": d["amount"]} for d in calc["deductions"] if d["code"] == "LOAN"],
+            **calc, "updated_at": _now()}
 
 
 def _totals(slips):
@@ -756,7 +779,7 @@ async def _rebuild(run: dict, cfg: dict):
         old = existing.get(p["id"])
         slip = await _build_slip(run, p, st, cfg, keep=(old or {}).get("inputs"))
         if old:
-            await db.payslips.update_one({"id": old["id"]}, {"$set": slip})
+            await db.payslips.update_one({"id": old["id"]}, {"$set": slip, "$unset": {"uan": ""}})
         else:
             await db.payslips.insert_one({"id": str(uuid.uuid4()), "status": "draft", **slip})
     for uid, old in existing.items():
@@ -851,7 +874,7 @@ async def edit_slip(sid: str, body: SlipEdit, user: dict = Depends(get_current_u
     if not st:
         raise HTTPException(status_code=400, detail="No salary structure in force for this month")
     slip = await _build_slip(run, p, st, await payroll_settings(), keep=keep)
-    await db.payslips.update_one({"id": sid}, {"$set": slip})
+    await db.payslips.update_one({"id": sid}, {"$set": slip, "$unset": {"uan": ""}})
     slips = await db.payslips.find({"run_id": run["id"]}, {"_id": 0}).to_list(3000)
     await db.payroll_runs.update_one({"id": run["id"]}, {"$set": {"totals": _totals(slips)}})
     await log_activity(user, "payslip_edited", "payslip", sid, f"{s['user_name']} · {_month_label(run['month'])}")
@@ -921,7 +944,8 @@ async def pay_run(rid: str, body: PayIn, user: dict = Depends(get_current_user))
 async def statutory(rid: str, user: dict = Depends(get_current_user)):
     r = await _run(rid)
     slips = await db.payslips.find({"run_id": rid}, {"_id": 0}).sort("user_name", 1).to_list(3000)
-    pf = [{"uan": s.get("uan") or "—", "name": s["user_name"], "gross": s["gross"], "epf_wages": s["pf_wage"], "eps_wages": s["eps_wage"],
+    uans = await _uans([s["user_id"] for s in slips], full=has_permission(user, "payroll.manage"))
+    pf = [{"uan": uans.get(s["user_id"]) or "—", "name": s["user_name"], "gross": s["gross"], "epf_wages": s["pf_wage"], "eps_wages": s["eps_wage"],
            "edli_wages": s["eps_wage"], "ee_pf": s["ee_pf"], "eps": s["eps"], "er_epf": s["er_epf"], "ncp_days": s["lop_days"]}
           for s in slips if s.get("ee_pf")]
     esi = [{"name": s["user_name"], "gross": s["gross"], "ee_esi": s["ee_esi"], "er_esi": s["er_esi"], "days": s["paid_days"]} for s in slips if s.get("esi_applicable")]
@@ -1014,7 +1038,7 @@ def build_payslip_pdf(s: dict, cfg: dict) -> bytes:
              Spacer(1, 8)]
     info = [("Employee", s["user_name"]), ("Employee code", s.get("employee_code")), ("Designation", s.get("designation")),
             ("Department", s.get("department")), ("Branch", s.get("branch_name")), ("Date of joining", s.get("join_date")),
-            ("UAN", s.get("uan")), ("PAN", s.get("pan_masked")), ("Bank", (s.get("bank_name") or "") + (f" {s['bank_masked']}" if s.get("bank_masked") else "")),
+            ("UAN", s.get("uan_masked")), ("PAN", s.get("pan_masked")), ("Bank", (s.get("bank_name") or "") + (f" {s['bank_masked']}" if s.get("bank_masked") else "")),
             ("Days in month", s["days_in_month"]), ("Paid days", s["paid_days"]), ("Loss of pay days", s["lop_days"])]
     rows = []
     for i in range(0, len(info), 3):

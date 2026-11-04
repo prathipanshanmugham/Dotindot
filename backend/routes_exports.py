@@ -1,4 +1,5 @@
 """Server-side PDF/Excel exports for every list view. RBAC mirrors the underlying data routes."""
+import re
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import Response
@@ -36,7 +37,7 @@ async def fetch_clients(p, user):
     if p.get("retainer") is not None and p.get("retainer") != "":
         q["retainer"] = str(p["retainer"]).lower() == "true"
     if p.get("search"):
-        q["$or"] = [{"name": {"$regex": p["search"], "$options": "i"}}, {"company": {"$regex": p["search"], "$options": "i"}}]
+        q["$or"] = [{"name": {"$regex": re.escape(p["search"]), "$options": "i"}}, {"company": {"$regex": re.escape(p["search"]), "$options": "i"}}]
     rows = await db.clients.find(q, {"_id": 0, "credentials": 0}).sort("name", 1).to_list(1000)
     cols = [("name", "Client", "text"), ("company", "Company", "text"), ("industry", "Industry", "text"),
             ("service_type", "Service", "text"), ("size", "Size", "text"), ("status", "Status", "text"),
@@ -272,9 +273,9 @@ async def fetch_employees(p, user):
     if p.get("city"):
         q["city"] = p["city"]
     if p.get("search"):
-        q["$or"] = [{"name": {"$regex": p["search"], "$options": "i"}},
-                    {"designation": {"$regex": p["search"], "$options": "i"}},
-                    {"skills": {"$regex": p["search"], "$options": "i"}}]
+        q["$or"] = [{"name": {"$regex": re.escape(p["search"]), "$options": "i"}},
+                    {"designation": {"$regex": re.escape(p["search"]), "$options": "i"}},
+                    {"skills": {"$regex": re.escape(p["search"]), "$options": "i"}}]
     rows = await db.users.find(q, {"_id": 0, "password_hash": 0}).sort("name", 1).to_list(500)
     cols = [("name", "Name", "text"), ("email", "Email", "text"), ("role", "Role", "text"),
             ("designation", "Designation", "text"), ("department", "Department", "text"),

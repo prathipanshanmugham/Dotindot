@@ -394,12 +394,13 @@ function ProcessSheet({ kind, id, meta, onClose, onChanged }) {
                         {a.returned ? <Pill tone="green"><CheckCircle2 className="h-3 w-3" /> Collected</Pill> : can && <Button size="sm" variant="outline" onClick={() => asset(a)} data-testid={`asset-return-${a.id}`}>Mark collected</Button>}
                       </li>))}</ul> : <p className="text-xs text-gray-400">No assets assigned.</p>}</div>
                   {d.kt && <Link to={`/hr/kt?open=${d.kt.id}`} className="block rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-800">Knowledge transfer: <b>{d.kt.topic}</b> ({d.kt.status.replace("_", " ")}) →</Link>}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {!can && d.fnf?.status && <p className="text-sm text-gray-700">Full & final settlement: <b className="capitalize">{d.fnf.status}</b></p>}
+                  {can && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Exit interview"><label className="flex items-center gap-2 text-sm"><Checkbox checked={d.exit_interview?.done} disabled={!can} onCheckedChange={(v) => updOff({ exit_interview_done: !!v })} /> Done</label></Field>
                     <Field label="Full & final settlement"><Select value={d.fnf?.status || "pending"} disabled={!can} onValueChange={(v) => updOff({ fnf_status: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="processed">Processed</SelectItem><SelectItem value="paid">Paid</SelectItem></SelectContent></Select></Field>
                     <Field label="Exit interview notes" className="sm:col-span-2"><Textarea rows={2} defaultValue={d.exit_interview?.notes} disabled={!can} onBlur={(e) => e.target.value !== (d.exit_interview?.notes || "") && updOff({ exit_interview_notes: e.target.value })} /></Field>
-                  </div>
+                  </div>}
                 </>
               )}
             </div>

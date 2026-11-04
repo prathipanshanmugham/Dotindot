@@ -8,6 +8,7 @@
 - Email reminders intentionally NOT implemented: no email provider is configured
   (pending user setup) — in-app notification bell only.
 """
+import re
 import uuid
 import secrets
 import string
@@ -86,7 +87,7 @@ async def list_entries(twofa: Optional[str] = None, status: Optional[str] = None
     if owner:
         q["owner_id"] = owner
     if search:
-        q["name"] = {"$regex": search, "$options": "i"}
+        q["name"] = {"$regex": re.escape(search), "$options": "i"}
     rows = await db.password_entries.find(q, {"_id": 0}).sort("name", 1).to_list(500)
     today = datetime.now(timezone.utc).date().isoformat()
     umap = {u["id"]: u["name"] for u in await db.users.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}

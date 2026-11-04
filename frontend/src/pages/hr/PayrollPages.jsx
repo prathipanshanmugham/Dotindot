@@ -85,7 +85,7 @@ function PayslipSheet({ id, editable, onClose, onChanged }) {
                   <div className="flex justify-end"><Button size="sm" onClick={save} disabled={busy} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="payslip-save">Recalculate payslip</Button></div>
                 </div>
               )}
-              <p className="text-[11px] text-gray-400">PF wages {inr(s.pf_wage)} · EPS wages {inr(s.eps_wage)}{s.esi_applicable ? " · ESI applies" : ""}{s.uan ? ` · UAN ${s.uan}` : ""}</p>
+              <p className="text-[11px] text-gray-400">PF wages {inr(s.pf_wage)} · EPS wages {inr(s.eps_wage)}{s.esi_applicable ? " · ESI applies" : ""}{s.uan_masked ? ` · UAN ${s.uan_masked}` : ""}</p>
             </div>
           </>
         )}

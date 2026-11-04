@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, Query
 from database import db
@@ -13,8 +14,8 @@ async def global_search(q: str = Query(..., min_length=1), user: dict = Depends(
     branches = branch_scope(user)
     if user["role"] != "employee":
         cq = {"$or": [
-            {"name": {"$regex": q, "$options": "i"}},
-            {"company": {"$regex": q, "$options": "i"}},
+            {"name": {"$regex": re.escape(q), "$options": "i"}},
+            {"company": {"$regex": re.escape(q), "$options": "i"}},
         ]}
         if branches is not None:
             cq["branch_id"] = {"$in": branches}
@@ -22,7 +23,7 @@ async def global_search(q: str = Query(..., min_length=1), user: dict = Depends(
             cq,
             {"_id": 0, "id": 1, "name": 1, "company": 1, "status": 1},
         ).limit(6).to_list(6)
-    pq = {"name": {"$regex": q, "$options": "i"}}
+    pq = {"name": {"$regex": re.escape(q), "$options": "i"}}
     if user["role"] == "employee":
         pq["team_member_ids"] = user["id"]
     ids = await scoped_client_ids(user)

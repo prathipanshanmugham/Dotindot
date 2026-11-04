@@ -43,7 +43,7 @@ LEVELS = ("none", "read", "write")
 
 # Never sent to an AI, in any module.
 ALWAYS_HIDDEN = {"_id", "password_hash", "key_enc", "secret_enc", "credentials", "password", "token_hash", "pan_enc", "uan_enc",
-                 "pf_number_enc", "esi_number_enc", "bank_account_enc", "encrypted_password", "password_enc"}
+                 "pf_number_enc", "esi_number_enc", "bank_account_enc", "encrypted_password", "password_enc", "uan"}
 
 # module → spec. sensitive: off by default and needs its own switch. write: fields an agent may set.
 MODULES: Dict[str, dict] = {
@@ -72,7 +72,8 @@ MODULES: Dict[str, dict] = {
     "timesheets": {"label": "Timesheets", "coll": "timesheets", "search": ["user_name", "week_start"]},
     "holidays": {"label": "Holiday calendar", "coll": "holidays", "search": ["name", "date"]},
     "hr": {"label": "HR processes (onboarding, offboarding, KT, skill plans)", "colls": ["hr_onboarding", "hr_offboarding", "hr_kt", "hr_skill_plans"],
-           "search": ["user_name", "topic", "skill"]},
+           "search": ["user_name", "topic", "skill"],
+           "hide": {"reason", "exit_interview", "fnf", "rehire_eligible"}},
     "assets": {"label": "Assets", "coll": "assets", "search": ["name", "code"]},
     "partnerships": {"label": "Partnerships", "coll": "partnerships", "search": ["name"]},
     "locations": {"label": "Branches / locations", "coll": "branches", "search": ["name", "city"]},
@@ -371,6 +372,17 @@ async def _log(agent: Agent, via: str, tool: str, module: Optional[str], count: 
                                        "module": module, "count": count, "ok": ok, "detail": detail[:300], "at": _now()})
 
 
+def _drop_path(doc: Any, parts: List[str]):
+    if isinstance(doc, list):
+        for x in doc:
+            _drop_path(x, parts)
+    elif isinstance(doc, dict) and parts:
+        if len(parts) == 1:
+            doc.pop(parts[0], None)
+        elif parts[0] in doc:
+            _drop_path(doc[parts[0]], parts[1:])
+
+
 def _clean(doc: Any, spec: dict) -> Any:
     if isinstance(doc, list):
         return [_clean(x, spec) for x in doc]
@@ -383,7 +395,20 @@ def _clean(doc: Any, spec: dict) -> Any:
         if k in ALWAYS_HIDDEN or k.endswith("_enc") or k.endswith("_hash"):
             continue
         out[k] = _clean(v, {}) if isinstance(v, (dict, list)) else v
+    for path in spec.get("hide") or ():  # module-specific fields agents never get (e.g. client contact phones)
+        _drop_path(out, path.split("."))
     return out
+
+
+def _filter_ok(spec: dict, module: str, key: str) -> bool:
+    """Agents may only filter on fields they could read anyway — no probing hidden or nested sensitive values."""
+    parts = key.split(".")
+    if any(p in ALWAYS_HIDDEN or p.endswith("_enc") or p.endswith("_hash") for p in parts) or parts[0] == "deleted":
+        return False
+    if spec.get("fields") and parts[0] not in spec["fields"]:
+        return False
+    hide = spec.get("hide") or set()
+    return not any(".".join(parts[:i + 1]) in hide for i in range(len(parts)))
 
 
 def _require(agent: Agent, module: str, need: str = "read") -> dict:
@@ -401,14 +426,18 @@ async def _query(agent: Agent, module: str, q: Optional[str], filters: Optional[
     limit = max(1, min(int(limit or 50), agent.settings["max_rows"]))
     colls = spec.get("colls") or [spec["coll"]]
     query: dict = {}
-    if module in ("employees", "hr_records"):
-        query["deleted"] = {"$ne": True}
     if q:
-        rx = {"$regex": re.escape(q), "$options": "i"}
+        rx = {"$regex": re.escape(q[:100]), "$options": "i"}
         query["$or"] = [{f: rx} for f in spec["search"]]
     for k, v in (filters or {}).items():
-        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,60}", str(k)) and k.split(".")[0] not in ALWAYS_HIDDEN and isinstance(v, (str, int, float, bool)):
-            query[k] = v
+        k = str(k)
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]{0,60}", k) or not isinstance(v, (str, int, float, bool)):
+            raise HTTPException(status_code=400, detail=f"Filters take a field name and a plain value ('{k}' isn't allowed)")
+        if not _filter_ok(spec, module, k):
+            raise HTTPException(status_code=403, detail=f"You can't filter {spec['label']} on '{k}'")
+        query[k] = v
+    if module in ("employees", "hr_records"):
+        query["deleted"] = {"$ne": True}
     if updated_since:
         query["$and"] = [{"$or": [{"updated_at": {"$gte": updated_since}}, {"created_at": {"$gte": updated_since}}]}]
     rows, total = [], 0

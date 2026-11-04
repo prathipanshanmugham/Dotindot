@@ -8,6 +8,7 @@
 Permissions: everyone can raise and follow their own internal requests. `support` = see the whole desk,
 `support.manage` = assign / change status / settings, `support.delete` = delete tickets (recycle bin).
 """
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict
@@ -260,15 +261,16 @@ async def list_tickets(kind: Optional[str] = None, status: Optional[str] = None,
         query["status"] = status
     if priority in PRIORITIES:
         query["priority"] = priority
-    if assignee == "none":
-        query["assignee_id"] = None
-    elif assignee:
-        query["assignee_id"] = assignee
+    if scope not in ("mine", "assigned"):  # the assignee filter is a desk tool — never widens "mine" / "assigned"
+        if assignee == "none":
+            query["assignee_id"] = None
+        elif assignee:
+            query["assignee_id"] = assignee
     if client_id:
         query["client_id"] = client_id
     if q:
-        query["$or"] = [{"subject": {"$regex": q, "$options": "i"}}, {"number": {"$regex": q, "$options": "i"}},
-                        {"client_name": {"$regex": q, "$options": "i"}}, {"raised_by.name": {"$regex": q, "$options": "i"}}]
+        rx = {"$regex": re.escape(q[:100]), "$options": "i"}
+        query["$or"] = [{"subject": rx}, {"number": rx}, {"client_name": rx}, {"raised_by.name": rx}]
     rows = await db.tickets.find(query, {"_id": 0}).sort("last_activity_at", -1).to_list(500)
     out = [_summary_row(t) for t in rows]
     if scope == "mine" and not _is_desk(user):

@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -82,8 +83,8 @@ async def list_clients(
         q["region"] = region
     if search:
         q["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"company": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": re.escape(search), "$options": "i"}},
+            {"company": {"$regex": re.escape(search), "$options": "i"}},
         ]
     branches = branch_scope(user)
     if branch and (branches is None or branch in branches):

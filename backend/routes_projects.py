@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -34,7 +35,7 @@ async def list_projects(
     if team_member:
         q["team_member_ids"] = team_member
     if search:
-        q["name"] = {"$regex": search, "$options": "i"}
+        q["name"] = {"$regex": re.escape(search), "$options": "i"}
     if user["role"] == "employee":
         q["team_member_ids"] = user["id"]
     ids = await scoped_client_ids(user)

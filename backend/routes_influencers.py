@@ -1,5 +1,6 @@
 """Influencer management. Module gated by 'influencers' permission.
 Writes: admin, social_manager, sales (+super_admin)."""
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Dict
@@ -86,7 +87,7 @@ async def list_influencers(
     if platform:
         q["platforms.platform"] = platform
     if search:
-        q["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"handle": {"$regex": search, "$options": "i"}}]
+        q["$or"] = [{"name": {"$regex": re.escape(search), "$options": "i"}}, {"handle": {"$regex": re.escape(search), "$options": "i"}}]
     rows = [_computed(i) for i in await db.influencers.find(q, {"_id": 0}).sort("name", 1).to_list(500)]
     if min_followers is not None:
         rows = [r for r in rows if r["total_followers"] >= min_followers]
