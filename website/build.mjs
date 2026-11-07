@@ -1,345 +1,455 @@
-// dotindot.in static site builder — `node build.mjs` → dist/. No framework, no runtime JS beyond site.js.
-import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, existsSync } from "node:fs";
+// dotindot.in static site builder — `node build.mjs` → dist/. No framework. PREVIEW=1 builds relative links for a preview host.
+import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { services, industries, steps, faqs, insights, careers } from "./src/content.mjs";
+import { createHash } from "node:crypto";
+import { services, steps, aiHuman, values, faqs, jokes, insights, careers, tools } from "./src/content.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const C = JSON.parse(readFileSync(join(ROOT, "site.config.json"), "utf8"));
+if (process.env.INTAKE_URL) C.leadIntakeUrl = process.env.INTAKE_URL; // for local end-to-end tests
 const OUT = join(ROOT, "dist");
-const CSS = readFileSync(join(ROOT, "src/styles.css"), "utf8").replace(/\n\s*/g, "\n").trim();
-const JS = readFileSync(join(ROOT, "src/site.js"), "utf8");
-const ICONS = {
-  wa: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3.5A11.8 11.8 0 0 0 12 0C5.5 0 .2 5.3.2 11.8c0 2.1.5 4.1 1.6 5.9L0 24l6.5-1.7a11.8 11.8 0 0 0 5.5 1.4c6.5 0 11.8-5.3 11.8-11.8 0-3.2-1.2-6.1-3.3-8.4ZM12 21.7c-1.8 0-3.5-.5-5-1.4l-.4-.2-3.8 1 1-3.7-.2-.4A9.8 9.8 0 0 1 2.2 11.8C2.2 6.4 6.6 2 12 2a9.8 9.8 0 0 1 9.8 9.8c0 5.4-4.4 9.9-9.8 9.9Zm5.4-7.3c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1l-.9 1.2c-.2.2-.3.2-.6.1a8 8 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.6.7.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4l-.6-.3Z"/></svg>',
-  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>',
-  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
-  menu: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
-  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.8 2.1Z"/></svg>',
-};
+const PREVIEW = !!process.env.PREVIEW;
+const CSS = readFileSync(join(ROOT, "src/styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\n\s*/g, "").replace(/\s*([{};,>])\s*/g, "$1").replace(/;}/g, "}");
+let JS = readFileSync(join(ROOT, "src/site.js"), "utf8");
+try { const { execFileSync } = await import("node:child_process"); JS = execFileSync("esbuild", ["--minify", "--target=es2017", "--loader=js"], { input: JS, encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] }); } catch (e) { /* esbuild not installed: ship it unminified */ }
+const hash = (s) => createHash("sha1").update(s).digest("hex").slice(0, 8);
+const SITE_JS = `assets/site.${hash(JS)}.js`;
+const LENIS = readFileSync(join(ROOT, "assets/vendor/lenis.min.js"), "utf8");
+const LENIS_JS = `assets/lenis.${hash(LENIS)}.js`;
+const MAP = readFileSync(join(ROOT, "assets/vendor/worldmap.json"), "utf8");
+const MAP_JSON = `assets/worldmap.${hash(MAP)}.json`;
+
+const lc = (s) => s.split(" ").map((w) => (/^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase())).join(" ");
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
 const abs = (p) => C.domain.replace(/\/$/, "") + p;
 const tel = C.phone.replace(/[^\d+]/g, "");
-const wa = (text) => `https://wa.me/${C.whatsapp}?text=${encodeURIComponent(text || "Hi dotindot, I’d like to talk about growing my business.")}`;
+const wa = (t) => `https://wa.me/${C.whatsapp}?text=${encodeURIComponent(t || "Hi dotindot! I'd like to talk about growing our brand.")}`;
 const today = new Date().toISOString().slice(0, 10);
+const year = new Date().getFullYear();
 
-const NAV = [["/services/", "Services"], ["/work/", "How we work"], ["/insights/", "Insights"], ["/about/", "About"], ["/locations/", "Locations"], ["/contact/", "Contact"]];
-
-function jsonld(obj) { return `<script type="application/ld+json">${JSON.stringify(obj)}</script>`; }
-const ORG = {
-  "@context": "https://schema.org", "@type": "MarketingAgency", "@id": abs("/#org"), name: C.name, alternateName: C.shortName, url: abs("/"), logo: abs("/assets/icon-512.png"),
-  image: abs("/assets/og.png"), description: "AI marketing-tech agency in Erode, Coimbatore and Chennai: performance marketing, social media, SEO & AI search, websites and apps, branding and video, AI automation.",
-  email: C.email, telephone: C.phone, foundingDate: C.founded, areaServed: ["Tamil Nadu", "India", "United Kingdom", "United Arab Emirates", "Singapore"],
-  sameAs: Object.values(C.social).filter(Boolean), address: { "@type": "PostalAddress", streetAddress: `${C.locations[0].line1}, ${C.locations[0].line2}`, addressLocality: C.locations[0].city, addressRegion: C.locations[0].state, postalCode: C.locations[0].pincode, addressCountry: "IN" },
-  knowsAbout: services.map((s) => s.name), slogan: "Growth you can count.",
-  hasOfferCatalog: { "@type": "OfferCatalog", name: "Services", itemListElement: services.map((s) => ({ "@type": "Offer", itemOffered: { "@type": "Service", name: s.name, url: abs(`/services/${s.slug}/`) } })) },
+const I = {
+  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 16h11"/></svg>',
+  wa: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.5 3.5A11.8 11.8 0 0 0 12 0C5.5 0 .2 5.3.2 11.8c0 2.1.5 4.1 1.6 5.9L0 24l6.5-1.7a11.8 11.8 0 0 0 5.5 1.4c6.5 0 11.8-5.3 11.8-11.8 0-3.2-1.2-6.1-3.3-8.4ZM12 21.7c-1.8 0-3.5-.5-5-1.4l-.4-.2-3.8 1 1-3.7-.2-.4A9.8 9.8 0 0 1 2.2 11.8C2.2 6.4 6.6 2 12 2a9.8 9.8 0 0 1 9.8 9.8c0 5.4-4.4 9.9-9.8 9.9Zm5.4-7.3c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1l-.9 1.2c-.2.2-.3.2-.6.1a8 8 0 0 1-4-3.5c-.3-.5.3-.5.9-1.6.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.6.7.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4l-.6-.3Z"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg>',
+  spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
+  laugh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14a4.5 4.5 0 0 0 8 0Z"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
 };
-const localBiz = (l) => ({ "@context": "https://schema.org", "@type": "MarketingAgency", "@id": abs(`/locations/${l.slug}/#place`), name: `${C.name} — ${l.city}`, parentOrganization: { "@id": abs("/#org") }, url: abs(`/locations/${l.slug}/`),
-  telephone: l.phone, email: C.email, image: abs("/assets/og.png"), priceRange: "₹₹", address: { "@type": "PostalAddress", streetAddress: `${l.line1}, ${l.line2}`, addressLocality: l.city, addressRegion: l.state, postalCode: l.pincode, addressCountry: "IN" },
-  geo: { "@type": "GeoCoordinates", latitude: l.lat, longitude: l.lng }, hasMap: l.mapsUrl, openingHoursSpecification: { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], opens: "09:30", closes: "18:30" }, areaServed: l.city });
-const breadcrumbs = (items) => ({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map(([name, url], i) => ({ "@type": "ListItem", position: i + 1, name, item: abs(url) })) });
+// service doodles (64×64, drawn not downloaded)
+const DOODLE = {
+  target: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="30" cy="34" r="22"/><circle cx="30" cy="34" r="13"/><circle cx="30" cy="34" r="4.5" fill="currentColor"/><path d="M30 34 54 10M46 8l8 2 2 8"/></svg>',
+  social: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="6" width="36" height="52" rx="8"/><path d="M27 24v14l12-7Z" fill="currentColor"/><path d="M32 50h0"/><path d="M6 20c-3 6-3 18 0 24M58 20c3 6 3 18 0 24"/></svg>',
+  search: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="27" cy="27" r="17"/><path d="m40 40 16 16"/><path d="M21 27l4 4 8-9"/><path d="M50 8l2 5 5 2-5 2-2 5-2-5-5-2 5-2Z" fill="currentColor"/></svg>',
+  web: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="10" width="52" height="40" rx="7"/><path d="M6 20h52"/><circle cx="13" cy="15" r="1.4" fill="currentColor"/><circle cx="19" cy="15" r="1.4" fill="currentColor"/><path d="m24 31-6 5 6 5M40 31l6 5-6 5M35 28l-6 16"/></svg>',
+  brand: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M32 6 39 22l17 2-12.5 11.5L47 53 32 44 17 53l3.5-17.5L8 24l17-2Z"/><circle cx="32" cy="30" r="4" fill="currentColor"/></svg>',
+  ai: '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14h44a5 5 0 0 1 5 5v22a5 5 0 0 1-5 5H28l-11 9v-9h-7a5 5 0 0 1-5-5V19a5 5 0 0 1 5-5Z"/><circle cx="22" cy="30" r="3" fill="currentColor"/><circle cx="32" cy="30" r="3" fill="currentColor"/><circle cx="42" cy="30" r="3" fill="currentColor"/></svg>',
+};
+
+// ---------- Dot ----------
+const dotSVG = () => `<svg class="dotf" viewBox="0 0 120 124" aria-hidden="true" focusable="false">
+<ellipse cx="60" cy="119" rx="30" ry="4" fill="rgba(21,23,42,.13)"/>
+<g class="dot-inner">
+<circle cx="60" cy="60" r="56" fill="#FF831F"/>
+<path d="M30 30a42 42 0 0 1 20-14" stroke="#fff" stroke-opacity=".5" stroke-width="6" stroke-linecap="round" fill="none"/>
+<g class="face">
+<g class="eyes-open">
+<g class="eye l"><ellipse cx="43" cy="54" rx="11.5" ry="13.5" fill="#fff"/><g class="pupils"><g class="pin"><circle cx="43" cy="56" r="5.8" fill="#15172A"/><circle cx="45.2" cy="53.4" r="1.8" fill="#fff"/></g></g><path class="hearts" d="M43 62.5c-6-4-8.5-7-8.5-10a4.3 4.3 0 0 1 8.5-1.6 4.3 4.3 0 0 1 8.5 1.6c0 3-2.5 6-8.5 10Z" fill="#E11D48"/><g class="spirals"><path d="M43 55.5a1.6 1.6 0 1 1 1.8 1.4 3.6 3.6 0 1 1-4.6-3.4 5.6 5.6 0 1 1 6.8 5.4" stroke="#15172A" stroke-width="2.2" fill="none" stroke-linecap="round"/></g></g>
+<g class="eye r"><ellipse cx="77" cy="54" rx="11.5" ry="13.5" fill="#fff"/><g class="pupils"><g class="pin"><circle cx="77" cy="56" r="5.8" fill="#15172A"/><circle cx="79.2" cy="53.4" r="1.8" fill="#fff"/></g></g><path class="hearts" d="M77 62.5c-6-4-8.5-7-8.5-10a4.3 4.3 0 0 1 8.5-1.6 4.3 4.3 0 0 1 8.5 1.6c0 3-2.5 6-8.5 10Z" fill="#E11D48"/><g class="spirals"><path d="M77 55.5a1.6 1.6 0 1 1 1.8 1.4 3.6 3.6 0 1 1-4.6-3.4 5.6 5.6 0 1 1 6.8 5.4" stroke="#15172A" stroke-width="2.2" fill="none" stroke-linecap="round"/></g></g>
+</g>
+<path class="eyes-happy" d="M33 58q10-13 20 0M67 58q10-13 20 0" stroke="#15172A" stroke-width="4.6" fill="none" stroke-linecap="round"/>
+<path class="eyes-sleep" d="M33 55q10 8 20 0M67 55q10 8 20 0" stroke="#15172A" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+<g class="blush"><ellipse cx="29" cy="72" rx="7.5" ry="4.2" fill="#FF4D6D" fill-opacity=".42"/><ellipse cx="91" cy="72" rx="7.5" ry="4.2" fill="#FF4D6D" fill-opacity=".42"/></g>
+<path class="mouth-smile" d="M51 79q9 7.5 18 0" stroke="#15172A" stroke-width="4.2" fill="none" stroke-linecap="round"/>
+<path class="mouth-grin" d="M47 76.5q13 14 26 0Z" fill="#15172A"/>
+<ellipse class="mouth-o" cx="60" cy="81" rx="5.5" ry="6.5" fill="#15172A"/>
+<path class="mouth-flat" d="M53 81h14" stroke="#15172A" stroke-width="4" stroke-linecap="round"/>
+</g>
+<g class="hands"><circle cx="40" cy="57" r="13" fill="#FF8E33" stroke="#E0660A" stroke-width="2.4"/><circle cx="80" cy="57" r="13" fill="#FF8E33" stroke="#E0660A" stroke-width="2.4"/><path d="M33 52v7M38 50v8M75 50v8M80 49v8" stroke="#E0660A" stroke-width="2" stroke-linecap="round"/></g>
+<g class="zzz"><text x="100" y="20">z</text><text x="110" y="4" font-size="15">z</text></g>
+</g></svg>`;
+
+// ---------- text helpers ----------
+const pop = (lines, base = .1, step = .028) => {
+  let i = 0;
+  return lines.map((line) => `<span class="ln">${line.split(" ").map((w) => `<span class="w">${[...w].map((ch) => `<span class="ch" style="--d:${(base + i++ * step).toFixed(3)}s">${esc(ch)}</span>`).join("")}</span>`).join(" ")}`).join(" </span>") + "</span>";
+};
+const words = (text, base = 0, step = .045) => text.split(" ").map((w, i) => `<span class="wl"><span class="wi" style="--d:${(base + i * step).toFixed(3)}s">${esc(w)}</span></span>`).join(" ");
+const H = (tag, cls, text, extra = "") => `<${tag} class="${cls} split-lines"${extra}><span class="sr">${esc(text)}</span><span aria-hidden="true">${words(text)}</span></${tag}>`;
+const H1 = (cls, text) => `<h1 class="${cls} rise"><span class="sr">${esc(text)}</span><span aria-hidden="true">${words(text, .05, .06)}<span class="dot-slot claimed"></span></span></h1>`;
+
+// ---------- schema ----------
+const ORG = {
+  "@context": "https://schema.org", "@type": "Organization", "@id": abs("/#org"), name: C.name, alternateName: C.shortName, url: abs("/"), logo: abs("/assets/icon-512.png"), image: abs("/assets/og.png"),
+  description: "AI-first marketing studio for brands worldwide: performance ads, social and content, SEO and AI search, websites and apps, brand and video, AI agents and automation.",
+  email: C.email, telephone: C.phone, areaServed: "Worldwide", address: { "@type": "PostalAddress", addressCountry: "IN" },
+  sameAs: Object.values(C.social).filter(Boolean), knowsAbout: services.map((s) => s.name).concat(["Generative engine optimisation", "Conversion rate optimisation"]),
+  slogan: "Make your brand impossible to scroll past.",
+  contactPoint: { "@type": "ContactPoint", contactType: "sales", email: C.email, telephone: C.phone, areaServed: "Worldwide", availableLanguage: ["English"] },
+};
+const SITE = { "@context": "https://schema.org", "@type": "WebSite", "@id": abs("/#site"), url: abs("/"), name: C.name, publisher: { "@id": abs("/#org") }, inLanguage: "en" };
+const crumbsLd = (items) => ({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: items.map(([name, url], i) => ({ "@type": "ListItem", position: i + 1, name, item: abs(url) })) });
 const faqLd = (qa) => ({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: qa.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) });
 
-function layout({ path, title, desc, body, ld = [], crumbs = null, type = "website", noindex = false }) {
+// ---------- layout ----------
+const NAV = [["/services/", "Services"], ["/process/", "Process"], ["/about/", "About"], ["/insights/", "Insights"], ["/contact/", "Contact"]];
+function layout({ path, title, desc, body, ld = [], noindex = false, type = "website", hello = false, fullTitle }) {
   const url = abs(path);
-  const fullTitle = path === "/" ? `${C.name} — AI marketing-tech agency in Erode, Coimbatore & Chennai` : `${title} · ${C.shortName}`;
+  const t = fullTitle || `${title} — ${C.shortName}`;
   const nav = NAV.map(([p, l]) => `<a href="${p}"${path.startsWith(p) ? ' aria-current="page"' : ""}>${l}</a>`).join("");
+  const menuNav = NAV.concat([["/free-audit/", "Free audit"]]).map(([p, l], i) => `<a href="${p}" style="--i:${i}"${path.startsWith(p) ? ' aria-current="page"' : ""}>${l}</a>`).join("");
   const ga = C.ga4 ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${C.ga4}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${C.ga4}',{anonymize_ip:true})</script>` : "";
+  const cfg = { intake: C.leadIntakeUrl, whatsapp: C.whatsapp, email: C.email, jokes, hello, preview: PREVIEW };
   return `<!doctype html>
-<html lang="en-IN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(fullTitle)}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>${esc(t)}</title>
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${url}">
-${noindex ? '<meta name="robots" content="noindex,follow">' : '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">'}
-<meta name="theme-color" content="#ff831f">
+<meta name="robots" content="${noindex ? "noindex,follow" : "index,follow,max-image-preview:large,max-snippet:-1"}">
+<meta name="color-scheme" content="light only"><meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/assets/icon-512.png"><link rel="manifest" href="/manifest.webmanifest">
-<meta property="og:type" content="${type}"><meta property="og:site_name" content="${esc(C.name)}"><meta property="og:title" content="${esc(fullTitle)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${url}"><meta property="og:image" content="${abs("/assets/og.png")}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:locale" content="en_IN">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(fullTitle)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${abs("/assets/og.png")}">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,500..800&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,500..800&display=swap" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,500..800&display=swap"></noscript>
+<link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">
+<meta property="og:type" content="${type}"><meta property="og:site_name" content="${esc(C.name)}"><meta property="og:title" content="${esc(t)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${url}"><meta property="og:image" content="${abs("/assets/og.png")}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Dot, the dotindot mascot, next to the line: Make your brand impossible to scroll past.">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(t)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${abs("/assets/og.png")}">
+<link rel="preload" href="/assets/fonts/anybody.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/assets/fonts/instrument.woff2" as="font" type="font/woff2" crossorigin>
+<script>document.documentElement.classList.add("js");setTimeout(function(){if(!window.__ddReady)document.documentElement.classList.remove("js")},4000)</script>
 <style>${CSS}</style>
-${ld.map(jsonld).join("\n")}
+${[ORG, SITE, ...ld].map((o) => `<script type="application/ld+json">${JSON.stringify(o)}</script>`).join("\n")}
 ${ga}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="hdr"><div class="wrap">
-<a class="logo" href="/" aria-label="${esc(C.shortName)} home"><img src="/assets/wordmark-color.svg" alt="dotindot." width="135" height="26"></a>
+<a class="logo" href="/" aria-label="${esc(C.shortName)} home"><img src="/assets/wordmark-color.svg" alt="dotindot." width="136" height="26"></a>
 <nav class="nav" aria-label="Main">${nav}</nav>
-<a class="btn flame cta" href="/free-audit/">Free growth audit</a>
-<button class="burger" aria-label="Menu" aria-expanded="false">${ICONS.menu}</button>
+<a class="btn small alt cta" href="/free-audit/" data-dot="love" data-mag>Free audit</a>
+<button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu">${I.menu}</button>
 </div></header>
-<main id="main">
-${crumbs ? `<div class="wrap"><nav class="crumbs" aria-label="Breadcrumb">${crumbs.map(([n, u], i) => (i === crumbs.length - 1 ? `<span>${esc(n)}</span>` : `<a href="${u}">${esc(n)}</a> › `)).join("")}</nav></div>` : ""}
+<div class="menu" id="menu" aria-hidden="true">
+<div class="menu-top"><a class="logo" href="/" aria-label="${esc(C.shortName)} home"><img src="/assets/wordmark-color.svg" alt="dotindot." width="136" height="26"></a><button class="menu-close" type="button" aria-label="Close menu">×</button></div>
+<nav aria-label="Menu">${menuNav}</nav>
+<div class="menu-foot"><a class="btn alt" href="/free-audit/" data-dot="love">Get a free audit</a><a href="mailto:${C.email}">${C.email}</a><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a></div>
+</div>
+<main id="main" tabindex="-1">
 ${body}
 </main>
-<footer class="ftr"><div class="wrap">
-<div class="grid">
-<div><img src="/assets/wordmark-color.svg" alt="dotindot." width="124" height="24" loading="lazy"><p style="margin:14px 0 6px;max-width:36ch">${esc(C.tagline)} from Erode, Coimbatore and Chennai — serving businesses across Tamil Nadu and clients abroad.</p>
-<p class="small"><a href="mailto:${C.email}">${C.email}</a><br><a href="tel:${tel}">${esc(C.phoneDisplay)}</a> · ${esc(C.hours)}</p>
-<p class="small muted">${C.certifications.map(esc).join(" · ")}</p></div>
-<div><h4>Services</h4><ul>${services.map((s) => `<li><a href="/services/${s.slug}/">${esc(s.name)}</a></li>`).join("")}</ul></div>
-<div><h4>Company</h4><ul><li><a href="/work/">How we work</a></li><li><a href="/about/">About</a></li><li><a href="/insights/">Insights</a></li><li><a href="/careers/">Careers</a></li><li><a href="/contact/">Contact</a></li><li><a href="/free-audit/">Free growth audit</a></li></ul></div>
-<div><h4>Offices</h4><ul>${C.locations.map((l) => `<li><a href="/locations/${l.slug}/">${esc(l.city)}</a></li>`).join("")}</ul>
-<h4 style="margin-top:18px">Follow</h4><ul>${Object.entries(C.social).filter(([, v]) => v).map(([k, v]) => `<li><a href="${v}" rel="noopener me" target="_blank">${k[0].toUpperCase() + k.slice(1)}</a></li>`).join("")}</ul></div>
-</div>
-<div class="bottom"><span>© ${new Date().getFullYear()} ${esc(C.name)}. All rights reserved. · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></span>
-<a class="emp" href="${C.internalUrl}" rel="nofollow noopener">Employee login ${ICONS.arrow.replace("<svg", '<svg width="14" height="14"')}</a></div>
-</div></footer>
-<a class="wa-fab" href="${wa()}" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">${ICONS.wa}</a>
-<script>window.__DD={intake:${JSON.stringify(C.leadIntakeUrl)},whatsapp:${JSON.stringify(C.whatsapp)},phone:${JSON.stringify(C.phoneDisplay)}}</script>
-<script defer src="/assets/site.js"></script>
+${footer()}
+<button class="dot-btn" id="dot" type="button" data-mood="idle" aria-label="Dot, our mascot. Open quick help" aria-expanded="false" aria-controls="dot-bubble">${dotSVG()}</button>
+<div class="dot-bubble" id="dot-bubble" role="dialog" aria-label="Quick help from Dot" aria-hidden="true">
+<button class="x" type="button" aria-label="Close">×</button>
+<p>Hi, I'm Dot.</p>
+<div class="opts">
+<a href="/free-audit/" data-dot="love">${I.spark} Get a free audit</a>
+<a href="${wa()}" target="_blank" rel="noopener" data-dot="happy">${I.wa} WhatsApp a human</a>
+<a href="mailto:${C.email}" data-dot="happy">${I.mail} Email us</a>
+<button type="button" data-joke>${I.laugh} Tell me a joke</button>
+</div></div>
+<script>window.__DD=${JSON.stringify(cfg)}</script>
+<script defer src="/${LENIS_JS}"></script>
+<script defer src="/${SITE_JS}"></script>
 </body></html>`;
 }
 
-// ---------- shared blocks
-const leadForm = (id, { interest = true, budget = false, website = false, button = "Send", next = "" } = {}) => `
-<form class="form" data-lead="${id}" ${next ? `data-next="${next}"` : ""} novalidate>
-<label>Your name<input name="name" autocomplete="name" required></label>
-<label>Phone / WhatsApp<input name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+91"></label>
-<label>Email<input name="email" type="email" autocomplete="email"></label>
-<label>Company<input name="company" autocomplete="organization"></label>
-${website ? `<label class="full">Website or Instagram<input name="website" placeholder="https://"></label>` : ""}
-${interest ? `<label>What do you need help with?<select name="interest"><option>Leads & sales (ads)</option><option>Social media growth</option><option>SEO & AI search</option><option>Website or app</option><option>Branding or video</option><option>AI & automation</option><option>Not sure yet</option></select></label>` : ""}
-${budget ? `<label>Monthly marketing budget<select name="budget"><option value="">Prefer not to say</option><option>Under ₹50,000</option><option>₹50,000 – ₹1.5 lakh</option><option>₹1.5 – ₹5 lakh</option><option>Above ₹5 lakh</option><option>Project (one-off)</option></select></label>` : ""}
-<label class="full">Tell us a little about the business<textarea name="message" rows="3"></textarea></label>
-<label class="hp" aria-hidden="true">Leave empty<input name="_company_site" tabindex="-1" autocomplete="off"></label>
-<div class="full" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center"><button class="btn" type="submit">${button}</button><a class="btn ghost wa" href="${wa()}" target="_blank" rel="noopener">${ICONS.wa} WhatsApp instead</a></div>
-<p class="status" role="status" aria-live="polite"></p>
+function footer() {
+  const soc = Object.entries(C.social).filter(([, v]) => v).map(([k, v]) => `<li><a href="${v}" target="_blank" rel="noopener me">${({ x: "X", linkedin: "LinkedIn", youtube: "YouTube", instagram: "Instagram" })[k] || k[0].toUpperCase() + k.slice(1)}</a></li>`).join("");
+  return `<footer class="ftr" data-mood-sec="happy"><div class="wrap">
+<div class="ftr-top">
+<div class="ftr-lead">${H("h2", "", "Let's make your dot impossible to miss.")}<div class="btns"><a class="btn alt" href="/free-audit/" data-dot="love" data-mag>Get a free audit</a><a class="btn ghost" href="${wa()}" target="_blank" rel="noopener" data-dot="happy">${I.wa} WhatsApp</a></div></div>
+<div><h3>Services</h3><ul>${services.map((s) => `<li><a href="/services/${s.slug}/">${esc(s.name)}</a></li>`).join("")}</ul></div>
+<div><h3>Studio</h3><ul><li><a href="/about/">About</a></li><li><a href="/process/">How we work</a></li><li><a href="/insights/">Insights</a></li><li><a href="/careers/">Careers</a></li><li><a href="/contact/">Contact</a></li><li><a href="/free-audit/">Free audit</a></li></ul></div>
+<div><h3>Say hello</h3><ul><li><a href="mailto:${C.email}">${C.email}</a></li><li><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a></li><li><a href="tel:${tel}">${esc(C.phoneDisplay)}</a></li>${soc}</ul></div>
+</div>
+<div class="ftr-bot">
+<span>© ${year} ${esc(C.name)}. No templates were harmed in the making of this website.</span>
+<nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/llms.txt">llms.txt</a></nav>
+<a class="emp" href="${C.internalUrl}" rel="nofollow noopener" data-dot="shy">${I.lock} Employee login</a>
+</div>
+<img class="mega" src="/assets/wordmark-color.svg" alt="" width="396" height="76" loading="lazy" decoding="async">
+</div></footer>`;
+}
+
+// ---------- shared blocks ----------
+const interestOpts = (pre) => [["more leads & sales", "performance-ads"], ["social media that grows", "social-content"], ["SEO & AI search", "seo-ai-search"], ["a new website or app", "websites-apps"], ["branding or video", "brand-video"], ["AI agents & automation", "ai-automation"], ["honestly, not sure yet", ""]]
+  .map(([l, s]) => `<option${pre && pre === s ? " selected" : ""}>${esc(l)}</option>`).join("");
+const madlib = (id, { pre = "", next = "/thanks/" } = {}) => `<form class="madlib-form" data-lead="${id}" data-next="${next}" novalidate>
+<p class="madlib">Hi, I'm <span class="f"><input name="name" aria-label="Your name" placeholder="your name" autocomplete="name" required></span> from <span class="f"><input class="wide" name="company" aria-label="Company" placeholder="your company" autocomplete="organization"></span>. We'd love help with <span class="f"><select name="interest" aria-label="What you need help with">${interestOpts(pre)}</select></span>, and our budget is <span class="f"><select name="budget" data-budget aria-label="Monthly budget"><option value="">still being figured out</option><option>Under $1,500 a month</option><option>$1,500 – $5,000 a month</option><option>$5,000 – $15,000 a month</option><option>$15,000+ a month</option><option>a one-off project</option></select></span>. Reach me at <span class="f"><input class="wide" name="email" type="email" inputmode="email" aria-label="Email" placeholder="you@company.com" autocomplete="email"></span> or <span class="f"><input name="phone" type="tel" inputmode="tel" aria-label="Phone or WhatsApp" placeholder="phone / WhatsApp" autocomplete="tel"></span>.</p>
+<label class="madlib"><span class="sr">Anything else we should know</span><textarea name="message" rows="2" placeholder="Anything else? Optional, but Dot loves details."></textarea></label>
+<label class="hp" aria-hidden="true">Leave this empty<input name="website_url_hp" tabindex="-1" autocomplete="off"></label>
+<div class="form-foot"><button class="btn alt" type="submit" data-dot="love" data-mag>Send it</button><span class="muted small">A human replies within one working day. No spam — Dot is very strict about that.</span><p class="status" role="status" aria-live="polite"></p></div>
 </form>`;
-
-const ledger = (open = 0) => `<div class="ledger">${services.map((s, i) => `
-<details${i === open ? " open" : ""}><summary><h3>${esc(s.name)}</h3><p>${esc(s.short)}</p><span class="pl">${ICONS.plus}</span></summary>
-<div class="body"><p class="lead" style="font-size:1.05rem">${esc(s.promise)}</p><div><ul>${s.deliverables.slice(0, 4).map((d) => `<li>${esc(d)}</li>`).join("")}</ul><p class="more"><a href="/services/${s.slug}/">More about ${esc(s.name.toLowerCase())} ${ICONS.arrow.replace("<svg", '<svg width="14" height="14" style="vertical-align:-2px"')}</a></p></div></div>
-</details>`).join("")}</div>`;
-
-const stepsBlock = () => `<div class="steps">${steps.map((s) => `<div class="step" data-n="${s.n}"><div class="n">${s.n}</div><h3>${esc(s.title)}</h3><div class="when">${esc(s.when)}</div><p>${esc(s.text)}</p></div>`).join("")}</div>`;
-const faqBlock = (qa) => `<div class="faq">${qa.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("")}</div>`;
-const auditCta = () => `<section class="sec ink" id="audit"><div class="wrap audit-grid">
-<div><h2 class="dot">Start with a free growth audit</h2><p class="lead" style="color:#d9d1c9">In five working days you get a written, 20-point review of your website, Google presence, social accounts and ads — and a 30-minute call to walk through it. No obligation.</p>
-<ul><li>Website speed, SEO and conversion check</li><li>Google Business Profile and reviews</li><li>Social growth and content gaps</li><li>Ad account health and cost per lead</li><li>Three things to fix this month, in order</li></ul></div>
-<div>${leadForm("free-audit", { website: true, budget: true, button: "Get my free audit" })}</div>
+const ctaBand = (id, opts = {}) => `<section class="sec" data-mood-sec="love" id="talk"><div class="wrap"><div class="cta-band">
+${H("h2", "h-sec", opts.title || "Tell us about your brand.")}
+${madlib(id, opts)}
+<div class="direct"><span>Rather talk?</span><a href="${wa()}" target="_blank" rel="noopener" data-dot="happy">WhatsApp</a><a href="mailto:${C.email}" data-dot="happy">${C.email}</a><span>It's <b data-localtime>now</b> <span data-place>where you are</span>.</span></div>
+</div></div></section>`;
+const faqBlock = (qa) => `<div class="faq">${qa.map(([q, a]) => `<details><summary>${esc(q)}<i aria-hidden="true"></i></summary><div class="ans"><p>${esc(a)}</p></div></details>`).join("")}</div>`;
+const svcList = () => `<div class="svc-list">${services.map((s) => `<a class="svc-row" href="/services/${s.slug}/" data-tag="${esc(s.tagline)}" data-quip="${esc(s.joke)}" data-dot="happy"><h3>${esc(s.name)}</h3><p>${esc(s.short)}</p><span class="go" aria-hidden="true">${I.arrow}</span><template>${DOODLE[s.icon]}</template></a>`).join("")}</div><div class="peek" aria-hidden="true"><div class="ico"></div><b></b><span></span></div>`;
+const procBlock = (title = "From hello to growth in four steps.") => `<section class="proc" data-mood-sec="happy" aria-label="How we work"><div class="proc-stick"><div class="wrap">
+<div class="head proc-head">${H("h2", "h-sec stretchy", title)}<p>The same four steps for a startup in Berlin or a 40-year-old manufacturer in Chennai. The details change. The discipline doesn't.</p></div></div>
+<div class="wrap" style="overflow:visible"><div class="proc-track">${steps.map((s) => `<article class="proc-card"><div class="n" aria-hidden="true">${s.n}</div><h3>${esc(s.title)}</h3><div class="when">${esc(s.when)}</div><p>${esc(s.text)}</p><p class="aside">${esc(s.aside)}</p></article>`).join("")}</div></div>
 </div></section>`;
-const proof = () => {
-  const p = C.proof, rows = [[p.clientsServed, "clients served"], [p.leadsGenerated, "leads generated"], [p.adSpendManaged, "ad spend managed"], [p.yearsActive, "years in business"]].filter(([v]) => v);
-  return rows.length ? `<div class="stats">${rows.map(([v, l]) => `<div><b>${esc(v)}</b><span>${l}</span></div>`).join("")}</div>` : "";
-};
-const testimonials = () => (C.testimonials || []).length ? `<section class="sec tight"><div class="wrap"><div class="cards">${C.testimonials.map((t) => `<blockquote class="card"><p style="font-size:1.05rem">“${esc(t.quote)}”</p><footer class="small muted">${esc(t.name)}, ${esc(t.role)}</footer></blockquote>`).join("")}</div></div></section>` : "";
-const locsBlock = () => `<div class="locs">${C.locations.map((l) => `<a class="loc" href="/locations/${l.slug}/"><h3>${esc(l.city)}${l.hq ? '<span class="hq">HQ</span>' : ""}</h3><p class="small muted" style="margin:0">${esc(l.line1)}, ${esc(l.line2)}<br>${esc(l.city)} ${esc(l.pincode)}</p></a>`).join("")}</div>`;
+const vsBlock = () => `<div class="vs"><div class="vs-hd" aria-hidden="true"><span>The AI does this</span><span></span><span>A human does this</span></div>${aiHuman.map(([a, h]) => `<div class="vs-row"><p class="ai">${esc(a)}</p><span class="link-dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="hu">${esc(h)}</p></div>`).join("")}</div>`;
+const CLOCKS = [["London", "Europe/London"], ["Dubai", "Asia/Dubai"], ["Singapore", "Asia/Singapore"], ["Sydney", "Australia/Sydney"], ["New York", "America/New_York"], ["Us, in India", "Asia/Kolkata"]];
+const clocks = () => `<div class="clocks">${CLOCKS.map(([n, z]) => `<div class="clock${z === "Asia/Kolkata" ? " us" : ""}" data-tz="${z}"><b>--:--</b><span><i></i>${esc(n)}</span></div>`).join("")}</div>`;
 
-// ---------- pages
+// ---------- pages ----------
 const pages = [];
-const add = (path, html) => pages.push([path, html]);
+const add = (p, html) => pages.push([p, html]);
 
-add("/", layout({
-  path: "/", title: "Home", desc: "Dotindot Creative is an AI marketing-tech agency in Erode, Coimbatore and Chennai. Performance marketing, social media, SEO & AI search, websites, branding, video and AI automation — judged on leads, not likes.",
-  ld: [ORG, { "@context": "https://schema.org", "@type": "WebSite", url: abs("/"), name: C.name, publisher: { "@id": abs("/#org") } }, faqLd(faqs)],
-  body: `
-<section class="hero"><div class="wrap">
-<div><div class="kick"><b></b>AI marketing-tech agency · Erode · Coimbatore · Chennai</div>
-<h1>Growth you can count<span style="color:var(--flame)">.</span></h1>
-<p class="lead">Ads, social, search, websites and AI automation for businesses that want more enquiries this quarter — run by a team in Tamil Nadu that reports in leads and rupees, not likes.</p>
-<div class="actions"><a class="btn flame" href="/free-audit/">Get a free growth audit ${ICONS.arrow}</a><a class="btn ghost" href="${wa()}" target="_blank" rel="noopener">${ICONS.wa} WhatsApp us</a></div>
-<div class="trust"><span>Fixed quotations, no % of ad spend</span><span>Month-to-month retainers</span><span>Live dashboard for every client</span></div>
-${proof()}</div>
-<div class="dots" aria-hidden="true"><canvas></canvas><span class="cap">Every dot is a lead. The line is what we're hired to move.</span></div>
-</div></section>
-<section class="sec"><div class="wrap">
-<div class="sec-head"><h2 class="dot">What we do</h2><p class="lead">Six services, one job: more of the right customers finding you and buying. Open any row to see what you actually get.</p></div>
-${ledger(0)}
-</div></section>
-<section class="sec mist"><div class="wrap">
-<div class="sec-head"><h2 class="dot">Built for businesses like yours</h2><p class="lead">We've learnt the buying journeys of these industries in Tamil Nadu — what a lead costs, what converts, what the front desk hears.</p></div>
-<div class="chips">${industries.map((i) => `<span>${esc(i)}</span>`).join("")}</div>
-</div></section>
-<section class="sec"><div class="wrap">
-<div class="sec-head"><h2 class="dot">The first 90 days</h2><p class="lead">Every engagement runs the same way, so you always know what's happening and what it's costing.</p></div>
-${stepsBlock()}
-</div></section>
-<section class="sec tight"><div class="wrap">
-<div class="sec-head"><h2 class="dot">What we measure</h2><p class="lead">Every client gets a live dashboard with these numbers — the same one our team works from.</p></div>
-<div class="measure"><div><b>Cost per lead</b>by channel, campaign and creative</div><div><b>Followers & views</b>month on month, every platform</div><div><b>Rankings & AI mentions</b>Google positions and assistant citations</div><div><b>Revenue attributed</b>what each channel actually brought in</div></div>
-</div></section>
-${testimonials()}
-${auditCta()}
-<section class="sec"><div class="wrap two">
-<div><h2 class="dot">Questions we hear a lot</h2><p class="lead">Straight answers. Anything else, just ask.</p></div>
-${faqBlock(faqs)}
-</div></section>
-<section class="sec tight"><div class="wrap"><div class="sec-head"><h2 class="dot">Three offices, one team</h2><p class="lead">Meet us in Erode, Coimbatore or Chennai — or on a call from anywhere.</p></div>${locsBlock()}</div></section>`,
-}));
-
-add("/services/", layout({
-  path: "/services/", title: "Services", desc: "Performance marketing, social media management, SEO & AI search, websites & apps, branding & video, AI automation — from Dotindot Creative, Tamil Nadu.",
-  crumbs: [["Home", "/"], ["Services", "/services/"]], ld: [breadcrumbs([["Home", "/"], ["Services", "/services/"]])],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Services</h1><p class="lead">Pick one, or let the audit tell you where to start. Everything is quoted fixed, reported monthly, and owned by you.</p></div></section>
-<section class="sec tight"><div class="wrap">${ledger(-1)}</div></section>${auditCta()}`,
-}));
-
-for (const s of services) {
-  const crumbs = [["Home", "/"], ["Services", "/services/"], [s.name, `/services/${s.slug}/`]];
-  add(`/services/${s.slug}/`, layout({
-    path: `/services/${s.slug}/`, title: `${s.name} in Erode, Coimbatore & Chennai`, desc: `${s.promise} ${s.short}`.slice(0, 158), crumbs,
-    ld: [breadcrumbs(crumbs), { "@context": "https://schema.org", "@type": "Service", name: s.name, serviceType: s.name, provider: { "@id": abs("/#org") }, areaServed: ["Erode", "Coimbatore", "Chennai", "Tamil Nadu", "India"], description: s.promise, url: abs(`/services/${s.slug}/`),
-      hasOfferCatalog: { "@type": "OfferCatalog", name: `${s.name} deliverables`, itemListElement: s.deliverables.map((d) => ({ "@type": "Offer", itemOffered: { "@type": "Service", name: d } })) } }, faqLd(s.faq)],
-    body: `<section class="page-head"><div class="wrap"><h1 class="dot">${esc(s.name)}</h1><p class="lead">${esc(s.promise)}</p>
-<div class="actions" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:22px"><a class="btn flame" href="/free-audit/">Get a free audit ${ICONS.arrow}</a><a class="btn ghost" href="${wa(`Hi dotindot, I’d like to talk about ${s.name.toLowerCase()}.`)}" target="_blank" rel="noopener">${ICONS.wa} Ask on WhatsApp</a></div></div></section>
-<section class="sec tight"><div class="wrap two"><div class="prose"><p class="lead" style="font-size:1.1rem">${esc(s.intro)}</p><h2 class="dot">What you get</h2><ul>${s.deliverables.map((d) => `<li>${esc(d)}</li>`).join("")}</ul></div>
-<div><h2 class="dot" style="font-size:1.6rem">A good fit for</h2><ul>${s.fit.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
-<h2 class="dot" style="font-size:1.6rem;margin-top:1.4em">Also see</h2><ul>${services.filter((x) => x.slug !== s.slug).slice(0, 3).map((x) => `<li><a href="/services/${x.slug}/">${esc(x.name)}</a></li>`).join("")}</ul></div></div></section>
-<section class="sec mist"><div class="wrap two"><div><h2 class="dot">Questions about ${esc(s.name.toLowerCase())}</h2></div>${faqBlock(s.faq)}</div></section>${auditCta()}`,
-  }));
-}
-
-add("/work/", layout({
-  path: "/work/", title: "How we work", desc: "The dotindot way: a free 20-point audit, a 90-day plan with a fixed quotation, a build you approve, and weekly optimisation against a live dashboard.",
-  crumbs: [["Home", "/"], ["How we work", "/work/"]], ld: [breadcrumbs([["Home", "/"], ["How we work", "/work/"]])],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">How we work</h1><p class="lead">No retainers that drift, no reports nobody reads. One process, the same for a café in Erode and an exporter selling to Dubai.</p></div></section>
-<section class="sec tight"><div class="wrap">${stepsBlock()}</div></section>
-<section class="sec mist"><div class="wrap two"><div><h2 class="dot">What you'll always have</h2></div><div class="prose"><ul>
-<li><b>One fixed quotation</b> per engagement, with the terms you agreed — no percentage of ad spend, no surprise add-ons.</li>
-<li><b>A live dashboard</b> with cost per lead, follower growth, views, rankings and revenue by channel. Open it any time; we review it with you monthly.</li>
-<li><b>Ownership of everything</b> — ad accounts, social profiles, domains, code and content stay in your name from day one.</li>
-<li><b>A named account lead</b> on WhatsApp, and a support desk in your client portal for anything else.</li>
-<li><b>Month-to-month retainers</b> with 30 days' notice. We'd rather earn the renewal than lock it in.</li></ul></div></div></section>
-${(C.caseStudies || []).length ? `<section class="sec"><div class="wrap"><div class="sec-head"><h2 class="dot">Recent work</h2></div><div class="cards">${C.caseStudies.map((cs) => `<article class="card"><h3>${esc(cs.title)}</h3><p class="small muted">${esc(cs.industry)} · ${esc(cs.city)}</p><p>${esc(cs.result)}</p></article>`).join("")}</div></div></section>` : ""}
-${auditCta()}`,
-}));
-
-add("/about/", layout({
-  path: "/about/", title: "About", desc: "Dotindot Creative is an AI-first digital marketing and web development agency founded in Erode, Tamil Nadu, with teams in Coimbatore and Chennai.",
-  crumbs: [["Home", "/"], ["About", "/about/"]], ld: [breadcrumbs([["Home", "/"], ["About", "/about/"]]), { "@context": "https://schema.org", "@type": "AboutPage", mainEntity: { "@id": abs("/#org") } }],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">A growth team, not a vendor</h1><p class="lead">Dotindot started in Erode with a simple complaint from local business owners: agencies sent pretty reports and nobody could say what a customer cost. We built the agency — and our own software — to answer that question every month.</p></div></section>
-<section class="sec tight"><div class="wrap two"><div class="prose">
-<h2 class="dot">What makes us different</h2>
-<p><b>We're AI-first in practice.</b> Our team runs on an internal platform we built ourselves — lead tracking, growth dashboards, reporting, support — with AI agents doing the repetitive work. The same tooling runs your campaigns, which is why we can be fast and still careful.</p>
-<p><b>We measure what the owner cares about.</b> Cost per lead, enquiries that became customers, follower growth that turned into footfall. Every client sees the same dashboard our team works from.</p>
-<p><b>We're from here.</b> Erode, Coimbatore and Chennai aren't 'markets' to us; they're where we live and sell. We know what a Tamil-English reel needs to do in Tiruppur and what a Chennai hospital's front desk hears all day.</p>
-<p><b>We work with the world.</b> Clients in the UK, UAE and Singapore get Indian execution quality, GST-compliant export invoicing and a team that overlaps their working day.</p>
-</div><div>
-<h2 class="dot" style="font-size:1.6rem">Where we are</h2>${locsBlock()}
-<h2 class="dot" style="font-size:1.6rem;margin-top:1.6em">Credentials</h2><div class="chips">${C.certifications.map((c) => `<span>${esc(c)}</span>`).join("")}</div>
-<p class="small muted" style="margin-top:18px">Founded ${esc(C.founded)}. MSME registered. GST invoicing for India and LUT-backed export invoicing for clients abroad.</p>
+// home
+const homeFaq = faqs.slice(0, 6);
+const confettiDots = [[95, 31, 20, .32], [95, 44, 12, .18], [78, 9, 9, .22], [92, 70, 16, .26], [70, 92, 10, .4], [58, 6, 8, .14], [84, 98, 13, .3]];
+let homeBody = (weight) => `
+<section class="hero" aria-labelledby="h">
+<div class="confetti" aria-hidden="true">${confettiDots.map(([x, y, s, sp], i) => `<i data-s="${sp}" style="left:${x}%;top:${y}%;width:${s}px;height:${s}px;${i > 3 ? "opacity:.5" : ""}"></i>`).join("")}</div>
+<div class="wrap">
+<h1 id="h" class="h-hero pop"><span class="sr">Make your brand impossible to scroll past.</span><span aria-hidden="true">${pop(["Make your brand", "impossible to", "scroll past"]).replace(/<\/span>$/, '<span class="dot-slot claimed"></span></span>')}</span></h1>
+<div class="hero-row">
+<div><p class="lead">Dotindot is an <b>AI-first marketing studio</b>. We run the ads, make the content, get you found on Google and in ChatGPT, build the website and automate the boring bits — for ambitious brands anywhere on the map.</p>
+<div class="btns"><a class="btn alt" href="/free-audit/" data-dot="love" data-mag>Get a free growth audit</a><a class="btn ghost" href="#services" data-dot="happy">See what we do</a></div>
+<p class="fine">Free means free. Dot checked. Twice.</p></div>
+<aside class="note" aria-label="A note">Psst. The orange dot is watching your cursor. It's harmless. Mostly.</aside>
 </div></div></section>
-<section class="sec mist"><div class="wrap two"><div><h2 class="dot">Join the team</h2><p class="lead">We hire people who like being judged on results.</p></div><div><ul style="list-style:none;padding:0;display:grid;gap:12px">${careers.map((c) => `<li class="card"><b>${esc(c.title)}</b><span class="small muted">${esc(c.place)}</span><span class="small">${esc(c.text)}</span></li>`).join("")}</ul><p style="margin-top:14px"><a href="/careers/">All openings ${ICONS.arrow.replace("<svg", '<svg width="14" height="14" style="vertical-align:-2px"')}</a></p></div></div></section>
-${auditCta()}`,
-}));
+<div class="marq" aria-hidden="true"><div class="marq-track">${[0, 1, 2].map(() => `<div class="marq-group">${["Performance ads", "Social & content", "SEO & AI search", "Websites & apps", "Brand & video", "AI agents"].map((t) => `<span class="it">${t}</span><span class="sep"></span>`).join("")}</div>`).join("")}</div></div>
 
-add("/careers/", layout({
-  path: "/careers/", title: "Careers", desc: "Open roles at Dotindot Creative in Erode, Coimbatore and Chennai: performance marketing, content creation, full-stack development.",
-  crumbs: [["Home", "/"], ["Careers", "/careers/"]], ld: [breadcrumbs([["Home", "/"], ["Careers", "/careers/"]]), ...careers.map((c) => ({ "@context": "https://schema.org", "@type": "JobPosting", title: c.title, description: c.text, datePosted: today, employmentType: "FULL_TIME", hiringOrganization: { "@id": abs("/#org") }, jobLocation: { "@type": "Place", address: { "@type": "PostalAddress", addressLocality: c.place.split(" ·")[0].split(" or ")[0], addressRegion: "Tamil Nadu", addressCountry: "IN" } } }))],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Careers</h1><p class="lead">Small team, real clients, your work measured in the open. Send a short note and something you've made to <a href="mailto:${C.email}?subject=Application">${C.email}</a>.</p></div></section>
-<section class="sec tight"><div class="wrap cards">${careers.map((c) => `<article class="card"><h3>${esc(c.title)}</h3><p class="small muted">${esc(c.place)}</p><p>${esc(c.text)}</p><a href="mailto:${C.email}?subject=${encodeURIComponent("Application: " + c.title)}" class="btn ghost" style="align-self:start">Apply by email</a></article>`).join("")}</div></section>`,
-}));
+<section class="uni" data-map="/${MAP_JSON}" data-mood-sec="wow" aria-label="Why it matters">
+<div class="uni-stick"><canvas aria-hidden="true"></canvas>
+<div class="uni-caps"><div class="wrap">
+<div class="uni-cap on"><h2>There are over a billion websites.</h2><p>Each one is a dot. Most of them are shouting “Welcome to our website!” at nobody in particular.</p></div>
+<div class="uni-cap"><h2>Yours is one of them.</h2><p>Somewhere in there. Waving. Slightly sweaty.</p></div>
+<div class="uni-cap"><h2>We make it the one people find.</h2><p>Ads, content, search and AI, all pointed at the people who'd actually buy from you.</p></div>
+<div class="uni-cap"><h2>Wherever they happen to be.</h2><p>Down the road or across an ocean. Different time zones, same results dashboard.</p></div>
+</div></div>
+<span class="uni-you" aria-hidden="true"></span>
+<div class="uni-prog" aria-hidden="true"><i></i></div></div></section>
 
-add("/insights/", layout({
-  path: "/insights/", title: "Insights", desc: "Practical notes on marketing, search and web performance for Indian businesses, from the dotindot team.",
-  crumbs: [["Home", "/"], ["Insights", "/insights/"]], ld: [breadcrumbs([["Home", "/"], ["Insights", "/insights/"]])],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Insights</h1><p class="lead">Short, practical notes — the things we explain in first meetings, written down.</p></div></section>
-<section class="sec tight"><div class="wrap cards">${insights.map((a) => `<a class="card" href="/insights/${a.slug}/"><span class="meta">${new Date(a.date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} · ${a.minutes} min read</span><h3>${esc(a.title)}</h3><p class="muted" style="margin:0">${esc(a.summary)}</p></a>`).join("")}</div></section>${auditCta()}`,
-}));
-for (const a of insights) {
-  const crumbs = [["Home", "/"], ["Insights", "/insights/"], [a.title, `/insights/${a.slug}/`]];
-  const html = a.body.map((p) => (p.startsWith("## ") ? `<h2>${esc(p.slice(3))}</h2>` : /^\d+\. /.test(p) ? `<ol>${p.split("\n").map((l) => `<li>${md(l.replace(/^\d+\.\s*/, ""))}</li>`).join("")}</ol>` : p.includes("\n**") || p.startsWith("**") ? `<ul>${p.split("\n").map((l) => `<li>${md(l)}</li>`).join("")}</ul>` : `<p>${md(p)}</p>`)).join("\n");
-  add(`/insights/${a.slug}/`, layout({
-    path: `/insights/${a.slug}/`, title: a.title, desc: a.summary, type: "article", crumbs,
-    ld: [breadcrumbs(crumbs), { "@context": "https://schema.org", "@type": "Article", headline: a.title, description: a.summary, datePublished: a.date, dateModified: a.date, author: { "@type": "Organization", name: C.name, url: abs("/") }, publisher: { "@id": abs("/#org") }, mainEntityOfPage: abs(`/insights/${a.slug}/`), image: abs("/assets/og.png") }],
-    body: `<article><section class="page-head"><div class="wrap"><p class="meta">${new Date(a.date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} · ${a.minutes} min read · by the dotindot team</p><h1>${esc(a.title)}</h1><p class="lead">${esc(a.summary)}</p></div></section>
-<section class="sec tight"><div class="wrap prose">${html}</div></section></article>${auditCta()}`,
-  }));
-}
+<section class="sec" id="services" data-mood-sec="happy"><div class="wrap">
+<div class="head">${H("h2", "h-sec stretchy", "Six ways we make you hard to ignore.")}<p data-reveal>Pick one, or let us run the lot. Every service is wired into the same dashboard, so you see what's working without asking.</p></div>
+${svcList()}
+</div></section>
 
-add("/locations/", layout({
-  path: "/locations/", title: "Offices in Erode, Coimbatore & Chennai", desc: "Dotindot Creative offices: Erode (HQ), Coimbatore and Chennai. Digital marketing agency serving Tamil Nadu and clients abroad.",
-  crumbs: [["Home", "/"], ["Locations", "/locations/"]], ld: [breadcrumbs([["Home", "/"], ["Locations", "/locations/"]]), ...C.locations.map(localBiz)],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Where to find us</h1><p class="lead">Three offices across Tamil Nadu. Walk in, or book a call and we'll come to you.</p></div></section><section class="sec tight"><div class="wrap">${locsBlock()}</div></section>${auditCta()}`,
-}));
-for (const l of C.locations) {
-  const crumbs = [["Home", "/"], ["Locations", "/locations/"], [l.city, `/locations/${l.slug}/`]];
-  const localFaq = [[`Do you work with small businesses in ${l.city}?`, `Yes — most of our ${l.city} clients are owner-run businesses: clinics, builders, restaurants, retailers, schools and manufacturers. The free audit is the same for everyone.`],
-    [`Can we meet at your ${l.city} office?`, `Yes. ${l.line1}, ${l.line2}, ${l.city} ${l.pincode}. ${C.hours}. Message ahead on WhatsApp and we'll keep the room.`],
-    [`Which services are available in ${l.city}?`, `All of them — performance marketing, social media, SEO & AI search, websites, branding & video and AI automation. Shoot days and in-person reviews happen locally; strategy and reporting are shared across the whole team.`]];
-  add(`/locations/${l.slug}/`, layout({
-    path: `/locations/${l.slug}/`, title: `Digital marketing agency in ${l.city}`, desc: `Dotindot Creative in ${l.city}: performance marketing, social media, SEO & AI search, websites and AI automation for ${l.city} businesses. ${l.line1}, ${l.line2}. Free growth audit.`, crumbs,
-    ld: [breadcrumbs(crumbs), localBiz(l), faqLd(localFaq)],
-    body: `<section class="page-head"><div class="wrap"><h1 class="dot">Digital marketing agency in ${esc(l.city)}</h1><p class="lead">Ads, social, search, websites and AI automation for ${esc(l.city)} businesses — with a team you can actually meet.</p>
-<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:22px"><a class="btn flame" href="/free-audit/">Free growth audit ${ICONS.arrow}</a><a class="btn ghost" href="tel:${l.phone.replace(/[^\d+]/g, "")}">${ICONS.phone} ${esc(l.phone)}</a><a class="btn ghost" href="${l.mapsUrl}" target="_blank" rel="noopener">Directions</a></div></div></section>
-<section class="sec tight"><div class="wrap two"><div class="prose">
-<h2 class="dot">${esc(l.city)} office</h2><p>${esc(l.line1)}, ${esc(l.line2)}<br>${esc(l.city)}, ${esc(l.state)} ${esc(l.pincode)}<br>${esc(C.hours)}</p>
-<h2 class="dot">What we do for ${esc(l.city)} businesses</h2><ul>${services.map((s) => `<li><a href="/services/${s.slug}/">${esc(s.name)}</a> — ${esc(s.short)}</li>`).join("")}</ul>
-<h2 class="dot">Industries we know in ${esc(l.city)}</h2><div class="chips">${industries.map((i) => `<span>${esc(i)}</span>`).join("")}</div>
-</div><div><h2 class="dot" style="font-size:1.6rem">Talk to the ${esc(l.city)} team</h2>${leadForm(`location-${l.slug}`, { budget: true, button: "Request a call back" })}</div></div></section>
-<section class="sec mist"><div class="wrap two"><div><h2 class="dot">Questions from ${esc(l.city)}</h2></div>${faqBlock(localFaq)}</div></section>`,
-  }));
-}
+<section class="sec fog" data-mood-sec="wink"><div class="wrap">
+<div class="head">${H("h2", "h-sec stretchy", "AI-first. Human-checked.")}<p data-reveal>AI makes us fast and affordable. People make sure it's right. Here's who does what — honestly.</p></div>
+${vsBlock()}
+</div></section>
 
-add("/free-audit/", layout({
-  path: "/free-audit/", title: "Free 20-point growth audit", desc: "Get a free written audit of your website, Google presence, social media and ads from Dotindot Creative — with the three fixes to make this month. No obligation.",
-  crumbs: [["Home", "/"], ["Free growth audit", "/free-audit/"]], ld: [breadcrumbs([["Home", "/"], ["Free growth audit", "/free-audit/"]])],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Free 20-point growth audit</h1><p class="lead">Tell us about the business. Within five working days you'll have a written review and a 30-minute call — whether or not you ever hire us.</p></div></section>
-<section class="sec tight"><div class="wrap audit-grid"><div>${leadForm("free-audit", { website: true, budget: true, button: "Get my free audit", next: "/thank-you/" })}</div>
-<div><h2 class="dot" style="font-size:1.6rem">What the audit covers</h2><ul>
-<li><b>Website</b> — speed on a real phone, Core Web Vitals, what stops a visitor enquiring</li><li><b>Search</b> — where you rank, what you're missing, and whether AI assistants mention you</li><li><b>Google Business Profile</b> — completeness, reviews, photos, posts</li><li><b>Social</b> — follower growth, reach, content gaps, best-performing formats</li><li><b>Ads</b> — tracking, cost per lead, wasted spend (read-only access)</li><li><b>Three fixes</b> for this month, in priority order, with what each should move</li></ul>
-<p class="small muted" style="margin-top:16px">We'll ask for read-only access to analytics and ad accounts where relevant. Everything you share stays confidential.</p></div></div></section>`,
-}));
-add("/thank-you/", layout({ path: "/thank-you/", title: "Thank you", desc: "We've received your request.", noindex: true,
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Got it — thank you</h1><p class="lead">Someone from the team will reach out within one working day to confirm the details and book your call. Want to skip the wait?</p><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn wa" href="${wa("Hi dotindot, I just requested a free audit on your website.")}" target="_blank" rel="noopener">${ICONS.wa} WhatsApp us now</a><a class="btn ghost" href="/insights/">Read our insights</a></div></div></section>` }));
+${procBlock()}
 
-add("/contact/", layout({
-  path: "/contact/", title: "Contact", desc: `Talk to Dotindot Creative: ${C.phoneDisplay}, ${C.email}, WhatsApp, or visit us in Erode, Coimbatore or Chennai.`,
-  crumbs: [["Home", "/"], ["Contact", "/contact/"]], ld: [breadcrumbs([["Home", "/"], ["Contact", "/contact/"]]), { "@context": "https://schema.org", "@type": "ContactPage", mainEntity: { "@id": abs("/#org") } }],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Contact</h1><p class="lead">Call, WhatsApp, email or drop in. We answer within one working day, usually much sooner.</p></div></section>
-<section class="sec tight"><div class="wrap two"><div>${leadForm("contact", { button: "Send message" })}</div>
-<div><h2 class="dot" style="font-size:1.6rem">Reach us directly</h2><p><a href="tel:${tel}">${esc(C.phoneDisplay)}</a><br><a href="mailto:${C.email}">${C.email}</a><br><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a><br><span class="muted">${esc(C.hours)}</span></p>${locsBlock()}</div></div></section>`,
-}));
+<section class="sec" data-mood-sec="wow"><div class="wrap">
+<h2 class="globe-time" data-reveal>It's <time data-localtime>right now</time> <span data-place>where you are</span>.</h2>
+<p class="lead" data-reveal style="margin-top:24px">Our team works from India, remote-first, with brands across time zones. Send a note now and a real person replies within one working day — usually before your next coffee.</p>
+<div data-reveal>${clocks()}</div>
+</div></section>
 
-add("/privacy/", layout({ path: "/privacy/", title: "Privacy policy", desc: "How Dotindot Creative collects and uses information on dotindot.in.", crumbs: [["Home", "/"], ["Privacy", "/privacy/"]],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Privacy policy</h1><p class="meta">Last updated ${today}</p></div></section><section class="sec tight"><div class="wrap prose">
-<p>${esc(C.name)} ("we") operates dotindot.in. This page explains what we collect and why, in line with India's Digital Personal Data Protection Act 2023 and, for visitors in the EU/UK, the GDPR.</p>
-<h2>What we collect</h2><p>What you type into our forms (name, phone, email, company, message), the page you were on and, where present, campaign tags in the link you arrived from. If analytics is enabled, anonymised usage data. We don't sell personal data.</p>
-<h2>Why</h2><p>To respond to your enquiry, prepare the audit you asked for, and understand which of our pages are useful. Form submissions are stored in our own CRM at internal.dotindot.in, hosted in India.</p>
-<h2>Your choices</h2><p>Write to <a href="mailto:${C.email}">${C.email}</a> to see, correct or delete what we hold about you. We'll do it within 30 days.</p>
-<h2>Cookies</h2><p>The site works without cookies. We remember how you arrived (in your browser's local storage) so a lead carries its source. Third-party scripts are limited to fonts and, if enabled, analytics.</p></div></section>` }));
-add("/terms/", layout({ path: "/terms/", title: "Terms of use", desc: "Terms of use for dotindot.in.", crumbs: [["Home", "/"], ["Terms", "/terms/"]],
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">Terms of use</h1><p class="meta">Last updated ${today}</p></div></section><section class="sec tight"><div class="wrap prose">
-<p>Content on dotindot.in is provided for general information. Engagements with ${esc(C.name)} are governed by the quotation and terms you accept for that engagement, not by this page.</p>
-<p>Prices, timelines and results mentioned on this site are indicative and depend on your business. We don't guarantee rankings, reach or revenue.</p>
-<p>All content, logos and code on this site belong to ${esc(C.name)} unless stated. These terms are governed by the laws of India; courts at Erode, Tamil Nadu have jurisdiction.</p></div></section>` }));
+${C.receipts && C.receipts.lighthouse ? `<section class="sec fog" data-mood-sec="wow"><div class="wrap">
+<div class="head">${H("h2", "h-sec stretchy", "Receipts, not adjectives.")}<p data-reveal>We're new to bragging, so here are things about this very page you can check yourself.</p></div>
+<div class="receipts" data-reveal>
+<div class="rcpt"><b>${esc(C.receipts.lighthouse)}</b><span>Google Lighthouse performance score on mobile. Go on, run it.</span></div>
+<div class="rcpt"><b>${weight}<small>KB</small></b><span>Total weight of this page. Lighter than one phone selfie.</span></div>
+<div class="rcpt"><b>0</b><span>Templates used to build it. Every pixel placed on purpose.</span></div>
+<div class="rcpt"><b><i data-stare style="font-style:normal">0</i><small>s</small></b><span>How long Dot has been watching your cursor. It hasn't blinked much.</span></div>
+</div></div></section>` : ""}
+
+<section class="sec" data-mood-sec="happy"><div class="wrap">
+<div class="head">${H("h2", "h-sec stretchy", "We speak fluent platform.")}<p data-reveal>And several dialects of AI. If your stack isn't on the list, we've probably used it at 2 am at some point.</p></div>
+<ul class="tools" data-reveal>${tools.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+</div></section>
+
+<section class="sec fog"><div class="wrap two">
+<div>${H("h2", "h-sec", "Questions people ask us.")}<p class="lead" data-reveal style="margin-top:24px">And a few they're too polite to ask. More on the <a class="link" href="/contact/">contact page</a>.</p></div>
+${faqBlock(homeFaq)}
+</div></section>
+${ctaBand("home")}`;
+add("/", (w) => layout({ path: "/", fullTitle: `${C.name} — AI-first marketing studio for brands worldwide`, hello: true,
+  desc: "Dotindot is an AI-first marketing studio: performance ads, social and content, SEO and AI search, websites and apps, brand and video, and AI agents — for ambitious brands anywhere in the world.",
+  ld: [faqLd(homeFaq)], body: homeBody(w) }));
+
+// services index
+add("/services/", layout({ path: "/services/", title: "Services", desc: "Performance ads, social and content, SEO and AI search, websites and apps, brand and video, and AI agents — run by one AI-first team with one dashboard.",
+  ld: [crumbsLd([["Home", "/"], ["Services", "/services/"]])],
+  body: `<section class="phero"><div class="wrap">${H1("h-page", "Everything your brand needs online")}<p class="lead fade-in">Six services, one team, one dashboard. Pick what you need now and add the rest when it makes sense. No bundles you didn't ask for.</p></div></section>
+<section class="sec" style="padding-top:0" data-mood-sec="happy"><div class="wrap"><h2 class="sr">All services</h2>${svcList()}</div></section>
+<section class="sec fog" data-mood-sec="wink"><div class="wrap"><div class="head">${H("h2", "h-sec stretchy", "AI-first. Human-checked.")}<p data-reveal>Why we're faster and better value than a traditional agency, without being a robot.</p></div>${vsBlock()}</div></section>
+${ctaBand("services")}` }));
+
+// service pages
+services.forEach((s, idx) => {
+  const others = services.filter((o) => o.slug !== s.slug).slice(idx % 2, idx % 2 + 3);
+  add(`/services/${s.slug}/`, layout({ path: `/services/${s.slug}/`, title: s.name, desc: `${s.promise} ${s.short}`,
+    ld: [crumbsLd([["Home", "/"], ["Services", "/services/"], [s.name, `/services/${s.slug}/`]]), faqLd(s.faq),
+      { "@context": "https://schema.org", "@type": "Service", name: s.name, serviceType: s.name, description: s.intro, provider: { "@id": abs("/#org") }, areaServed: "Worldwide", url: abs(`/services/${s.slug}/`) }],
+    body: `<section class="phero"><div class="wrap"><nav class="crumbs" aria-label="Breadcrumb"><a href="/services/">Services</a> / ${esc(s.name)}</nav>
+${H1("h-page", s.name)}
+<p class="h-mid fade-in" style="margin-top:22px;color:var(--ember)">${esc(s.tagline)}</p>
+<p class="lead fade-in">${esc(s.promise)}</p>
+<div class="btns fade-in" style="margin-top:28px"><a class="btn alt" href="#talk" data-dot="love" data-mag>Talk to us about ${esc(lc(s.name))}</a><a class="btn ghost" href="/free-audit/">Start with a free audit</a></div></div></section>
+<section class="sec" style="padding-top:clamp(24px,4vw,48px)" data-mood-sec="happy"><div class="wrap two">
+<div><p class="lead" style="color:var(--ink)" data-reveal>${esc(s.intro)}</p><p class="joke" data-reveal>${esc(s.joke)}</p></div>
+<div data-reveal><h2 class="h-mid" style="margin-bottom:18px">What you get</h2><ul class="check">${s.deliverables.map((d) => `<li>${esc(d)}</li>`).join("")}</ul></div>
+</div></section>
+<section class="sec fog" data-mood-sec="wink"><div class="wrap two">
+<div>${H("h2", "h-sec stretchy", "A good fit if…")}<ul class="chips" data-reveal style="margin-top:28px">${s.fit.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></div>
+<div data-reveal><h2 class="h-mid" style="margin-bottom:22px">How it runs</h2><ol class="timeline">${s.steps.map(([w, t]) => `<li><b>${esc(w)}</b><span>${esc(t)}</span></li>`).join("")}</ol></div>
+</div></section>
+<section class="sec"><div class="wrap two"><div>${H("h2", "h-sec", "Questions, answered.")}</div>${faqBlock(s.faq)}</div></section>
+<section class="sec" style="padding-top:0"><div class="wrap"><h2 class="h-mid" style="margin-bottom:22px">Pairs well with</h2><div class="related">${others.map((o) => `<a href="/services/${o.slug}/" data-dot="happy"><b>${esc(o.name)}</b><span>${esc(o.short)}</span></a>`).join("")}</div></div></section>
+${ctaBand(`service-${s.slug}`, { pre: s.slug, title: `Let's talk ${lc(s.name)}.` })}` }));
+});
+
+// process
+const never = ["Take a percentage of your ad spend.", "Lock you into a twelve-month contract.", "Send a 40-page report made of screenshots.", "Say “synergy” and mean it.", "Ship anything on a Friday at 6 pm.", "Hold your accounts, code or content hostage."];
+add("/process/", layout({ path: "/process/", title: "How we work", desc: "Audit, plan, build, grow: how dotindot runs the first 90 days and every month after, with fixed quotations, month-to-month retainers and a live dashboard.",
+  ld: [crumbsLd([["Home", "/"], ["How we work", "/process/"]])],
+  body: `<section class="phero"><div class="wrap">${H1("h-page", "How we work")}<p class="lead fade-in">Four steps, a fixed quotation, a live dashboard and a monthly sit-down. It's not complicated. That's the point.</p></div></section>
+${procBlock("The first 90 days, step by step.")}
+<section class="sec fog" data-mood-sec="wink"><div class="wrap two">
+<div>${H("h2", "h-sec stretchy", "Every month, you get…")}<ul class="check" data-reveal style="margin-top:30px"><li>A live dashboard you can open any time — no “let me get back to you on that”.</li><li>A monthly review call with the numbers, what we learned and what's next.</li><li>Fresh creative, tests and content, planned a month ahead.</li><li>One named lead who knows your account, plus the specialists behind them.</li><li>Replies within one working day on WhatsApp or email.</li></ul></div>
+<div>${H("h2", "h-sec stretchy", "Things we'll never do.")}<ul class="check" data-reveal style="margin-top:30px">${never.map((n) => `<li>${esc(n)}</li>`).join("")}</ul></div>
+</div></section>
+<section class="sec"><div class="wrap two"><div>${H("h2", "h-sec", "The fine print, in big print.")}</div>${faqBlock(faqs.filter((f) => /cost|contract|working|currenc|time zone/i.test(f[0])))}</div></section>
+${ctaBand("process")}` }));
+
+// about
+add("/about/", layout({ path: "/about/", title: "About", desc: "Dotindot is an AI-first, remote-first marketing studio based in India and working with brands worldwide. Here's who we are, how we're set up, and why there's a dot watching you.",
+  ld: [crumbsLd([["Home", "/"], ["About", "/about/"]]), { "@context": "https://schema.org", "@type": "AboutPage", url: abs("/about/"), about: { "@id": abs("/#org") } }],
+  body: `<section class="phero"><div class="wrap">${H1("h-page", "We're dotindot")}<p class="lead fade-in">An AI-first marketing studio. Remote-first, based in India, working with brands wherever they are. We're builders, marketers, designers and engineers who'd rather show you a number than an adjective.</p></div></section>
+<section class="sec" style="padding-top:clamp(24px,4vw,48px)"><div class="wrap two">
+<div>${H("h2", "h-sec stretchy", "Why “dotindot”?")}</div>
+<div class="lead" style="color:var(--ink)" data-reveal><p>Every brand online starts as a dot in a sea of dots. Our whole job is making yours the one people notice, remember and buy from.</p><p>Dot in dot: your brand inside the internet, and the bit of attention it earns inside someone's busy day. We think about that second dot a lot.</p><p class="muted">Also, the domain was available. We're not going to pretend that didn't help.</p></div>
+</div></section>
+<section class="sec fog" data-mood-sec="wow"><div class="wrap two">
+<div>${H("h2", "h-sec stretchy", "How we're set up.")}<p class="lead" data-reveal style="margin-top:24px">Built for working across borders from day one.</p></div>
+<ul class="check" data-reveal><li><b>Remote-first, based in India.</b> Senior people, sensible costs, no glass tower to pay for.</li><li><b>Across time zones.</b> Daily overlap with Europe and the Gulf, early or late calls for the Americas and Australia.</li><li><b>Your currency.</b> We quote and invoice in USD, GBP, EUR, AED, SGD, AUD, CAD or INR.</li><li><b>AI in the workflow, people at the wheel.</b> AI drafts, monitors and crunches; humans decide.</li><li><b>One dashboard.</b> Every client sees the same live numbers we do.</li></ul>
+</div></section>
+<section class="sec"><div class="wrap">${H("h2", "h-sec stretchy", "What we believe.")}<div class="vals" data-reveal style="margin-top:clamp(32px,5vw,64px)">${values.map(([h, p]) => `<div class="val"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`).join("")}</div></div></section>
+<section class="sec fog" data-mood-sec="happy"><div class="wrap two" style="align-items:center">
+<div>${H("h2", "h-sec stretchy", "Meet Dot.")}<div class="lead" data-reveal style="margin-top:24px"><p>Dot joined on day one and has never taken a day off, mostly because it doesn't know what days are.</p><p>It follows your cursor, gets excited about free audits, covers its eyes when someone heads to the employee login, and falls asleep if you leave it alone for too long. Click it any time. It knows jokes. Some of them are good.</p></div></div>
+<div data-reveal><div class="badge"><span class="clip" aria-hidden="true"></span><div class="top"><span class="bd" data-mood="happy" aria-hidden="true">${dotSVG()}</span><div><h3>Dot</h3><span class="muted">Head of Vibes</span></div></div>
+<dl><dt>Employee no.</dt><dd>000</dd><dt>Clearance</dt><dd>Everywhere</dd><dt>Skills</dt><dd>Staring, rolling, not blinking</dd><dt>Weakness</dt><dd>Dark mode (we don't have one)</dd></dl><div class="bar" aria-hidden="true"></div></div></div>
+</div></section>
+${ctaBand("about", { title: "Want to work with us?" })}` }));
+
+// contact
+add("/contact/", layout({ path: "/contact/", title: "Contact", desc: "Tell dotindot about your brand. A real person replies within one working day — on WhatsApp, email or a video call, in your time zone and your currency.",
+  ld: [crumbsLd([["Home", "/"], ["Contact", "/contact/"]]), faqLd(faqs.slice(1, 5)), { "@context": "https://schema.org", "@type": "ContactPage", url: abs("/contact/"), about: { "@id": abs("/#org") } }],
+  body: `<section class="phero" style="padding-bottom:clamp(24px,4vw,48px)"><div class="wrap">${H1("h-page", "Say hello")}<p class="lead fade-in">Fill in the blanks below, or reach us however you like. A real human replies within one working day. It's <b data-localtime>now</b> <span data-place>where you are</span>.</p></div></section>
+<section class="sec" style="padding-top:0" data-mood-sec="love" id="talk"><div class="wrap"><div class="cta-band">${madlib("contact")}
+<div class="direct"><a href="${wa()}" target="_blank" rel="noopener" data-dot="happy">${I.wa.replace("<svg", '<svg width="18" height="18" style="display:inline;vertical-align:-3px;margin-right:6px"')}WhatsApp</a><a href="mailto:${C.email}" data-dot="happy">${C.email}</a><a href="tel:${tel}">${esc(C.phoneDisplay)}</a></div></div></div></section>
+<section class="sec fog" data-mood-sec="wow"><div class="wrap">${H("h2", "h-sec stretchy", "Wherever you are, it's office hours somewhere.")}<div data-reveal>${clocks()}</div></div></section>
+<section class="sec"><div class="wrap two"><div>${H("h2", "h-sec", "Before you write.")}</div>${faqBlock(faqs.slice(1, 7))}</div></section>` }));
+
+// free audit
+const auditFaq = [["Is it really free?", "Yes. No card, no catch, no obligation. Dot checked. Twice."], ["What do you need from us?", "Your website, the social accounts you use, and — if you run ads — read-only access or a few screenshots. That's it."], ["How long does it take?", "About five working days from when we have what we need. Then a 30-minute call to walk you through it."], ["Will you try to sell us something?", "We'll tell you what we'd do. If you want us to do it, great. If not, the report is yours to keep and use with anyone."]];
+add("/free-audit/", layout({ path: "/free-audit/", title: "Free growth audit", desc: "A free, honest 20-point review of your website, search and AI-search visibility, social accounts and ads — with a written report and a 30-minute call. No obligation.",
+  ld: [crumbsLd([["Home", "/"], ["Free growth audit", "/free-audit/"]]), faqLd(auditFaq)],
+  body: `<section class="phero"><div class="wrap">${H1("h-page", "Free growth audit")}<p class="lead fade-in">A free, honest look at your marketing: what's working, what's leaking money, and the three things we'd fix first. You keep the report either way.</p></div></section>
+<section class="sec" style="padding-top:0" data-mood-sec="love"><div class="wrap two">
+<div data-reveal><h2 class="h-mid" style="margin-bottom:20px">What you'll get</h2><ul class="check"><li>Website speed, mobile and conversion review, with the exact fixes</li><li>Google search and AI-assistant visibility check — who gets cited instead of you</li><li>Social accounts: growth, content and what competitors do better</li><li>Ad accounts: tracking, wasted spend and creative fatigue</li><li>A written report and a 30-minute call in your time zone</li></ul><p class="joke">We poke around like a curious cat in a new flat. A polite one.</p></div>
+<div class="cta-band" data-reveal><h2 class="h-mid" style="margin-bottom:22px">Request your audit</h2>
+<form class="form" data-lead="free-audit" data-next="/thanks/" novalidate>
+<label>Your name<input name="name" autocomplete="name" required></label>
+<label>Company<input name="company" autocomplete="organization"></label>
+<label>Email<input name="email" type="email" inputmode="email" autocomplete="email"></label>
+<label>Phone / WhatsApp<input name="phone" type="tel" inputmode="tel" autocomplete="tel"></label>
+<label class="full">Website or main social account<input name="website" placeholder="https://"></label>
+<label>Main goal<select name="interest">${interestOpts("")}</select></label>
+<label>Monthly budget<select name="budget" data-budget><option value="">Prefer not to say</option><option>Under $1,500 a month</option><option>$1,500 – $5,000 a month</option><option>$5,000 – $15,000 a month</option><option>$15,000+ a month</option><option>a one-off project</option></select></label>
+<label class="full">Anything we should know?<textarea name="message" rows="3"></textarea></label>
+<label class="hp" aria-hidden="true">Leave empty<input name="website_url_hp" tabindex="-1" autocomplete="off"></label>
+<div class="full form-foot" style="margin-top:4px"><button class="btn alt" type="submit" data-dot="love" data-mag>Request my free audit</button><p class="status" role="status" aria-live="polite"></p></div>
+</form></div>
+</div></section>
+<section class="sec fog"><div class="wrap two"><div>${H("h2", "h-sec", "Good questions.")}</div>${faqBlock(auditFaq)}</div></section>` }));
+
+// insights
+add("/insights/", layout({ path: "/insights/", title: "Insights", desc: "Practical notes on ads, SEO and AI search, websites and automation from the dotindot team. No fluff, no listicles about 'top 10 trends'.",
+  ld: [crumbsLd([["Home", "/"], ["Insights", "/insights/"]])],
+  body: `<section class="phero"><div class="wrap">${H1("h-page", "Insights")}<p class="lead fade-in">Practical notes from the work. No “top 10 trends” listicles. We promise. Dot made us promise.</p></div></section>
+<section class="sec" style="padding-top:0"><div class="wrap"><div class="posts">${insights.map((a) => `<a class="post" href="/insights/${a.slug}/" data-reveal><time datetime="${a.date}">${new Date(a.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</time><div><h2>${esc(a.title)}</h2><p>${esc(a.summary)} · ${a.minutes} min read</p></div><span class="go" aria-hidden="true">${I.arrow}</span></a>`).join("")}</div></div></section>
+${ctaBand("insights", { title: "Rather we just did it for you?" })}` }));
+insights.forEach((a) => {
+  const body = a.body.map((b) => {
+    if (b.startsWith("## ")) return `<h2>${esc(b.slice(3))}</h2>`;
+    if (/^\d\. /.test(b)) return `<ol>${b.split("\n").map((l) => `<li>${md(l.replace(/^\d\.\s*/, ""))}</li>`).join("")}</ol>`;
+    if (b.includes("\n")) return `<ul>${b.split("\n").map((l) => `<li>${md(l)}</li>`).join("")}</ul>`;
+    return `<p>${md(b)}</p>`;
+  }).join("\n");
+  add(`/insights/${a.slug}/`, layout({ path: `/insights/${a.slug}/`, title: a.title, desc: a.summary, type: "article",
+    ld: [crumbsLd([["Home", "/"], ["Insights", "/insights/"], [a.title, `/insights/${a.slug}/`]]), { "@context": "https://schema.org", "@type": "Article", headline: a.title, description: a.summary, datePublished: a.date, dateModified: a.date, author: { "@type": "Organization", name: C.name, url: abs("/") }, publisher: { "@id": abs("/#org") }, mainEntityOfPage: abs(`/insights/${a.slug}/`), image: abs("/assets/og.png") }],
+    body: `<article><section class="phero" style="padding-bottom:clamp(24px,4vw,48px)"><div class="wrap"><nav class="crumbs" aria-label="Breadcrumb"><a href="/insights/">Insights</a> / ${a.minutes} min read</nav>${H1("h-page", a.title).replace("h-page", "h-page").replace('class="h-page', 'style="font-size:clamp(2rem,5.6vw,4.6rem)" class="h-page')}<p class="meta">By the ${esc(C.shortName)} team · <time datetime="${a.date}">${new Date(a.date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</time></p></div></section>
+<section class="sec" style="padding-top:0"><div class="wrap"><div class="prose">${body}</div></div></section></article>
+${ctaBand(`insight-${a.slug}`, { title: "Want this done for you?" })}` }));
+});
+
+// careers
+add("/careers/", layout({ path: "/careers/", title: "Careers", desc: "Work at dotindot: remote-first roles in performance marketing, content, engineering and AI automation, working with brands around the world.",
+  ld: [crumbsLd([["Home", "/"], ["Careers", "/careers/"]])],
+  body: `<section class="phero"><div class="wrap">${H1("h-page", "Work with us")}<p class="lead fade-in">Remote-first, real clients around the world, modern AI tools, and colleagues who'd rather ship than meet. Dot will be your desk neighbour. It doesn't talk much.</p></div></section>
+<section class="sec" style="padding-top:0"><div class="wrap"><h2 class="h-mid" style="margin-bottom:22px">Open roles</h2><div class="roles">${careers.map((r) => `<div class="role" data-reveal><h3>${esc(r.title)}<span class="pl">${esc(r.place)}</span></h3><p>${esc(r.text)}</p><a class="btn small ghost" href="mailto:${C.email}?subject=${encodeURIComponent("Application: " + r.title)}" data-dot="love">Apply</a></div>`).join("")}</div>
+<p class="lead" data-reveal style="margin-top:36px">Don't see your role? Write to <a class="link" href="mailto:${C.email}?subject=${encodeURIComponent("Open application")}">${C.email}</a> with what you're brilliant at and a link to something you made.</p></div></section>` }));
+
+// thanks, legal, 404
+add("/thanks/", layout({ path: "/thanks/", title: "Thank you", desc: "We've got your message.", noindex: true,
+  body: `<section class="phero" data-mood-sec="love"><div class="wrap">${H1("h-page", "Got it. Thank you")}<p class="lead fade-in">Dot is doing a small happy dance. Here's what happens next:</p>
+<ol class="timeline" data-reveal style="margin-top:32px;max-width:560px"><li><b>Today</b><span>A human reads your note. Properly.</span></li><li><b>Within one working day</b><span>We reply on email or WhatsApp, with a couple of questions or a time for a call.</span></li><li><b>Before the call</b><span>We look at your website, search and social so the 30 minutes are useful, not small talk.</span></li></ol>
+<div class="btns" data-reveal style="margin-top:36px"><a class="btn" href="/">Back home</a><a class="btn ghost" href="/insights/">Read something useful meanwhile</a></div></div></section>` }));
+add("/privacy/", layout({ path: "/privacy/", title: "Privacy policy", desc: "What dotindot collects through this website, why, and how to ask us to change or delete it.",
+  body: `<section class="phero" style="padding-bottom:clamp(24px,4vw,48px)"><div class="wrap">${H1("h-page", "Privacy policy")}<p class="meta">Last updated ${today}</p></div></section><section class="sec" style="padding-top:0"><div class="wrap prose">
+<p>${esc(C.name)} (“we”) runs ${esc(C.domain.replace(/^https?:\/\//, ""))}. This page explains what we collect through this site and why. We follow India's Digital Personal Data Protection Act 2023 and, for visitors in the UK and EU, the GDPR.</p>
+<h2>What we collect</h2><p>What you type into our forms (name, company, email, phone, budget range and message), the page you sent it from, your browser's time zone, and — if present — the campaign tags in the link you arrived from. If analytics is switched on, anonymised usage data.</p>
+<h2>Why</h2><p>To reply to you, prepare anything you asked for (such as an audit), and understand which pages are useful. Form submissions go straight into our own CRM. We don't sell personal data, ever.</p>
+<h2>What stays in your browser</h2><p>We remember how you first arrived (in your browser's local storage) so an enquiry carries its source, and whether Dot already said hello (session storage). No advertising cookies are set by this site.</p>
+<h2>Your choices</h2><p>Email <a href="mailto:${C.email}">${C.email}</a> to see, correct or delete what we hold about you. We'll do it within 30 days.</p></div></section>` }));
+add("/terms/", layout({ path: "/terms/", title: "Terms of use", desc: "Terms of use for the dotindot website.",
+  body: `<section class="phero" style="padding-bottom:clamp(24px,4vw,48px)"><div class="wrap">${H1("h-page", "Terms of use")}<p class="meta">Last updated ${today}</p></div></section><section class="sec" style="padding-top:0"><div class="wrap prose">
+<p>Content on this website is general information. Work with ${esc(C.name)} is governed by the quotation and terms you accept for that engagement, not by this page.</p>
+<p>Timelines and results described here are indicative and depend on your business, market and budget. We don't guarantee rankings, reach, AI citations or revenue — nobody honest can.</p>
+<p>The content, design, code and characters on this site (yes, including Dot) belong to ${esc(C.name)} unless stated otherwise. These terms are governed by the laws of India.</p></div></section>` }));
 add("/404.html", layout({ path: "/404.html", title: "Page not found", desc: "That page doesn't exist.", noindex: true,
-  body: `<section class="page-head"><div class="wrap"><h1 class="dot">That page isn't here</h1><p class="lead">The link may be old. Try the services, or tell us what you were after.</p><div style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn" href="/">Go home</a><a class="btn ghost" href="/services/">See services</a><a class="btn ghost" href="/contact/">Contact</a></div></div></section>` }));
+  body: `<section class="notfound" data-mood-sec="dizzy"><div class="wrap"><span class="big-dot" data-mood="dizzy" aria-hidden="true">${dotSVG()}</span><h1 class="h-page rise"><span class="sr">This page wandered off.</span><span aria-hidden="true">${words("This page wandered off", .05, .06)}<span class="dot-slot"></span></span></h1><p class="lead" data-reveal>Dot looked everywhere. Under the footer, behind the menu, even in dark mode (we don't have one). Try one of these instead:</p><div class="btns" data-reveal style="margin-top:28px"><a class="btn" href="/">Home</a><a class="btn ghost" href="/services/">Services</a><a class="btn ghost" href="/contact/">Contact</a></div></div></section>` }));
 
-// ---------- write
+// ---------- write ----------
 rmSync(OUT, { recursive: true, force: true });
-mkdirSync(join(OUT, "assets"), { recursive: true });
-cpSync(join(ROOT, "assets"), join(OUT, "assets"), { recursive: true });
-writeFileSync(join(OUT, "assets/site.js"), JS);
-// PREVIEW=1 builds with relative links + explicit index.html so the folder can be opened from any static host path.
-const PREVIEW = !!process.env.PREVIEW;
-for (const [p, html] of pages) {
+mkdirSync(join(OUT, "assets/fonts"), { recursive: true });
+for (const f of ["favicon.svg", "app-icon.svg", "icon-512.png", "og.png", "wordmark-color.svg", "wordmark-white.svg", "mark-color.svg"]) cpSync(join(ROOT, "assets", f), join(OUT, "assets", f));
+cpSync(join(ROOT, "assets/fonts"), join(OUT, "assets/fonts"), { recursive: true });
+writeFileSync(join(OUT, SITE_JS), JS); writeFileSync(join(OUT, LENIS_JS), LENIS); writeFileSync(join(OUT, MAP_JSON), MAP);
+
+function relativise(html, p) {
+  if (!PREVIEW) return html;
+  const depth = p.split("/").length - 2;
+  const pre = depth > 0 ? "../".repeat(depth) : "./";
+  return html.replace(/(href|src|data-map)="\/((?!\/)[^"#?]*)([#?][^"]*)?"/g, (m, attr, path, tail) => {
+    if (/^assets\//.test(path) || /\.(html|xml|txt|webmanifest|json)$/.test(path)) return `${attr}="${pre}${path}${tail || ""}"`;
+    return `${attr}="${pre}${path}${path && !path.endsWith("/") ? "/" : ""}index.html${tail || ""}"`;
+  }).replace(/url\(\{\{R\}\}/g, `url(${pre}`).replace(/data-next="\/([^"]*)"/g, (m, path) => `data-next="${pre}${path}index.html"`);
+}
+const fontKB = (statSync(join(ROOT, "assets/fonts/anybody.woff2")).size + statSync(join(ROOT, "assets/fonts/instrument.woff2")).size) / 1024;
+const assetKB = (Buffer.byteLength(JS) + Buffer.byteLength(LENIS) + statSync(join(ROOT, "assets/wordmark-color.svg")).size) / 1024;
+for (const [p, h] of pages) {
+  let html;
+  if (typeof h === "function") {
+    let w = 0; html = h(0);
+    for (let i = 0; i < 3; i++) { w = Math.round(Buffer.byteLength(html.replace(/\{\{R\}\}/g, "/")) / 1024 + fontKB + assetKB); html = h(w); }
+  } else html = h;
+  html = PREVIEW ? relativise(html, p) : html.replace(/\{\{R\}\}/g, "/");
   const file = p.endsWith(".html") ? join(OUT, p) : join(OUT, p, "index.html");
   mkdirSync(dirname(file), { recursive: true });
-  let out = html;
-  if (PREVIEW) {
-    const depth = p.endsWith(".html") ? p.split("/").length - 2 : p.split("/").length - 2;
-    const pre = depth > 0 ? "../".repeat(depth) : "./";
-    out = out.replace(/(href|src)="\/((?!\/)[^"#?]*)([#?][^"]*)?"/g, (m, attr, path, tail) => {
-      if (path.startsWith("assets/") || path.endsWith(".html") || path.endsWith(".xml") || path.endsWith(".txt") || path.endsWith(".webmanifest")) return `${attr}="${pre}${path}${tail || ""}"`;
-      return `${attr}="${pre}${path}${path && !path.endsWith("/") ? "/" : ""}index.html${tail || ""}"`;
-    });
-  }
-  writeFileSync(file, out);
+  writeFileSync(file, html);
 }
-const urls = pages.map(([p]) => p).filter((p) => !p.endsWith(".html") && p !== "/thank-you/");
-writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((p) => `<url><loc>${abs(p)}</loc><lastmod>${today}</lastmod><changefreq>${p === "/" ? "weekly" : "monthly"}</changefreq><priority>${p === "/" ? "1.0" : p.split("/").length <= 3 ? "0.8" : "0.6"}</priority></url>`).join("\n")}\n</urlset>\n`);
-writeFileSync(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /thank-you/\n\n# AI crawlers are welcome — see /llms.txt\nUser-agent: GPTBot\nAllow: /\nUser-agent: ClaudeBot\nAllow: /\nUser-agent: PerplexityBot\nAllow: /\nUser-agent: Google-Extended\nAllow: /\n\nSitemap: ${abs("/sitemap.xml")}\n`);
-const llms = `# ${C.name}\n\n> ${C.tagline} based in Erode, Tamil Nadu, India, with offices in Coimbatore and Chennai. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Serves businesses across Tamil Nadu and clients in the UK, UAE and Singapore. Contact: ${C.email}, ${C.phoneDisplay}.\n\nFounded ${C.founded}. Fixed quotations (no percentage of ad spend), month-to-month retainers, a live client dashboard, and a free 20-point growth audit for new clients.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Offices\n${C.locations.map((l) => `- [${l.city}](${abs(`/locations/${l.slug}/`)}): ${l.line1}, ${l.line2}, ${l.city} ${l.pincode}${l.hq ? " (headquarters)" : ""}`).join("\n")}\n\n## How we work\n- [The first 90 days](${abs("/work/")}): audit → plan → build → grow\n- [Free growth audit](${abs("/free-audit/")})\n- [About](${abs("/about/")})\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n- [Contact](${abs("/contact/")})\n`;
-writeFileSync(join(OUT, "llms.txt"), llms);
-const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>/g, "").replace(/<h([1-3])[^>]*>/g, (m, n) => `\n${"#".repeat(+n)} `).replace(/<li[^>]*>/g, "\n- ").replace(/<\/p>|<\/h[1-3]>|<br\s*\/?>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/\n{3,}/g, "\n\n").trim();
-writeFileSync(join(OUT, "llms-full.txt"), `# ${C.name} — full site text\n\n` + pages.filter(([p]) => !p.endsWith(".html") && p !== "/thank-you/").map(([p, h]) => `\n\n---\nURL: ${abs(p)}\n\n${strip(h)}`).join(""));
-writeFileSync(join(OUT, "manifest.webmanifest"), JSON.stringify({ name: C.name, short_name: C.shortName, start_url: "/", display: "browser", background_color: "#ffffff", theme_color: "#ff831f", icons: [{ src: "/assets/icon-512.png", sizes: "512x512", type: "image/png" }, { src: "/assets/app-icon.svg", sizes: "any", type: "image/svg+xml" }] }));
+
+const live = pages.map(([p]) => p).filter((p) => !p.endsWith(".html") && p !== "/thanks/");
+writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${live.map((p) => `<url><loc>${abs(p)}</loc><lastmod>${today}</lastmod><changefreq>${p === "/" ? "weekly" : "monthly"}</changefreq><priority>${p === "/" ? "1.0" : p.split("/").length <= 3 ? "0.8" : "0.6"}</priority></url>`).join("\n")}\n</urlset>\n`);
+writeFileSync(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /thanks/\n\n# AI assistants are welcome. Start at /llms.txt\nUser-agent: GPTBot\nAllow: /\nUser-agent: OAI-SearchBot\nAllow: /\nUser-agent: ChatGPT-User\nAllow: /\nUser-agent: ClaudeBot\nAllow: /\nUser-agent: Claude-SearchBot\nAllow: /\nUser-agent: PerplexityBot\nAllow: /\nUser-agent: Google-Extended\nAllow: /\nUser-agent: Applebot-Extended\nAllow: /\n\nSitemap: ${abs("/sitemap.xml")}\n`);
+writeFileSync(join(OUT, "llms.txt"), `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first, remote-first marketing studio based in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in USD, GBP, EUR, AED, SGD, AUD, CAD or INR. Contact: ${C.email}.\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`);
+const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>|<svg[\s\S]*?<\/svg>|<template[\s\S]*?<\/template>|<span aria-hidden="true">[\s\S]*?<\/span><\/h[12]>/g, (m) => (m.startsWith("<span aria-hidden") ? "" : "")).replace(/<div class="dot-bubble[\s\S]*?<\/div><\/div>/g, "").replace(/<h([1-3])[^>]*>/g, (m, n) => `\n${"#".repeat(+n)} `).replace(/<li[^>]*>/g, "\n- ").replace(/<\/p>|<\/h[1-3]>|<br\s*\/?>|<\/summary>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/[ \t]+/g, " ").replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+writeFileSync(join(OUT, "llms-full.txt"), `# ${C.name} — full site text\n` + pages.filter(([p]) => live.includes(p)).map(([p, h]) => `\n\n---\nURL: ${abs(p)}\n\n${strip(typeof h === "function" ? h(0) : h)}`).join(""));
+writeFileSync(join(OUT, "manifest.webmanifest"), JSON.stringify({ name: C.name, short_name: C.shortName, start_url: "/", display: "browser", background_color: "#ffffff", theme_color: "#ffffff", icons: [{ src: "/assets/icon-512.png", sizes: "512x512", type: "image/png" }, { src: "/assets/app-icon.svg", sizes: "any", type: "image/svg+xml" }] }));
 writeFileSync(join(OUT, ".htaccess"), `# dotindot.in — Apache (Hostinger)
 Options -Indexes
 ErrorDocument 404 /404.html
@@ -348,15 +458,18 @@ RewriteCond %{HTTPS} off
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 RewriteCond %{HTTP_HOST} ^www\\.(.+)$ [NC]
 RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
-# trailing slash for folders, no .html in URLs
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^(.*[^/])$ /$1/ [L,R=301]
+# old pages from the previous site
+RewriteRule ^locations(/.*)?$ /about/ [L,R=301]
+RewriteRule ^work/?$ /process/ [L,R=301]
+RewriteRule ^thank-you/?$ /thanks/ [L,R=301]
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
   Header set Referrer-Policy "strict-origin-when-cross-origin"
   Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
   Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
-  <FilesMatch "\\.(svg|png|jpg|jpeg|webp|avif|ico|woff2|js|css)$">Header set Cache-Control "public, max-age=31536000, immutable"</FilesMatch>
+  <FilesMatch "\\.(svg|png|jpg|jpeg|webp|avif|ico|woff2|js|json)$">Header set Cache-Control "public, max-age=31536000, immutable"</FilesMatch>
   <FilesMatch "\\.(html|xml|txt|webmanifest)$">Header set Cache-Control "public, max-age=600, must-revalidate"</FilesMatch>
 </IfModule>
 <IfModule mod_deflate.c>
@@ -365,7 +478,8 @@ RewriteRule ^(.*[^/])$ /$1/ [L,R=301]
 <IfModule mod_mime.c>
   AddType image/svg+xml .svg
   AddType application/manifest+json .webmanifest
+  AddType font/woff2 .woff2
   AddCharset UTF-8 .html .txt .xml .js .css
 </IfModule>
 `);
-console.log(`built ${pages.length} pages → ${OUT}`);
+console.log(`built ${pages.length} pages → ${OUT}${PREVIEW ? " (preview)" : ""}`);
