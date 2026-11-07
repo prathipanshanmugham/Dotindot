@@ -316,10 +316,21 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(join(OUT, "assets"), { recursive: true });
 cpSync(join(ROOT, "assets"), join(OUT, "assets"), { recursive: true });
 writeFileSync(join(OUT, "assets/site.js"), JS);
+// PREVIEW=1 builds with relative links + explicit index.html so the folder can be opened from any static host path.
+const PREVIEW = !!process.env.PREVIEW;
 for (const [p, html] of pages) {
   const file = p.endsWith(".html") ? join(OUT, p) : join(OUT, p, "index.html");
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, html);
+  let out = html;
+  if (PREVIEW) {
+    const depth = p.endsWith(".html") ? p.split("/").length - 2 : p.split("/").length - 2;
+    const pre = depth > 0 ? "../".repeat(depth) : "./";
+    out = out.replace(/(href|src)="\/((?!\/)[^"#?]*)([#?][^"]*)?"/g, (m, attr, path, tail) => {
+      if (path.startsWith("assets/") || path.endsWith(".html") || path.endsWith(".xml") || path.endsWith(".txt") || path.endsWith(".webmanifest")) return `${attr}="${pre}${path}${tail || ""}"`;
+      return `${attr}="${pre}${path}${path && !path.endsWith("/") ? "/" : ""}index.html${tail || ""}"`;
+    });
+  }
+  writeFileSync(file, out);
 }
 const urls = pages.map(([p]) => p).filter((p) => !p.endsWith(".html") && p !== "/thank-you/");
 writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((p) => `<url><loc>${abs(p)}</loc><lastmod>${today}</lastmod><changefreq>${p === "/" ? "weekly" : "monthly"}</changefreq><priority>${p === "/" ? "1.0" : p.split("/").length <= 3 ? "0.8" : "0.6"}</priority></url>`).join("\n")}\n</urlset>\n`);
