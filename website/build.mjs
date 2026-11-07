@@ -1,6 +1,6 @@
 // dotindot.in static site builder — `node build.mjs` → dist/. No framework. PREVIEW=1 builds relative links for a preview host.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, statSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { services, steps, aiHuman, values, faqs, jokes, insights, careers, tools, markets, quiz, seoTitles } from "./src/content.mjs";
@@ -10,8 +10,10 @@ import { existsSync } from "node:fs";
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const C = JSON.parse(readFileSync(join(ROOT, "site.config.json"), "utf8"));
 if (process.env.INTAKE_URL) C.leadIntakeUrl = process.env.INTAKE_URL; // for local end-to-end tests
-const OUT = join(ROOT, "dist");
+const OUT = process.env.OUT_DIR ? resolve(process.env.OUT_DIR) : join(ROOT, "dist"); // deploy builds into a temp folder, then swaps
 const PREVIEW = !!process.env.PREVIEW;
+// links into the app (/app/...). A preview build points at the app preview copied to app/ (hash routes).
+const appHref = (u) => (PREVIEW && u.startsWith("/app/") ? `{{R}}app/index.html#${u.slice(4)}` : u);
 const CSS = readFileSync(join(ROOT, "src/styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\n\s*/g, "").replace(/\s*([{};,>])\s*/g, "$1").replace(/;}/g, "}");
 let JS = readFileSync(join(ROOT, "src/site.js"), "utf8");
 try { const { execFileSync } = await import("node:child_process"); JS = execFileSync("esbuild", ["--minify", "--target=es2017", "--loader=js"], { input: JS, encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] }); } catch (e) { /* esbuild not installed: ship it unminified */ }
@@ -42,6 +44,7 @@ const I = {
   spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
   laugh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14a4.5 4.5 0 0 0 8 0Z"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>',
   phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.8 2.1Z"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg>',
   lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
 };
 // service doodles (64×64, drawn not downloaded)
@@ -181,7 +184,7 @@ function footer() {
 <div class="ftr-bot">
 <span>© ${year} ${esc(C.name)}. No templates were harmed in the making of this website.</span>
 <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/llms.txt">llms.txt</a></nav>
-<a class="emp" href="${C.internalUrl}" rel="nofollow noopener" data-dot="shy">${I.lock} Employee login</a>
+<span class="logins"><a class="emp" href="${appHref(C.clientLogin)}" rel="nofollow" data-dot="happy">${I.user} Client login</a><a class="emp" href="${appHref(C.employeeLogin)}" rel="nofollow" data-dot="shy">${I.lock} Employee login</a></span>
 </div>
 <svg class="mega" viewBox="0 -2 396 80" role="img" aria-label="dotindot."><defs><linearGradient id="wmg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FE7A18"/><stop offset="1" stop-color="#FFAD42"/></linearGradient></defs><g class="letters"><g transform="${WM_T}"><path fill="url(#wmg)" d="${WM_PATHS[0]}"/></g></g><g class="stop"><g transform="${WM_T}"><path fill="#FE7B1B" d="${WM_PATHS[1]}"/></g></g><circle class="stop-anchor" cx="385.96" cy="67.04" r="9.6" fill="none"/></svg>
 </div></footer>`;
@@ -518,7 +521,7 @@ function relativise(html, p) {
   return html.replace(/(href|src|data-map)="\/((?!\/)[^"#?]*)([#?][^"]*)?"/g, (m, attr, path, tail) => {
     if (/^assets\//.test(path) || /\.(html|xml|txt|webmanifest|json)$/.test(path)) return `${attr}="${pre}${path}${tail || ""}"`;
     return `${attr}="${pre}${path}${path && !path.endsWith("/") ? "/" : ""}index.html${tail || ""}"`;
-  }).replace(/url\(\{\{R\}\}/g, `url(${pre}`).replace(/data-next="\/([^"]*)"/g, (m, path) => `data-next="${pre}${path}index.html"`);
+  }).replace(/url\(\{\{R\}\}/g, `url(${pre}`).replace(/\{\{R\}\}/g, pre).replace(/data-next="\/([^"]*)"/g, (m, path) => `data-next="${pre}${path}index.html"`);
 }
 const fontKB = (statSync(join(ROOT, "assets/fonts/anybody.woff2")).size + statSync(join(ROOT, "assets/fonts/instrument.woff2")).size) / 1024;
 const assetKB = (Buffer.byteLength(JS) + Buffer.byteLength(LENIS) + statSync(join(ROOT, "assets/wordmark-color.svg")).size) / 1024;
@@ -536,7 +539,11 @@ for (const [p, h] of pages) {
 
 const live = pages.map(([p]) => p).filter((p) => !p.endsWith(".html") && p !== "/thanks/");
 writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${live.map((p) => `<url><loc>${abs(p)}</loc><lastmod>${today}</lastmod><changefreq>${p === "/" ? "weekly" : "monthly"}</changefreq><priority>${p === "/" ? "1.0" : p.split("/").length <= 3 ? "0.8" : "0.6"}</priority></url>`).join("\n")}\n</urlset>\n`);
-writeFileSync(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /thanks/\n\n# AI assistants are welcome. Start at /llms.txt\nUser-agent: GPTBot\nAllow: /\nUser-agent: OAI-SearchBot\nAllow: /\nUser-agent: ChatGPT-User\nAllow: /\nUser-agent: ClaudeBot\nAllow: /\nUser-agent: Claude-SearchBot\nAllow: /\nUser-agent: PerplexityBot\nAllow: /\nUser-agent: Google-Extended\nAllow: /\nUser-agent: Applebot-Extended\nAllow: /\n\nSitemap: ${abs("/sitemap.xml")}\n`);
+{
+  const rules = "Allow: /\nDisallow: /app/\nDisallow: /api/\nDisallow: /thanks/\n";
+  const ai = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"];
+  writeFileSync(join(OUT, "robots.txt"), `User-agent: *\n${rules}\n# AI assistants are welcome. Start at /llms.txt\n${ai.map((b) => `User-agent: ${b}\n`).join("")}${rules}\nSitemap: ${abs("/sitemap.xml")}\n`);
+}
 writeFileSync(join(OUT, "llms.txt"), `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first, remote-first marketing studio based in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in USD, GBP, EUR, AED, SGD, AUD, CAD or INR. Contact: ${C.email}.\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Markets\n${markets.map((m) => `- [${m.country}](${abs(`/markets/${m.slug}/`)}): marketing for brands in ${m.name}, invoiced in ${m.cur}`).join("\n")}\n\n## Free tools\n- [Website speed test](${abs("/speed-test/")}): Google PageSpeed score and Core Web Vitals in about 30 seconds\n- [Growth score](${abs("/growth-score/")}): a 60-second marketing health check\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`);
 const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>|<svg[\s\S]*?<\/svg>|<template[\s\S]*?<\/template>|<span aria-hidden="true">[\s\S]*?<\/span><\/h[12]>/g, (m) => (m.startsWith("<span aria-hidden") ? "" : "")).replace(/<div class="dot-bubble[\s\S]*?<\/div><\/div>/g, "").replace(/<h([1-3])[^>]*>/g, (m, n) => `\n${"#".repeat(+n)} `).replace(/<li[^>]*>/g, "\n- ").replace(/<\/p>|<\/h[1-3]>|<br\s*\/?>|<\/summary>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/[ \t]+/g, " ").replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
 writeFileSync(join(OUT, "llms-full.txt"), `# ${C.name} — full site text\n` + pages.filter(([p]) => live.includes(p)).map(([p, h]) => `\n\n---\nURL: ${abs(p)}\n\n${strip(typeof h === "function" ? h(0) : h)}`).join(""));

@@ -1,9 +1,10 @@
 import axios from "axios";
+import { API_ROOT } from "@/lib/base";
 
 // Investor-portal API: its own token and login. Investor tokens only work on /api/investor-portal/*.
 export const INVESTOR_TOKEN = "dot_investor_token";
 
-const investorApi = axios.create({ baseURL: `${process.env.REACT_APP_BACKEND_URL}/api` });
+const investorApi = axios.create({ baseURL: API_ROOT });
 
 investorApi.interceptors.request.use((config) => {
   const token = localStorage.getItem(INVESTOR_TOKEN);

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Download, Send, Pencil, Copy, Link2, MoreHorizontal, Wallet, FileText, ArrowRight, Trash2, CheckCircle2, XCircle, Ban, Undo2, Receipt } from "lucide-react";
+import { appUrl } from "@/lib/base";
 
 export default function BillingDocPage() {
   const { id } = useParams();
@@ -33,7 +34,7 @@ export default function BillingDocPage() {
     try { await api.post(`/billing/docs/${id}/status`, { status, note }); toast.success(`${d.number} marked ${STATUS_LABEL[status].toLowerCase()}`); reload(); } catch (e) { toast.error(apiError(e)); }
   };
   const copyShare = async () => {
-    const full = window.location.hash.startsWith("#/") ? `${window.location.origin}${window.location.pathname}#${d.share_url_path}` : `${window.location.origin}${d.share_url_path}`;
+    const full = window.location.hash.startsWith("#/") ? `${window.location.origin}${window.location.pathname}#${d.share_url_path}` : appUrl(d.share_url_path);
     try { await navigator.clipboard.writeText(full); toast.success("Share link copied — anyone with it can view (and accept) this document"); } catch { toast(full); }
   };
   const duplicate = async () => { try { const { data } = await api.post(`/billing/docs/${id}/duplicate`); toast.success(`Copied as ${data.number}`); navigate(`/finance/billing/${data.id}`); } catch (e) { toast.error(apiError(e)); } };

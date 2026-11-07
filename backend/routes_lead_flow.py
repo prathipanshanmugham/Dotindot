@@ -9,6 +9,7 @@
 Endpoints: GET /api/lead-flow (lead_flow | sales.pipeline), /api/client-leads* (lead_flow; writes lead_flow.manage),
 GET /api/portal/leads (client portal), POST /api/intake/leads/{key} (public, key-protected).
 """
+import os
 import re
 import secrets
 import uuid
@@ -388,12 +389,8 @@ async def get_intake_key(client_id: Optional[str] = None, rotate: bool = False, 
             "fields": ["name", "phone", "email", "source", "campaign", "value", "message"]}
 
 
-@router.post("/intake/leads/{key}")
-async def intake(key: str, request: Request):
-    """Public capture endpoint (JSON or form-encoded). The key is the only credential — rotate it if it leaks."""
-    doc = await db.lead_intake_keys.find_one({"key": key}, {"_id": 0})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Unknown capture link")
+async def _read_intake(request: Request) -> dict:
+    """JSON or form body → a dict with common form-builder / Meta lead-ad field names normalised."""
     ctype = request.headers.get("content-type", "")
     try:
         data = await request.json() if "json" in ctype else dict(await request.form())
@@ -401,12 +398,37 @@ async def intake(key: str, request: Request):
         raise HTTPException(status_code=400, detail="Send JSON or a form")
     if isinstance(data, list):
         data = data[0] if data else {}
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Send the lead as an object of fields")
     # common field aliases from form builders / Meta lead ads exports
     alias = {"full_name": "name", "fullname": "name", "your-name": "name", "mobile": "phone", "phone_number": "phone", "contact": "phone",
              "email_address": "email", "your-email": "email", "utm_source": "source", "utm_campaign": "campaign", "comments": "message"}
     data = {alias.get(str(k).lower(), str(k).lower()): v for k, v in (data or {}).items()}
     if not any(str(data.get(k) or "").strip() for k in ("name", "phone", "email")):
         raise HTTPException(status_code=400, detail="A lead needs at least a name, phone or email")
+    return data
+
+
+async def _save_internal_lead(data: dict, now: str, via: str = "intake") -> dict:
+    """A lead for our own pipeline (Sales → Pipeline)."""
+    d = _clean_lead({"source": "website", **data})
+    src = d["source"] if d["source"] in ("referral", "website", "ads", "linkedin", "cold_outreach", "event") else ("ads" if d["source"] in ("meta_ads", "google_ads") else "other")
+    lead = {"id": str(uuid.uuid4()), "name": d["name"], "company": str(data.get("company") or "")[:120], "contact_email": d["email"],
+            "contact_phone": d["phone"], "source": src, "service_interest": str(data.get("service") or "")[:80], "estimated_value": d["value"],
+            "stage": "new", "notes": d["notes"], "owner_id": None, "branch_id": None, "follow_up_date": None, "created_at": now, "updated_at": now,
+            "region": "", "state": "", "city": str(data.get("city") or "")[:80], "currency": "INR", "converted_client_id": None,
+            "created_by": "intake", "stage_history": [{"stage": "new", "at": now, "by": "intake"}], "via": via}
+    await db.leads.insert_one(dict(lead))
+    return {"ok": True, "id": lead["id"]}
+
+
+@router.post("/intake/leads/{key}")
+async def intake(key: str, request: Request):
+    """Public capture endpoint (JSON or form-encoded). The key is the only credential — rotate it if it leaks."""
+    doc = await db.lead_intake_keys.find_one({"key": key}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Unknown capture link")
+    data = await _read_intake(request)
     now = _now()
     await db.lead_intake_keys.update_one({"key": key}, {"$set": {"last_used_at": now}, "$inc": {"count": 1}})
     if doc["kind"] == "client":
@@ -415,15 +437,39 @@ async def intake(key: str, request: Request):
                 "stage_history": [{"stage": "new", "at": now}], "via": "intake"}
         await db.client_leads.insert_one(dict(lead))
         return {"ok": True, "id": lead["id"]}
-    d = _clean_lead({"source": "website", **data})
-    src = d["source"] if d["source"] in ("referral", "website", "ads", "linkedin", "cold_outreach", "event") else ("ads" if d["source"] in ("meta_ads", "google_ads") else "other")
-    lead = {"id": str(uuid.uuid4()), "name": d["name"], "company": str(data.get("company") or "")[:120], "contact_email": d["email"],
-            "contact_phone": d["phone"], "source": src, "service_interest": str(data.get("service") or "")[:80], "estimated_value": d["value"],
-            "stage": "new", "notes": d["notes"], "owner_id": None, "branch_id": None, "follow_up_date": None, "created_at": now, "updated_at": now,
-            "region": "", "state": "", "city": str(data.get("city") or "")[:80], "currency": "INR", "converted_client_id": None,
-            "created_by": "intake", "stage_history": [{"stage": "new", "at": now, "by": "intake"}], "via": "intake"}
-    await db.leads.insert_one(dict(lead))
-    return {"ok": True, "id": lead["id"]}
+    return await _save_internal_lead(data, now)
+
+
+# Our own website (dotindot.in) is served by this same app, so its forms post here — no key in the page.
+_WEB_HITS: dict = {}
+
+
+@router.post("/intake/website")
+async def website_intake(request: Request):
+    """Leads from dotindot.in forms → Sales → Pipeline. Same-origin only, a few per visitor per 10 minutes."""
+    origin = request.headers.get("origin") or ""
+    if origin:
+        host = re.sub(r"^https?://", "", origin).split("/")[0].lower()
+        allowed = {(request.headers.get("host") or "").lower()}
+        allowed |= {re.sub(r"^https?://", "", o.strip()).split("/")[0].lower() for o in os.environ.get("WEBSITE_ORIGINS", "").split(",") if o.strip()}
+        if host not in allowed:
+            raise HTTPException(status_code=403, detail="Leads are only accepted from our own website")
+    # visitor address from nginx (X-Real-IP); a direct local call without one (health checks, a proxy that
+    # doesn't pass it) is not limited, so one misconfigured proxy can't block every visitor at once
+    ip = (request.headers.get("x-real-ip") or (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+          or (request.client.host if request.client else ""))
+    if ip and ip not in ("127.0.0.1", "::1", "localhost"):
+        t = datetime.now(timezone.utc).timestamp()
+        hits = [h for h in _WEB_HITS.get(ip, []) if t - h < 600]
+        if len(hits) >= 8:
+            raise HTTPException(status_code=429, detail="Too many messages — please try again in a few minutes")
+        if len(_WEB_HITS) > 5000:
+            _WEB_HITS.clear()
+        _WEB_HITS[ip] = hits + [t]
+    data = await _read_intake(request)
+    if str(data.get("website_url_hp") or "").strip():
+        return {"ok": True}  # bot filled the hidden field: accept silently, store nothing
+    return await _save_internal_lead(data, _now(), via="website")
 
 
 # ------------------------------------------------------------------ client dashboard + portal

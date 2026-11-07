@@ -1,9 +1,10 @@
 import axios from "axios";
+import { API_ROOT } from "@/lib/base";
 
 // Client-portal API: separate token, separate login. Portal tokens only work on /api/portal/*.
 export const PORTAL_TOKEN = "dot_portal_token";
 
-const portalApi = axios.create({ baseURL: `${process.env.REACT_APP_BACKEND_URL}/api` });
+const portalApi = axios.create({ baseURL: API_ROOT });
 
 portalApi.interceptors.request.use((config) => {
   const token = localStorage.getItem(PORTAL_TOKEN);

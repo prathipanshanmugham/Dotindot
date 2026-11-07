@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ArrowLeft, KeyRound, Plus, MoreHorizontal, Copy, ExternalLink, ShieldCheck } from "lucide-react";
+import { appUrl } from "@/lib/base";
 
 const genPassword = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -21,7 +22,7 @@ const genPassword = () => {
   window.crypto.getRandomValues(a);
   return Array.from(a, (n) => chars[n % chars.length]).join("").replace(/^(.{4})(.{4})(.{4})$/, "$1-$2-$3");
 };
-const portalUrl = () => `${window.location.origin}/portal/login`;
+const portalUrl = () => appUrl("/portal/login");
 
 function CredentialsDialog({ creds, onClose }) {
   const text = creds ? `Your dotindot client portal\n${portalUrl()}\nEmail: ${creds.email}\nPassword: ${creds.password}` : "";

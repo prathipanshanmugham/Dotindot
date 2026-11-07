@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Wallet, TrendingUp, HandCoins, PieChart, Plus, Eye, Download, KeyRound, Megaphone, Settings2, Building, Copy } from "lucide-react";
+import { appUrl } from "@/lib/base";
 
 const num = (v) => (v === "" || v == null ? 0 : Number(v));
 const genPassword = () => `Inv-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -102,7 +103,7 @@ function InvestorSheet({ id, meta, canManage, onClose, onChanged, onEdit }) {
     try { await api.post(`/investors/${id}/logins`, login); toast.success("Login created — share the email and password with the investor"); setLogin(null); load(); } catch (e) { toast.error(apiError(e)); }
   };
   const toggleLogin = async (l) => { try { await api.put(`/investors/${id}/logins/${l.id}`, { is_active: !l.is_active }); load(); } catch (e) { toast.error(apiError(e)); } };
-  const portalUrl = `${window.location.origin}/investor/login`;
+  const portalUrl = appUrl("/investor/login");
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full sm:max-w-3xl p-0 flex flex-col" data-testid="investor-sheet">
@@ -264,7 +265,7 @@ export default function InvestorsPage() {
                 <Field label="Company name"><Input value={share.company_name} disabled={!can} onChange={(e) => setShare((x) => ({ ...x, company_name: e.target.value }))} /></Field>
                 <Field label="Contact line"><Input value={share.contact} disabled={!can} onChange={(e) => setShare((x) => ({ ...x, contact: e.target.value }))} placeholder="Name · email · phone" /></Field>
               </div>
-              <p className="text-xs text-gray-500">Investor login page: <span className="font-mono">{window.location.origin}/investor/login</span></p>
+              <p className="text-xs text-gray-500">Investor login page: <span className="font-mono">{appUrl("/investor/login")}</span></p>
               {can && <div className="flex justify-end"><Button onClick={saveShare} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="share-save"><Settings2 className="h-3.5 w-3.5 mr-1.5" /> Save</Button></div>}
             </CardContent></Card>
           ))}

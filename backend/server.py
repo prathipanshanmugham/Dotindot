@@ -218,3 +218,8 @@ async def startup():
 async def shutdown_db_client():
     stop_scheduler()
     client.close()
+
+
+# One web app: the website at /, the app at /app. Registered last so every /api route above wins.
+from web_static import router as web_router  # noqa: E402
+app.include_router(web_router)

@@ -1,6 +1,7 @@
 import axios from "axios";
+import { API_ROOT, BASE } from "@/lib/base";
 
-const api = axios.create({ baseURL: `${process.env.REACT_APP_BACKEND_URL}/api` });
+const api = axios.create({ baseURL: API_ROOT });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("dot_token");
@@ -11,9 +12,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && window.location.pathname !== "/login") {
+    if (err.response?.status === 401 && window.location.pathname !== `${BASE}/login`) {
       localStorage.removeItem("dot_token");
-      window.location.href = "/login";
+      window.location.href = `${BASE}/login`;
     }
     if (err.response?.status === 403 && /permission for this module|restricted to super admins|is restricted/i.test(String(err.response?.data?.detail || ""))) {
       window.dispatchEvent(new CustomEvent("app-forbidden", { detail: err.response.data.detail }));

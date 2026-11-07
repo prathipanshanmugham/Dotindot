@@ -67,6 +67,7 @@ import LoansPage from "@/pages/finance/LoansPage";
 import InvestorsPage from "@/pages/investors/InvestorsPage";
 import { InvestorLoginPage, InvestorDashboardPage } from "@/pages/investors/InvestorPortalPages";
 import AiSettingsPage from "@/pages/settings/AiSettingsPage";
+import { BASE } from "@/lib/base";
 
 const FIN_ANY = [
   "finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
@@ -124,7 +125,7 @@ const Protected = ({ children, perm, roles, bare }) => {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={BASE}>
         <ForbiddenGuard />
         <Routes>
           <Route path="/login" element={<LoginPage />} />

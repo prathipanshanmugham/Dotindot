@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Download, CheckCircle2 } from "lucide-react";
+import { API_ROOT } from "@/lib/base";
 
-const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
+const API = API_ROOT;
 
 export default function SharePage() {
   const { token } = useParams();

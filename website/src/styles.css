@@ -437,6 +437,7 @@ html.reduce .proc-stick{position:relative!important;height:auto!important}
 .ftr-bot a:hover{color:var(--ink)}
 .ftr-bot .emp,.emp{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line);background:#fff;color:var(--ink);font-weight:650}
 .emp:hover{border-color:var(--ink)}
+.logins{display:flex;flex-wrap:wrap;gap:10px}
 .emp svg{width:16px;height:16px}
 @media (max-width:760px){.ftr-top{grid-template-columns:1fr 1fr}.ftr-top>div:last-child{grid-column:1/-1}}
 @media (max-width:340px){.ftr-top{grid-template-columns:1fr}}

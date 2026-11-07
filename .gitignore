@@ -100,3 +100,8 @@ frontend/node_modules/.cache/default-development/14.pack
 
 # website build helper (esbuild)
 website/.tools/
+
+# builds made on the server by deploy/deploy.sh
+frontend/build/
+frontend/build.*/
+website/dist.*/
