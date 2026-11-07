@@ -18,7 +18,16 @@
     "youtube": "",
     "x": ""
   },
-  "currencies": ["USD", "GBP", "EUR", "AED", "SGD", "AUD", "CAD", "INR"],
+  "currencies": [
+    "USD",
+    "GBP",
+    "EUR",
+    "AED",
+    "SGD",
+    "AUD",
+    "CAD",
+    "INR"
+  ],
   "receipts": {
     "_comment": "Things this website can prove about itself. lighthouse is filled after a real Lighthouse run; leave empty to hide.",
     "lighthouse": "100"
@@ -31,5 +40,12 @@
     "leadsGenerated": ""
   },
   "testimonials": [],
-  "caseStudies": []
+  "caseStudies": [],
+  "verify": {
+    "_comment": "Paste the content= values from Google Search Console and Bing Webmaster Tools (HTML tag method).",
+    "google": "",
+    "bing": ""
+  },
+  "pageSpeedApiKey": "",
+  "_pageSpeedApiKey": "Optional. A free Google Cloud API key (PageSpeed Insights API) gives the speed test a higher daily quota. Works without one."
 }

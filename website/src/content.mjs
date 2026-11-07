@@ -133,6 +133,45 @@ export const jokes = [
 
 export const insights = [
   {
+    slug: "geo-vs-seo", title: "GEO vs SEO: what changes when AI answers first", date: "2026-11-02", minutes: 6,
+    summary: "Generative engine optimisation isn't a replacement for SEO. It's what SEO becomes when the first answer is written by an AI. Here's what actually changes.",
+    body: [
+      "For twenty years the goal was simple: rank on page one. Now a growing share of searches end before anyone sees page one. Google's AI Overviews, ChatGPT, Perplexity and Gemini read the web, then write an answer that cites a handful of sources. Generative engine optimisation — GEO — is the work of being one of those sources.",
+      "## What stays the same",
+      "Almost all of SEO still matters. Assistants find pages through search indexes, so crawlable, fast, well-structured pages are still the price of entry. Links and mentions still signal authority. Content that genuinely answers the question still wins.",
+      "## What changes",
+      "**Answers beat pages.** Assistants quote passages, not whole pages. A clear two-sentence answer near the top of a page is more quotable than a long introduction.\n**Entities beat keywords.** Assistants need to be sure who you are. Your name, category, location and offer should be stated the same way everywhere — your site, your Google Business Profile, LinkedIn, directories and reviews.\n**Evidence beats adjectives.** Specific numbers, dates, prices and named methods are cited far more than claims like “industry-leading”.\n**Structure is a signal.** FAQ, Organization and Service schema, clean headings and an `llms.txt` file make your pages easier for machines to read.",
+      "## How to measure it",
+      "Keep a list of the 20 questions your customers ask before they buy. Once a month, ask them in ChatGPT, Gemini, Perplexity and Google, and record who gets named and linked. It's manual, it's imperfect, and it's still the clearest view of whether you're winning the new first page.",
+    ],
+  },
+  {
+    slug: "answer-every-lead-in-60-seconds", title: "Answer every lead in 60 seconds: AI agents on WhatsApp", date: "2026-10-28", minutes: 5,
+    summary: "Most enquiries go cold because nobody replies fast enough. A well-built AI agent replies instantly, qualifies politely and hands the good ones to a human.",
+    body: [
+      "Speed-to-lead research has said the same thing for years: the first business to reply usually wins, and the odds of reaching a lead fall sharply after the first few minutes. Yet most businesses still answer new enquiries hours later — after lunch, after the meeting, after the weekend.",
+      "## What a good agent does",
+      "It replies in seconds, on the channel the customer chose — usually WhatsApp. It answers the common questions (price ranges, availability, delivery, timings) only from information you've approved. It asks two or three qualifying questions. Then it books a call or passes the conversation to a person, with a summary, the moment a human is needed.",
+      "## What it must never do",
+      "**Make things up.** It should only answer from your approved knowledge and say “let me get a colleague” for anything else.\n**Pretend to be human.** Customers are fine talking to an assistant; they're not fine being misled.\n**Trap people.** “Talk to a person” should always work, instantly.",
+      "## Where to start",
+      "Pick the ten questions your team answers most, write the ideal answer to each, and decide what makes a lead worth a call. That document is 80% of a good agent. The technology is the easy part.",
+    ],
+  },
+  {
+    slug: "creative-testing-system", title: "The creative testing system behind ads that keep working", date: "2026-10-20", minutes: 5,
+    summary: "Ads don't stop working because the algorithm hates you. They stop because the audience is tired of them. A simple monthly testing rhythm fixes that.",
+    body: [
+      "On Meta and TikTok especially, creative is now the main targeting lever. The platforms find the audience; your ad decides who stops scrolling. Which means the most important thing in your ad account isn't the bid strategy — it's how often you ship new creative.",
+      "## The rhythm",
+      "1. Every month, brief new concepts — different hooks, not just different colours.\n2. Make two or three variations of each: a new first three seconds, a new headline, a new format.\n3. Launch them against your best current ad with a fixed test budget.\n4. After a week or so, keep the winners, retire the losers, and write down why you think each worked.\n5. Turn the winning idea into next month's brief.",
+      "## What to measure",
+      "Not likes. Measure cost per qualified lead or cost per purchase, plus two early signals: how many people watch past the first three seconds, and how many click. A great hook with no clicks is entertainment; a dull hook with great clicks is a brief for better creative.",
+      "## Where AI helps",
+      "AI makes the production part cheap: scripts, variations, resizes, voice-overs and subtitles in minutes. The part it can't do is judgement — knowing which idea is actually true to your brand and worth the money. That's still a human job.",
+    ],
+  },
+  {
     slug: "get-cited-by-ai-assistants", title: "How to get your business cited by ChatGPT, Gemini and Perplexity", date: "2026-10-14", minutes: 6,
     summary: "AI assistants now answer “who's the best at…” questions directly. Here's what actually gets a business quoted in those answers.",
     body: [
@@ -178,3 +217,75 @@ export const careers = [
 ];
 
 export const tools = ["Meta Ads", "Google Ads", "GA4", "LinkedIn Ads", "TikTok Ads", "YouTube", "Search Console", "Shopify", "WordPress", "React", "Python", "n8n", "WhatsApp Business", "ChatGPT", "Claude", "Midjourney", "Kling", "ElevenLabs", "Canva", "Figma", "Looker Studio"];
+
+// ---------- SEO titles per service (title tag only; the page H1 stays short) ----------
+export const seoTitles = {
+  "performance-ads": "Performance marketing agency — Meta, Google, LinkedIn & TikTok ads",
+  "social-content": "Social media marketing agency — content, reels & community",
+  "seo-ai-search": "SEO & AI search (GEO) agency — rank on Google, get cited by ChatGPT",
+  "websites-apps": "Website design & development agency — fast sites and web apps",
+  "brand-video": "Branding & video production agency — identity, packaging, video ads",
+  "ai-automation": "AI agents & marketing automation agency — WhatsApp, chat and CRM",
+};
+
+// ---------- markets (international SEO; facts only, no invented clients) ----------
+export const markets = [
+  { slug: "united-kingdom", name: "the UK", country: "United Kingdom", code: "GB", city: "London", tz: "Europe/London", cur: "GBP",
+    overlap: "India is 4½–5½ hours ahead of the UK. Your morning is our afternoon, so we overlap every working day — and work you approve at 5 pm is often waiting when you open your laptop.",
+    platforms: "Google and Meta for demand, LinkedIn for B2B pipeline, TikTok and YouTube Shorts for reach with under-35s.",
+    rules: "UK GDPR and PECR: consent-first tracking, cookie banners that actually comply, and audiences built on first-party data.",
+    search: "Google dominates UK search, and AI Overviews now sit above the results for many commercial questions — so being the cited source matters as much as ranking.",
+    faq: [["Do you invoice in pounds?", "Yes. Quotations and invoices in GBP, paid by bank transfer or card — no currency maths for your finance team."],
+      ["How do calls work across time zones?", "We schedule in UK working hours. Most clients get a weekly call in their morning and daily updates on WhatsApp or Slack."],
+      ["Will our ads and content sound British?", "Yes. We write in British English for UK brands and localise offers, spelling, prices and references for the market."]] },
+  { slug: "united-states", name: "the US", country: "United States", code: "US", city: "New York", tz: "America/New_York", cur: "USD",
+    overlap: "We're 9½–10½ hours ahead of the East Coast and 12½–13½ ahead of the West. We take calls in your morning or evening, and the work runs while you sleep — you wake up to progress.",
+    platforms: "Google, Meta, YouTube, LinkedIn and TikTok, plus Reddit and Amazon when your buyers live there.",
+    rules: "CAN-SPAM for email, TCPA for SMS, and state privacy laws such as California's CCPA/CPRA: opt-ins and suppression lists done properly.",
+    search: "US buyers increasingly start with ChatGPT, Perplexity and Google's AI Mode. We optimise to be named in those answers, not just listed on page one.",
+    faq: [["Do you invoice in dollars?", "Yes. USD quotations and invoices, paid by bank transfer or card."],
+      ["Can you work US hours?", "We overlap with your early morning and late evening every day, and we'll schedule calls inside your working hours. Urgent changes get picked up the same day."],
+      ["Why work with a studio in India?", "Senior people, AI-first workflows and sensible costs — with the same tools, standards and reporting you'd expect from an agency down the street."]] },
+  { slug: "uae", name: "the UAE", country: "United Arab Emirates", code: "AE", city: "Dubai", tz: "Asia/Dubai", cur: "AED",
+    overlap: "We're just 1½ hours ahead of Dubai — practically the same working day, Monday to Friday.",
+    platforms: "Instagram, Snapchat, TikTok, Google and YouTube — and WhatsApp, because that's where your customers actually reply.",
+    rules: "Opt-in WhatsApp and SMS marketing and PDPL-aware data handling, with Arabic and English creative where it matters.",
+    search: "Bilingual search behaviour (Arabic and English) and fast-growing AI assistant use mean pages need to be clear, structured and quotable in both languages.",
+    faq: [["Do you invoice in dirhams?", "Yes — quotations and invoices in AED."],
+      ["Can you run Arabic campaigns?", "Yes. We plan bilingual campaigns and have Arabic copy written and checked by native speakers before anything goes live."],
+      ["Do you set up WhatsApp automation?", "Yes. WhatsApp Business API agents that answer, qualify and book in English and Arabic, then hand over to your team."]] },
+  { slug: "singapore", name: "Singapore", country: "Singapore", code: "SG", city: "Singapore", tz: "Asia/Singapore", cur: "SGD",
+    overlap: "Singapore is 2½ hours ahead of us, so we share most of your working day.",
+    platforms: "Google, Meta, LinkedIn for regional B2B, TikTok and YouTube — often planned across Southeast Asia, not just one island.",
+    rules: "PDPA-compliant data collection and respect for the Do Not Call registry on every campaign.",
+    search: "A small, competitive market where the same buyers research on Google, LinkedIn and AI assistants — authority and clarity win.",
+    faq: [["Do you invoice in SGD?", "Yes, in Singapore dollars."],
+      ["Can you run regional campaigns across Southeast Asia?", "Yes. We plan and report by country, so you can see what Malaysia, Indonesia or the Philippines return separately."],
+      ["Do you work with B2B tech companies?", "Yes — LinkedIn, content, SEO and AI-search work is a natural fit for B2B and SaaS brands."]] },
+  { slug: "australia", name: "Australia", country: "Australia", code: "AU", city: "Sydney", tz: "Australia/Sydney", cur: "AUD",
+    overlap: "Sydney is 4½–5½ hours ahead of India: we overlap from your lunch to your close, and our evening covers your next morning's prep.",
+    platforms: "Google, Meta, TikTok, LinkedIn and YouTube, with strong local SEO for service businesses.",
+    rules: "Privacy Act 1988 and the Spam Act 2003: proper consent, clear sender identity and an unsubscribe that works.",
+    search: "Australians lean heavily on Google Maps and reviews for local services, and on AI assistants for comparisons — we work on both.",
+    faq: [["Do you invoice in AUD?", "Yes, in Australian dollars."],
+      ["Can you handle local SEO for multiple locations?", "Yes — Google Business Profiles, location pages, reviews and citations for each location."],
+      ["How do we meet?", "Video calls in your working hours, a shared dashboard, and WhatsApp or Slack for day-to-day."]] },
+  { slug: "india", name: "India", country: "India", code: "IN", city: "Chennai", tz: "Asia/Kolkata", cur: "INR",
+    overlap: "Same time zone, same working day — and the same WhatsApp group, if you like.",
+    platforms: "Instagram, YouTube, Google, Meta and WhatsApp, with creative in English, Tamil, Hindi and other regional languages.",
+    rules: "Consent and data handling designed for India's Digital Personal Data Protection Act, 2023.",
+    search: "Mobile-first, vernacular and voice-heavy search, plus fast-growing AI assistant use — your pages need to be quick, clear and local.",
+    faq: [["Do you invoice in rupees with GST?", "Yes. GST invoices in INR, with UPI or bank transfer."],
+      ["Can we meet in person?", "Yes, for projects that need it. Most of the work runs on video calls, WhatsApp and a shared dashboard."],
+      ["Do you run regional-language campaigns?", "Yes — Tamil, Hindi and other languages for ads, reels and landing pages."]] },
+];
+
+// ---------- growth score quiz ----------
+export const quiz = [
+  { q: "How fast does your website load on a phone?", a: [["Under 2 seconds", 3], ["2–5 seconds", 1], ["It's… still loading", 0]], fix: "Speed up your website — every second costs enquiries." },
+  { q: "Ask ChatGPT for the best in your field. Are you named?", a: [["Yes, proudly", 3], ["No idea", 1], ["Nope", 0]], fix: "Get cited by AI assistants (AI search optimisation)." },
+  { q: "How often do you post on social media?", a: [["Weekly or more", 3], ["When we remember", 1], ["What's social media?", 0]], fix: "Build a content calendar that runs itself." },
+  { q: "Do you know what one lead costs you?", a: [["To the cent", 3], ["Roughly", 1], ["Not a clue", 0]], fix: "Set up tracking so every lead has a known cost." },
+  { q: "How fast do you reply to a new enquiry?", a: [["Under 5 minutes", 3], ["Same day", 1], ["Eventually", 0]], fix: "Answer every enquiry in seconds with an AI agent." },
+  { q: "Do people recognise your brand at a glance?", a: [["Instantly", 3], ["Sort of", 1], ["We're working on it", 0]], fix: "Sharpen your brand so you look like the category leader." },
+];

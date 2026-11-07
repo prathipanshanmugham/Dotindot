@@ -3,7 +3,9 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, statSync } from
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { services, steps, aiHuman, values, faqs, jokes, insights, careers, tools } from "./src/content.mjs";
+import { services, steps, aiHuman, values, faqs, jokes, insights, careers, tools, markets, quiz, seoTitles } from "./src/content.mjs";
+import { scenes } from "./src/scenes.mjs";
+import { existsSync } from "node:fs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const C = JSON.parse(readFileSync(join(ROOT, "site.config.json"), "utf8"));
@@ -21,6 +23,9 @@ const MAP = readFileSync(join(ROOT, "assets/vendor/worldmap.json"), "utf8");
 const MAP_JSON = `assets/worldmap.${hash(MAP)}.json`;
 
 const lc = (s) => s.split(" ").map((w) => (/^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase())).join(" ");
+const WM = readFileSync(join(ROOT, "assets/wordmark-color.svg"), "utf8");
+const WM_PATHS = [...WM.matchAll(/<path[^>]*d="([^"]+)"/g)].map((m) => m[1]);
+const WM_T = (WM.match(/<g transform="([^"]+)"/) || [])[1] || "";
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
 const abs = (p) => C.domain.replace(/\/$/, "") + p;
@@ -36,6 +41,7 @@ const I = {
   mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg>',
   spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>',
   laugh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14a4.5 4.5 0 0 0 8 0Z"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.8 2.1Z"/></svg>',
   lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
 };
 // service doodles (64×64, drawn not downloaded)
@@ -95,13 +101,16 @@ const faqLd = (qa) => ({ "@context": "https://schema.org", "@type": "FAQPage", m
 
 // ---------- layout ----------
 const NAV = [["/services/", "Services"], ["/process/", "Process"], ["/about/", "About"], ["/insights/", "Insights"], ["/contact/", "Contact"]];
-function layout({ path, title, desc, body, ld = [], noindex = false, type = "website", hello = false, fullTitle }) {
+function layout({ path, title, desc, body, ld = [], noindex = false, type = "website", hello = false, fullTitle, og = "", crumbs = null }) {
   const url = abs(path);
   const t = fullTitle || `${title} — ${C.shortName}`;
+  const ogImg = og && existsSync(join(ROOT, `assets/og/${og}.jpg`)) ? `/assets/og/${og}.jpg` : "/assets/og.png";
+  const page = { "@context": "https://schema.org", "@type": path.startsWith("/contact") ? "ContactPage" : path.startsWith("/about") ? "AboutPage" : "WebPage", "@id": url + "#webpage", url, name: t, description: desc, inLanguage: "en", isPartOf: { "@id": abs("/#site") }, about: { "@id": abs("/#org") }, primaryImageOfPage: abs(ogImg), speakable: { "@type": "SpeakableSpecification", cssSelector: ["h1", ".lead"] }, ...(crumbs ? { breadcrumb: crumbsLd(crumbs) } : {}) };
+  const verify = [C.verify && C.verify.google ? `<meta name="google-site-verification" content="${esc(C.verify.google)}">` : "", C.verify && C.verify.bing ? `<meta name="msvalidate.01" content="${esc(C.verify.bing)}">` : ""].join("");
   const nav = NAV.map(([p, l]) => `<a href="${p}"${path.startsWith(p) ? ' aria-current="page"' : ""}>${l}</a>`).join("");
-  const menuNav = NAV.concat([["/free-audit/", "Free audit"]]).map(([p, l], i) => `<a href="${p}" style="--i:${i}"${path.startsWith(p) ? ' aria-current="page"' : ""}>${l}</a>`).join("");
+  const menuNav = NAV.concat([["/speed-test/", "Speed test"], ["/growth-score/", "Growth score"], ["/free-audit/", "Free audit"]]).map(([p, l], i) => `<a href="${p}" style="--i:${i}"${path.startsWith(p) ? ' aria-current="page"' : ""}>${l}</a>`).join("");
   const ga = C.ga4 ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${C.ga4}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${C.ga4}',{anonymize_ip:true})</script>` : "";
-  const cfg = { intake: C.leadIntakeUrl, whatsapp: C.whatsapp, email: C.email, jokes, hello, preview: PREVIEW };
+  const cfg = { intake: C.leadIntakeUrl, whatsapp: C.whatsapp, email: C.email, jokes, hello, preview: PREVIEW, psiKey: C.pageSpeedApiKey || "" };
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -113,13 +122,13 @@ function layout({ path, title, desc, body, ld = [], noindex = false, type = "web
 <meta name="robots" content="${noindex ? "noindex,follow" : "index,follow,max-image-preview:large,max-snippet:-1"}">
 <meta name="color-scheme" content="light only"><meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/assets/icon-512.png"><link rel="manifest" href="/manifest.webmanifest">
-<link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">
-<meta property="og:type" content="${type}"><meta property="og:site_name" content="${esc(C.name)}"><meta property="og:title" content="${esc(t)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${url}"><meta property="og:image" content="${abs("/assets/og.png")}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Dot, the dotindot mascot, next to the line: Make your brand impossible to scroll past.">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(t)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${abs("/assets/og.png")}">
+<link rel="alternate" hreflang="en" href="${url}"><link rel="alternate" hreflang="x-default" href="${url}"><link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">${verify}
+<meta property="og:type" content="${type}"><meta property="og:site_name" content="${esc(C.name)}"><meta property="og:title" content="${esc(t)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${url}"><meta property="og:image" content="${abs(ogImg)}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Dot, the dotindot mascot, next to the line: Make your brand impossible to scroll past.">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(t)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${abs(ogImg)}"><meta property="og:locale" content="en_GB">
 <link rel="preload" href="/assets/fonts/anybody.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/assets/fonts/instrument.woff2" as="font" type="font/woff2" crossorigin>
 <script>document.documentElement.classList.add("js");setTimeout(function(){if(!window.__ddReady)document.documentElement.classList.remove("js")},4000)</script>
 <style>${CSS}</style>
-${[ORG, SITE, ...ld].map((o) => `<script type="application/ld+json">${JSON.stringify(o)}</script>`).join("\n")}
+${[ORG, SITE, ...(noindex ? [] : [page]), ...ld].map((o) => `<script type="application/ld+json">${JSON.stringify(o)}</script>`).join("\n")}
 ${ga}
 </head>
 <body>
@@ -147,8 +156,12 @@ ${footer()}
 <a href="/free-audit/" data-dot="love">${I.spark} Get a free audit</a>
 <a href="${wa()}" target="_blank" rel="noopener" data-dot="happy">${I.wa} WhatsApp a human</a>
 <a href="mailto:${C.email}" data-dot="happy">${I.mail} Email us</a>
+<button type="button" data-callback>${I.phone} Call me back</button>
 <button type="button" data-joke>${I.laugh} Tell me a joke</button>
-</div></div>
+</div>
+<form class="mini" data-lead="dot-bubble" data-mini hidden novalidate><label class="sr" for="dot-contact">Your email or phone</label><input id="dot-contact" name="contact" autocomplete="email" placeholder="email or phone"><input type="hidden" name="interest" value="Asked Dot"><button type="submit">Send</button><p class="status" role="status" aria-live="polite"></p></form>
+</div>
+<span class="dot-hint" aria-hidden="true">Drag me. Throw me. I bounce.</span>
 <script>window.__DD=${JSON.stringify(cfg)}</script>
 <script defer src="/${LENIS_JS}"></script>
 <script defer src="/${SITE_JS}"></script>
@@ -161,7 +174,8 @@ function footer() {
 <div class="ftr-top">
 <div class="ftr-lead">${H("h2", "", "Let's make your dot impossible to miss.")}<div class="btns"><a class="btn alt" href="/free-audit/" data-dot="love" data-mag>Get a free audit</a><a class="btn ghost" href="${wa()}" target="_blank" rel="noopener" data-dot="happy">${I.wa} WhatsApp</a></div></div>
 <div><h3>Services</h3><ul>${services.map((s) => `<li><a href="/services/${s.slug}/">${esc(s.name)}</a></li>`).join("")}</ul></div>
-<div><h3>Studio</h3><ul><li><a href="/about/">About</a></li><li><a href="/process/">How we work</a></li><li><a href="/insights/">Insights</a></li><li><a href="/careers/">Careers</a></li><li><a href="/contact/">Contact</a></li><li><a href="/free-audit/">Free audit</a></li></ul></div>
+<div><h3>Studio</h3><ul><li><a href="/about/">About</a></li><li><a href="/process/">How we work</a></li><li><a href="/insights/">Insights</a></li><li><a href="/careers/">Careers</a></li><li><a href="/contact/">Contact</a></li></ul><h3 style="margin-top:22px">Free tools</h3><ul><li><a href="/speed-test/">Website speed test</a></li><li><a href="/growth-score/">Growth score</a></li><li><a href="/free-audit/">Free audit</a></li></ul></div>
+<div><h3>Markets</h3><ul>${markets.map((m) => `<li><a href="/markets/${m.slug}/">${esc(m.country)}</a></li>`).join("")}<li><a href="/markets/">All markets</a></li></ul></div>
 <div><h3>Say hello</h3><ul><li><a href="mailto:${C.email}">${C.email}</a></li><li><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a></li><li><a href="tel:${tel}">${esc(C.phoneDisplay)}</a></li>${soc}</ul></div>
 </div>
 <div class="ftr-bot">
@@ -169,7 +183,7 @@ function footer() {
 <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/llms.txt">llms.txt</a></nav>
 <a class="emp" href="${C.internalUrl}" rel="nofollow noopener" data-dot="shy">${I.lock} Employee login</a>
 </div>
-<img class="mega" src="/assets/wordmark-color.svg" alt="" width="396" height="76" loading="lazy" decoding="async">
+<svg class="mega" viewBox="0 -2 396 80" role="img" aria-label="dotindot."><defs><linearGradient id="wmg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FE7A18"/><stop offset="1" stop-color="#FFAD42"/></linearGradient></defs><g class="letters"><g transform="${WM_T}"><path fill="url(#wmg)" d="${WM_PATHS[0]}"/></g></g><g class="stop"><g transform="${WM_T}"><path fill="#FE7B1B" d="${WM_PATHS[1]}"/></g></g><circle class="stop-anchor" cx="385.96" cy="67.04" r="9.6" fill="none"/></svg>
 </div></footer>`;
 }
 
@@ -196,6 +210,31 @@ const procBlock = (title = "From hello to growth in four steps.") => `<section c
 const vsBlock = () => `<div class="vs"><div class="vs-hd" aria-hidden="true"><span>The AI does this</span><span></span><span>A human does this</span></div>${aiHuman.map(([a, h]) => `<div class="vs-row"><p class="ai">${esc(a)}</p><span class="link-dots" aria-hidden="true"><i></i><i></i><i></i></span><p class="hu">${esc(h)}</p></div>`).join("")}</div>`;
 const CLOCKS = [["London", "Europe/London"], ["Dubai", "Asia/Dubai"], ["Singapore", "Asia/Singapore"], ["Sydney", "Australia/Sydney"], ["New York", "America/New_York"], ["Us, in India", "Asia/Kolkata"]];
 const clocks = () => `<div class="clocks">${CLOCKS.map(([n, z]) => `<div class="clock${z === "Asia/Kolkata" ? " us" : ""}" data-tz="${z}"><b>--:--</b><span><i></i>${esc(n)}</span></div>`).join("")}</div>`;
+
+const theatre = (title = "Watch the dots work.") => `<section class="theatre" id="services" data-mood-sec="happy" style="--n:${services.length}" aria-label="Services"><div class="th-stick"><div class="wrap"><div class="th-grid">
+<div class="th-col"><div class="th-head">${H("h2", "h-sec stretchy", title)}<p class="muted" data-reveal style="margin-top:16px;max-width:30em">Six services. Here's what each one actually does, in about five seconds each. Scroll on.</p></div>
+<ul class="th-list">${services.map((s, i) => `<li class="th-item${i ? "" : " on"}" data-i="${i}"><a href="/services/${s.slug}/" data-dot="happy"><h3>${esc(s.name)}</h3><span class="go" aria-hidden="true">${I.arrow}</span><p>${esc(s.short)}</p></a><div class="th-scene scene" data-steps="${scenes[s.slug].steps}">${scenes[s.slug].svg}</div></li>`).join("")}</ul>
+<div class="th-bar" aria-hidden="true"><i></i></div></div>
+<div class="th-stage" aria-hidden="true"></div>
+</div></div></div></section>`;
+const squash = () => `<section class="squash" data-mood-sec="wow" aria-label="We don't do average"><div class="squash-stick"><div class="wrap">
+<h2 class="squash-line">Nobody remembers <span class="avg">average<i class="avg-flat" aria-hidden="true"></i></span>.</h2>
+<p class="squash-after">So we don't do it.</p>
+<p class="squash-note">No words were harmed. One was flattened.</p>
+<span class="big-drop" data-mood="happy" aria-hidden="true">${dotSVG()}</span>
+</div></div></section>`;
+const quizBlock = (id) => `<div class="quiz" data-quiz="${id}">
+<div class="qz-top"><div class="qz-dots" aria-hidden="true">${quiz.map(() => "<i></i>").join("")}</div><span class="qz-count">1 / ${quiz.length}</span></div>
+<div class="qz-body"><p class="qz-q">${esc(quiz[0].q)}</p><div class="qz-opts">${quiz[0].a.map(([l]) => `<button type="button">${esc(l)}</button>`).join("")}</div></div>
+<script type="application/json" class="qz-data">${JSON.stringify(quiz)}</script>
+</div>`;
+const speedBlock = (h = "h2") => `<div class="speed" data-speed data-mood-sec="wow">
+<${h} class="h-sec">How fast is your website, really?</${h}>
+<p class="lead" style="margin-top:18px">Paste your address. We'll ask Google's own PageSpeed test to load it on a mid-range phone and score it — the same test Google uses.</p>
+<form class="inline-form sp-form" novalidate style="margin-top:26px"><label class="sr" for="sp-url-${h}">Website address</label><input id="sp-url-${h}" name="url" type="url" inputmode="url" autocomplete="url" placeholder="yourbrand.com" required><button class="btn alt" type="submit" data-dot="wow">Test my site</button></form>
+<p class="fine">Takes 15–40 seconds. Powered by Google PageSpeed Insights. Nothing is stored unless you ask for the fix list.</p>
+<div class="sp-out" aria-live="polite"></div>
+</div>`;
 
 // ---------- pages ----------
 const pages = [];
@@ -228,10 +267,8 @@ let homeBody = (weight) => `
 <span class="uni-you" aria-hidden="true"></span>
 <div class="uni-prog" aria-hidden="true"><i></i></div></div></section>
 
-<section class="sec" id="services" data-mood-sec="happy"><div class="wrap">
-<div class="head">${H("h2", "h-sec stretchy", "Six ways we make you hard to ignore.")}<p data-reveal>Pick one, or let us run the lot. Every service is wired into the same dashboard, so you see what's working without asking.</p></div>
-${svcList()}
-</div></section>
+${theatre()}
+${squash()}
 
 <section class="sec fog" data-mood-sec="wink"><div class="wrap">
 <div class="head">${H("h2", "h-sec stretchy", "AI-first. Human-checked.")}<p data-reveal>AI makes us fast and affordable. People make sure it's right. Here's who does what — honestly.</p></div>
@@ -240,11 +277,18 @@ ${vsBlock()}
 
 ${procBlock()}
 
+<section class="sec fog" data-mood-sec="wink" id="growth-score"><div class="wrap">
+<div class="head">${H("h2", "h-sec stretchy", "How loud is your dot?")}<p data-reveal>Six quick taps, one honest score out of 100, and the fixes that would move it most. About a minute. Dot will judge silently.</p></div>
+${quizBlock("home")}
+</div></section>
+
 <section class="sec" data-mood-sec="wow"><div class="wrap">
 <h2 class="globe-time" data-reveal>It's <time data-localtime>right now</time> <span data-place>where you are</span>.</h2>
 <p class="lead" data-reveal style="margin-top:24px">Our team works from India, remote-first, with brands across time zones. Send a note now and a real person replies within one working day — usually before your next coffee.</p>
 <div data-reveal>${clocks()}</div>
 </div></section>
+
+<section class="sec" style="padding-top:0"><div class="wrap">${speedBlock()}</div></section>
 
 ${C.receipts && C.receipts.lighthouse ? `<section class="sec fog" data-mood-sec="wow"><div class="wrap">
 <div class="head">${H("h2", "h-sec stretchy", "Receipts, not adjectives.")}<p data-reveal>We're new to bragging, so here are things about this very page you can check yourself.</p></div>
@@ -265,13 +309,13 @@ ${C.receipts && C.receipts.lighthouse ? `<section class="sec fog" data-mood-sec=
 ${faqBlock(homeFaq)}
 </div></section>
 ${ctaBand("home")}`;
-add("/", (w) => layout({ path: "/", fullTitle: `${C.name} — AI-first marketing studio for brands worldwide`, hello: true,
-  desc: "Dotindot is an AI-first marketing studio: performance ads, social and content, SEO and AI search, websites and apps, brand and video, and AI agents — for ambitious brands anywhere in the world.",
+add("/", (w) => layout({ path: "/", fullTitle: `${C.name} — AI-first digital marketing agency for brands worldwide`, hello: true, og: "home",
+  desc: "AI-first digital marketing studio for brands worldwide: ads, social, SEO and AI search, websites, branding and AI agents. Free audit, fixed quotes.",
   ld: [faqLd(homeFaq)], body: homeBody(w) }));
 
 // services index
-add("/services/", layout({ path: "/services/", title: "Services", desc: "Performance ads, social and content, SEO and AI search, websites and apps, brand and video, and AI agents — run by one AI-first team with one dashboard.",
-  ld: [crumbsLd([["Home", "/"], ["Services", "/services/"]])],
+add("/services/", layout({ path: "/services/", title: "Services", fullTitle: `Digital marketing services — ads, social, SEO & AI search, websites, AI agents — ${C.shortName}`, og: "services", desc: "Performance ads, social and content, SEO and AI search, websites and apps, brand and video, and AI agents — run by one AI-first team with one dashboard.",
+  ld: [crumbsLd([["Home", "/"], ["Services", "/services/"]]), { "@context": "https://schema.org", "@type": "ItemList", name: "Services", itemListElement: services.map((x, i) => ({ "@type": "ListItem", position: i + 1, url: abs(`/services/${x.slug}/`), name: x.name })) }],
   body: `<section class="phero"><div class="wrap">${H1("h-page", "Everything your brand needs online")}<p class="lead fade-in">Six services, one team, one dashboard. Pick what you need now and add the rest when it makes sense. No bundles you didn't ask for.</p></div></section>
 <section class="sec" style="padding-top:0" data-mood-sec="happy"><div class="wrap"><h2 class="sr">All services</h2>${svcList()}</div></section>
 <section class="sec fog" data-mood-sec="wink"><div class="wrap"><div class="head">${H("h2", "h-sec stretchy", "AI-first. Human-checked.")}<p data-reveal>Why we're faster and better value than a traditional agency, without being a robot.</p></div>${vsBlock()}</div></section>
@@ -280,7 +324,7 @@ ${ctaBand("services")}` }));
 // service pages
 services.forEach((s, idx) => {
   const others = services.filter((o) => o.slug !== s.slug).slice(idx % 2, idx % 2 + 3);
-  add(`/services/${s.slug}/`, layout({ path: `/services/${s.slug}/`, title: s.name, desc: `${s.promise} ${s.short}`,
+  add(`/services/${s.slug}/`, layout({ path: `/services/${s.slug}/`, title: s.name, fullTitle: `${seoTitles[s.slug]} — ${C.shortName}`, desc: `${s.promise} By dotindot, an AI-first studio.`, og: `services-${s.slug}`, crumbs: [["Home", "/"], ["Services", "/services/"], [s.name, `/services/${s.slug}/`]],
     ld: [crumbsLd([["Home", "/"], ["Services", "/services/"], [s.name, `/services/${s.slug}/`]]), faqLd(s.faq),
       { "@context": "https://schema.org", "@type": "Service", name: s.name, serviceType: s.name, description: s.intro, provider: { "@id": abs("/#org") }, areaServed: "Worldwide", url: abs(`/services/${s.slug}/`) }],
     body: `<section class="phero"><div class="wrap"><nav class="crumbs" aria-label="Breadcrumb"><a href="/services/">Services</a> / ${esc(s.name)}</nav>
@@ -303,8 +347,8 @@ ${ctaBand(`service-${s.slug}`, { pre: s.slug, title: `Let's talk ${lc(s.name)}.`
 
 // process
 const never = ["Take a percentage of your ad spend.", "Lock you into a twelve-month contract.", "Send a 40-page report made of screenshots.", "Say “synergy” and mean it.", "Ship anything on a Friday at 6 pm.", "Hold your accounts, code or content hostage."];
-add("/process/", layout({ path: "/process/", title: "How we work", desc: "Audit, plan, build, grow: how dotindot runs the first 90 days and every month after, with fixed quotations, month-to-month retainers and a live dashboard.",
-  ld: [crumbsLd([["Home", "/"], ["How we work", "/process/"]])],
+add("/process/", layout({ path: "/process/", title: "How we work", fullTitle: `How we work — audit, plan, build, grow — ${C.shortName}`, og: "process", desc: "Audit, plan, build, grow: how dotindot runs the first 90 days and every month after, with fixed quotations, month-to-month retainers and a live dashboard.",
+  ld: [crumbsLd([["Home", "/"], ["How we work", "/process/"]]), { "@context": "https://schema.org", "@type": "HowTo", name: "How dotindot runs a growth engagement", step: steps.map((x, i) => ({ "@type": "HowToStep", position: i + 1, name: x.title, text: x.text })) }],
   body: `<section class="phero"><div class="wrap">${H1("h-page", "How we work")}<p class="lead fade-in">Four steps, a fixed quotation, a live dashboard and a monthly sit-down. It's not complicated. That's the point.</p></div></section>
 ${procBlock("The first 90 days, step by step.")}
 <section class="sec fog" data-mood-sec="wink"><div class="wrap two">
@@ -315,7 +359,7 @@ ${procBlock("The first 90 days, step by step.")}
 ${ctaBand("process")}` }));
 
 // about
-add("/about/", layout({ path: "/about/", title: "About", desc: "Dotindot is an AI-first, remote-first marketing studio based in India and working with brands worldwide. Here's who we are, how we're set up, and why there's a dot watching you.",
+add("/about/", layout({ path: "/about/", title: "About", fullTitle: `About ${C.shortName} — an AI-first, remote-first marketing studio`, og: "about", desc: "An AI-first, remote-first marketing studio in India, working with brands worldwide. Who we are, how we work, and why a dot is watching you.",
   ld: [crumbsLd([["Home", "/"], ["About", "/about/"]]), { "@context": "https://schema.org", "@type": "AboutPage", url: abs("/about/"), about: { "@id": abs("/#org") } }],
   body: `<section class="phero"><div class="wrap">${H1("h-page", "We're dotindot")}<p class="lead fade-in">An AI-first marketing studio. Remote-first, based in India, working with brands wherever they are. We're builders, marketers, designers and engineers who'd rather show you a number than an adjective.</p></div></section>
 <section class="sec" style="padding-top:clamp(24px,4vw,48px)"><div class="wrap two">
@@ -335,7 +379,7 @@ add("/about/", layout({ path: "/about/", title: "About", desc: "Dotindot is an A
 ${ctaBand("about", { title: "Want to work with us?" })}` }));
 
 // contact
-add("/contact/", layout({ path: "/contact/", title: "Contact", desc: "Tell dotindot about your brand. A real person replies within one working day — on WhatsApp, email or a video call, in your time zone and your currency.",
+add("/contact/", layout({ path: "/contact/", title: "Contact", fullTitle: `Contact ${C.shortName} — a human replies within one working day`, og: "contact", desc: "Tell dotindot about your brand. A real person replies within one working day — on WhatsApp, email or a video call, in your time zone and your currency.",
   ld: [crumbsLd([["Home", "/"], ["Contact", "/contact/"]]), faqLd(faqs.slice(1, 5)), { "@context": "https://schema.org", "@type": "ContactPage", url: abs("/contact/"), about: { "@id": abs("/#org") } }],
   body: `<section class="phero" style="padding-bottom:clamp(24px,4vw,48px)"><div class="wrap">${H1("h-page", "Say hello")}<p class="lead fade-in">Fill in the blanks below, or reach us however you like. A real human replies within one working day. It's <b data-localtime>now</b> <span data-place>where you are</span>.</p></div></section>
 <section class="sec" style="padding-top:0" data-mood-sec="love" id="talk"><div class="wrap"><div class="cta-band">${madlib("contact")}
@@ -345,7 +389,7 @@ add("/contact/", layout({ path: "/contact/", title: "Contact", desc: "Tell dotin
 
 // free audit
 const auditFaq = [["Is it really free?", "Yes. No card, no catch, no obligation. Dot checked. Twice."], ["What do you need from us?", "Your website, the social accounts you use, and — if you run ads — read-only access or a few screenshots. That's it."], ["How long does it take?", "About five working days from when we have what we need. Then a 30-minute call to walk you through it."], ["Will you try to sell us something?", "We'll tell you what we'd do. If you want us to do it, great. If not, the report is yours to keep and use with anyone."]];
-add("/free-audit/", layout({ path: "/free-audit/", title: "Free growth audit", desc: "A free, honest 20-point review of your website, search and AI-search visibility, social accounts and ads — with a written report and a 30-minute call. No obligation.",
+add("/free-audit/", layout({ path: "/free-audit/", title: "Free growth audit", fullTitle: `Free growth audit — website, search, social and ads review — ${C.shortName}`, og: "free-audit", desc: "A free, honest 20-point review of your website, search and AI-search visibility, social accounts and ads — with a written report and a 30-minute call. No obligation.",
   ld: [crumbsLd([["Home", "/"], ["Free growth audit", "/free-audit/"]]), faqLd(auditFaq)],
   body: `<section class="phero"><div class="wrap">${H1("h-page", "Free growth audit")}<p class="lead fade-in">A free, honest look at your marketing: what's working, what's leaking money, and the three things we'd fix first. You keep the report either way.</p></div></section>
 <section class="sec" style="padding-top:0" data-mood-sec="love"><div class="wrap two">
@@ -367,8 +411,8 @@ add("/free-audit/", layout({ path: "/free-audit/", title: "Free growth audit", d
 <section class="sec fog"><div class="wrap two"><div>${H("h2", "h-sec", "Good questions.")}</div>${faqBlock(auditFaq)}</div></section>` }));
 
 // insights
-add("/insights/", layout({ path: "/insights/", title: "Insights", desc: "Practical notes on ads, SEO and AI search, websites and automation from the dotindot team. No fluff, no listicles about 'top 10 trends'.",
-  ld: [crumbsLd([["Home", "/"], ["Insights", "/insights/"]])],
+add("/insights/", layout({ path: "/insights/", title: "Insights", fullTitle: `Insights on ads, SEO, AI search and websites — ${C.shortName}`, og: "insights", desc: "Practical notes on ads, SEO and AI search, websites and automation from the dotindot team. No fluff, no listicles about 'top 10 trends'.",
+  ld: [crumbsLd([["Home", "/"], ["Insights", "/insights/"]]), { "@context": "https://schema.org", "@type": "Blog", name: `${C.name} insights`, url: abs("/insights/"), publisher: { "@id": abs("/#org") }, blogPost: insights.map((x) => ({ "@type": "BlogPosting", headline: x.title, url: abs(`/insights/${x.slug}/`), datePublished: x.date })) }],
   body: `<section class="phero"><div class="wrap">${H1("h-page", "Insights")}<p class="lead fade-in">Practical notes from the work. No “top 10 trends” listicles. We promise. Dot made us promise.</p></div></section>
 <section class="sec" style="padding-top:0"><div class="wrap"><div class="posts">${insights.map((a) => `<a class="post" href="/insights/${a.slug}/" data-reveal><time datetime="${a.date}">${new Date(a.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</time><div><h2>${esc(a.title)}</h2><p>${esc(a.summary)} · ${a.minutes} min read</p></div><span class="go" aria-hidden="true">${I.arrow}</span></a>`).join("")}</div></div></section>
 ${ctaBand("insights", { title: "Rather we just did it for you?" })}` }));
@@ -379,15 +423,61 @@ insights.forEach((a) => {
     if (b.includes("\n")) return `<ul>${b.split("\n").map((l) => `<li>${md(l)}</li>`).join("")}</ul>`;
     return `<p>${md(b)}</p>`;
   }).join("\n");
-  add(`/insights/${a.slug}/`, layout({ path: `/insights/${a.slug}/`, title: a.title, desc: a.summary, type: "article",
-    ld: [crumbsLd([["Home", "/"], ["Insights", "/insights/"], [a.title, `/insights/${a.slug}/`]]), { "@context": "https://schema.org", "@type": "Article", headline: a.title, description: a.summary, datePublished: a.date, dateModified: a.date, author: { "@type": "Organization", name: C.name, url: abs("/") }, publisher: { "@id": abs("/#org") }, mainEntityOfPage: abs(`/insights/${a.slug}/`), image: abs("/assets/og.png") }],
+  add(`/insights/${a.slug}/`, layout({ path: `/insights/${a.slug}/`, title: a.title, desc: a.summary, type: "article", og: `insights-${a.slug}`, crumbs: [["Home", "/"], ["Insights", "/insights/"], [a.title, `/insights/${a.slug}/`]],
+    ld: [crumbsLd([["Home", "/"], ["Insights", "/insights/"], [a.title, `/insights/${a.slug}/`]]), { "@context": "https://schema.org", "@type": "BlogPosting", headline: a.title, description: a.summary, datePublished: a.date, dateModified: a.date, author: { "@type": "Organization", name: C.name, url: abs("/") }, publisher: { "@id": abs("/#org") }, mainEntityOfPage: abs(`/insights/${a.slug}/`), image: abs("/assets/og.png") }],
     body: `<article><section class="phero" style="padding-bottom:clamp(24px,4vw,48px)"><div class="wrap"><nav class="crumbs" aria-label="Breadcrumb"><a href="/insights/">Insights</a> / ${a.minutes} min read</nav>${H1("h-page", a.title).replace("h-page", "h-page").replace('class="h-page', 'style="font-size:clamp(2rem,5.6vw,4.6rem)" class="h-page')}<p class="meta">By the ${esc(C.shortName)} team · <time datetime="${a.date}">${new Date(a.date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</time></p></div></section>
 <section class="sec" style="padding-top:0"><div class="wrap"><div class="prose">${body}</div></div></section></article>
 ${ctaBand(`insight-${a.slug}`, { title: "Want this done for you?" })}` }));
 });
 
+// free tools
+const toolLd = (name, url, desc) => ({ "@context": "https://schema.org", "@type": "WebApplication", name, url: abs(url), description: desc, applicationCategory: "BusinessApplication", operatingSystem: "Any (web browser)", isAccessibleForFree: true, offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, provider: { "@id": abs("/#org") } });
+const speedFaq = [["What does the speed test measure?", "It runs Google's PageSpeed Insights (Lighthouse) on your page as a mid-range phone on a mobile connection, and reports performance, accessibility, best practices and SEO scores plus Core Web Vitals such as Largest Contentful Paint."],
+  ["Why does my score change between runs?", "Network and server conditions vary from run to run, so scores move a few points. Look at the trend and the big problems, not a single number."],
+  ["What's a good score?", "90 or above is good. 50–89 needs work. Below 50 is costing you visitors and rankings."],
+  ["Do you store my website address?", "Only if you ask us to send the fix list. Otherwise the test runs between your browser and Google."]];
+add("/speed-test/", layout({ path: "/speed-test/", title: "Free website speed test", fullTitle: `Free website speed test — Google PageSpeed score in 30 seconds — ${C.shortName}`, og: "speed-test",
+  desc: "Test your website's speed for free with Google PageSpeed Insights: performance, SEO, accessibility and Core Web Vitals on a mobile phone, plus the fix list if you want it.",
+  crumbs: [["Home", "/"], ["Speed test", "/speed-test/"]], ld: [crumbsLd([["Home", "/"], ["Speed test", "/speed-test/"]]), toolLd("Website speed test", "/speed-test/", "Free mobile speed and SEO check powered by Google PageSpeed Insights."), faqLd(speedFaq)],
+  body: `<section class="phero" style="padding-bottom:clamp(24px,4vw,40px)"><div class="wrap">${H1("h-page", "Free website speed test")}<p class="lead fade-in">Every extra second of loading costs you visitors. Find out where you stand in about thirty seconds — then get the exact fixes, if you want them.</p></div></section>
+<section class="sec" style="padding-top:0"><div class="wrap">${speedBlock("h2")}</div></section>
+<section class="sec fog"><div class="wrap two"><div>${H("h2", "h-sec", "Good to know.")}<p class="lead" data-reveal style="margin-top:22px">For the full picture — ads, search, AI visibility and social — take the <a class="link" href="/free-audit/">free growth audit</a>.</p></div>${faqBlock(speedFaq)}</div></section>` }));
+add("/growth-score/", layout({ path: "/growth-score/", title: "Growth score quiz", fullTitle: `Growth score — a 60-second marketing health check — ${C.shortName}`, og: "growth-score",
+  desc: "Six quick questions, one honest score out of 100, and the three marketing fixes that would move your business most. Free, no sign-up needed.",
+  crumbs: [["Home", "/"], ["Growth score", "/growth-score/"]], ld: [crumbsLd([["Home", "/"], ["Growth score", "/growth-score/"]]), toolLd("Growth score", "/growth-score/", "A 60-second marketing health check with a score out of 100 and prioritised fixes.")],
+  body: `<section class="phero" style="padding-bottom:clamp(24px,4vw,40px)"><div class="wrap">${H1("h-page", "How loud is your dot?")}<p class="lead fade-in">Six quick taps. One honest score out of 100. The fixes that would move it most. No sign-up — you only leave an email if you want the full plan.</p></div></section>
+<section class="sec" style="padding-top:0" data-mood-sec="wink"><div class="wrap">${quizBlock("page")}</div></section>
+<section class="sec fog"><div class="wrap two"><div>${H("h2", "h-sec", "What the score means.")}</div><ul class="check" data-reveal><li><b>80–100:</b> loud and clear. You're doing most things right; the gains are in the details.</li><li><b>50–79:</b> audible. A few fixes would make a noticeable difference to leads.</li><li><b>Below 50:</b> whispering. Good news: the first fixes are usually the cheapest and fastest.</li></ul></div></section>
+${ctaBand("growth-score", { title: "Want us to fix the lot?" })}` }));
+
+// markets
+add("/markets/", layout({ path: "/markets/", title: "Markets", fullTitle: `International marketing agency for the UK, US, UAE, Singapore and more — ${C.shortName}`, og: "markets",
+  desc: "Dotindot works with brands in the UK, US, UAE, Singapore, Australia and India — in your time zone, your currency and your market's rules.",
+  crumbs: [["Home", "/"], ["Markets", "/markets/"]], ld: [crumbsLd([["Home", "/"], ["Markets", "/markets/"]])],
+  body: `<section class="phero"><div class="wrap">${H1("h-page", "Wherever your customers are")}<p class="lead fade-in">One remote-first team, working in your hours, quoting in your currency and playing by your market's rules. Pick yours.</p></div></section>
+<section class="sec" style="padding-top:0" data-mood-sec="wow"><div class="wrap"><div class="related mk-grid">${markets.map((m) => `<a href="/markets/${m.slug}/" data-dot="happy" data-tz="${m.tz}"><b>${esc(m.country)}</b><span>${esc(m.city)}: <strong class="tm" style="font-weight:700;color:var(--ink)">--:--</strong> now. Invoiced in ${m.cur}.</span></a>`).join("")}</div></div></section>
+${ctaBand("markets", { title: "Not on the list? We're probably still awake." })}` }));
+markets.forEach((m) => {
+  const mfaq = m.faq.concat([faqs[4], faqs[6]]);
+  add(`/markets/${m.slug}/`, layout({ path: `/markets/${m.slug}/`, title: `Digital marketing agency for brands in ${m.name}`, fullTitle: `Digital marketing agency for ${m.country} brands — ads, SEO, AI search — ${C.shortName}`, og: `markets-${m.slug}`,
+    desc: `AI-first marketing for brands in ${m.name}: performance ads, social, SEO and AI search, websites and AI agents — in ${m.name} working hours, invoiced in ${m.cur}.`,
+    crumbs: [["Home", "/"], ["Markets", "/markets/"], [m.country, `/markets/${m.slug}/`]],
+    ld: [crumbsLd([["Home", "/"], ["Markets", "/markets/"], [m.country, `/markets/${m.slug}/`]]), faqLd(mfaq),
+      { "@context": "https://schema.org", "@type": "Service", name: `Digital marketing for brands in ${m.country}`, serviceType: "Digital marketing", provider: { "@id": abs("/#org") }, areaServed: { "@type": "Country", name: m.country }, availableChannel: { "@type": "ServiceChannel", serviceUrl: abs(`/markets/${m.slug}/`) }, offers: { "@type": "Offer", priceCurrency: m.cur, description: `Fixed quotations in ${m.cur}` } }],
+    body: `<section class="phero"><div class="wrap"><nav class="crumbs" aria-label="Breadcrumb"><a href="/markets/">Markets</a> / ${esc(m.country)}</nav>${H1("h-page", `Marketing for brands in ${m.name}`)}<p class="lead fade-in">An AI-first marketing studio working in ${m.name}'s hours and invoicing in ${m.cur}. Ads, content, SEO and AI search, websites and AI agents — one team, one dashboard.</p>
+<div class="btns fade-in" style="margin-top:28px"><a class="btn alt" href="#talk" data-dot="love" data-mag>Talk to us</a><a class="btn ghost" href="/free-audit/">Free growth audit</a></div></div></section>
+<section class="sec" style="padding-top:clamp(24px,4vw,48px)" data-mood-sec="wow"><div class="wrap two">
+<div>${H("h2", "h-sec stretchy", "Your hours, our hours.")}<p class="lead" data-reveal style="margin-top:22px">${esc(m.overlap)}</p>
+<div class="clocks" data-reveal style="grid-template-columns:1fr 1fr;max-width:480px"><div class="clock" data-tz="${m.tz}"><b>--:--</b><span><i></i>${esc(m.city)}</span></div><div class="clock us" data-tz="Asia/Kolkata"><b>--:--</b><span><i></i>Us, in India</span></div></div></div>
+<div data-reveal><h2 class="h-mid" style="margin-bottom:18px">Local know-how</h2><ul class="check"><li><b>Platforms:</b> ${esc(m.platforms)}</li><li><b>Rules:</b> ${esc(m.rules)}</li><li><b>Search:</b> ${esc(m.search)}</li><li><b>Money:</b> fixed quotations and invoices in ${m.cur}. Never a percentage of your ad spend.</li></ul></div>
+</div></section>
+<section class="sec fog" data-mood-sec="happy"><div class="wrap"><div class="head">${H("h2", "h-sec stretchy", `What we run for brands in ${m.name}`)}<p data-reveal>Pick one or run the lot. Every service reports into the same live dashboard.</p></div><div class="related">${services.map((x) => `<a href="/services/${x.slug}/" data-dot="happy"><b>${esc(x.name)}</b><span>${esc(x.short)}</span></a>`).join("")}</div></div></section>
+<section class="sec"><div class="wrap two"><div>${H("h2", "h-sec", "Questions from " + m.name + ".")}</div>${faqBlock(mfaq)}</div></section>
+${ctaBand(`market-${m.slug}`, { title: `Let's grow your brand in ${m.name}.` })}` }));
+});
+
 // careers
-add("/careers/", layout({ path: "/careers/", title: "Careers", desc: "Work at dotindot: remote-first roles in performance marketing, content, engineering and AI automation, working with brands around the world.",
+add("/careers/", layout({ path: "/careers/", title: "Careers", fullTitle: `Careers — remote marketing, content and engineering roles — ${C.shortName}`, og: "careers", desc: "Work at dotindot: remote-first roles in performance marketing, content, engineering and AI automation, working with brands around the world.",
   ld: [crumbsLd([["Home", "/"], ["Careers", "/careers/"]])],
   body: `<section class="phero"><div class="wrap">${H1("h-page", "Work with us")}<p class="lead fade-in">Remote-first, real clients around the world, modern AI tools, and colleagues who'd rather ship than meet. Dot will be your desk neighbour. It doesn't talk much.</p></div></section>
 <section class="sec" style="padding-top:0"><div class="wrap"><h2 class="h-mid" style="margin-bottom:22px">Open roles</h2><div class="roles">${careers.map((r) => `<div class="role" data-reveal><h3>${esc(r.title)}<span class="pl">${esc(r.place)}</span></h3><p>${esc(r.text)}</p><a class="btn small ghost" href="mailto:${C.email}?subject=${encodeURIComponent("Application: " + r.title)}" data-dot="love">Apply</a></div>`).join("")}</div>
@@ -398,14 +488,14 @@ add("/thanks/", layout({ path: "/thanks/", title: "Thank you", desc: "We've got 
   body: `<section class="phero" data-mood-sec="love"><div class="wrap">${H1("h-page", "Got it. Thank you")}<p class="lead fade-in">Dot is doing a small happy dance. Here's what happens next:</p>
 <ol class="timeline" data-reveal style="margin-top:32px;max-width:560px"><li><b>Today</b><span>A human reads your note. Properly.</span></li><li><b>Within one working day</b><span>We reply on email or WhatsApp, with a couple of questions or a time for a call.</span></li><li><b>Before the call</b><span>We look at your website, search and social so the 30 minutes are useful, not small talk.</span></li></ol>
 <div class="btns" data-reveal style="margin-top:36px"><a class="btn" href="/">Back home</a><a class="btn ghost" href="/insights/">Read something useful meanwhile</a></div></div></section>` }));
-add("/privacy/", layout({ path: "/privacy/", title: "Privacy policy", desc: "What dotindot collects through this website, why, and how to ask us to change or delete it.",
+add("/privacy/", layout({ path: "/privacy/", title: "Privacy policy", fullTitle: `Privacy policy — how ${C.shortName} handles your data`, desc: "What dotindot collects through this website, why, and how to ask us to change or delete it.",
   body: `<section class="phero" style="padding-bottom:clamp(24px,4vw,48px)"><div class="wrap">${H1("h-page", "Privacy policy")}<p class="meta">Last updated ${today}</p></div></section><section class="sec" style="padding-top:0"><div class="wrap prose">
 <p>${esc(C.name)} (“we”) runs ${esc(C.domain.replace(/^https?:\/\//, ""))}. This page explains what we collect through this site and why. We follow India's Digital Personal Data Protection Act 2023 and, for visitors in the UK and EU, the GDPR.</p>
 <h2>What we collect</h2><p>What you type into our forms (name, company, email, phone, budget range and message), the page you sent it from, your browser's time zone, and — if present — the campaign tags in the link you arrived from. If analytics is switched on, anonymised usage data.</p>
 <h2>Why</h2><p>To reply to you, prepare anything you asked for (such as an audit), and understand which pages are useful. Form submissions go straight into our own CRM. We don't sell personal data, ever.</p>
 <h2>What stays in your browser</h2><p>We remember how you first arrived (in your browser's local storage) so an enquiry carries its source, and whether Dot already said hello (session storage). No advertising cookies are set by this site.</p>
 <h2>Your choices</h2><p>Email <a href="mailto:${C.email}">${C.email}</a> to see, correct or delete what we hold about you. We'll do it within 30 days.</p></div></section>` }));
-add("/terms/", layout({ path: "/terms/", title: "Terms of use", desc: "Terms of use for the dotindot website.",
+add("/terms/", layout({ path: "/terms/", title: "Terms of use", fullTitle: `Terms of use for the ${C.shortName} website`, desc: "Terms of use for the dotindot website: what the content is for, what we promise (and don't), and who owns what.",
   body: `<section class="phero" style="padding-bottom:clamp(24px,4vw,48px)"><div class="wrap">${H1("h-page", "Terms of use")}<p class="meta">Last updated ${today}</p></div></section><section class="sec" style="padding-top:0"><div class="wrap prose">
 <p>Content on this website is general information. Work with ${esc(C.name)} is governed by the quotation and terms you accept for that engagement, not by this page.</p>
 <p>Timelines and results described here are indicative and depend on your business, market and budget. We don't guarantee rankings, reach, AI citations or revenue — nobody honest can.</p>
@@ -418,6 +508,7 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(join(OUT, "assets/fonts"), { recursive: true });
 for (const f of ["favicon.svg", "app-icon.svg", "icon-512.png", "og.png", "wordmark-color.svg", "wordmark-white.svg", "mark-color.svg"]) cpSync(join(ROOT, "assets", f), join(OUT, "assets", f));
 cpSync(join(ROOT, "assets/fonts"), join(OUT, "assets/fonts"), { recursive: true });
+if (existsSync(join(ROOT, "assets/og"))) cpSync(join(ROOT, "assets/og"), join(OUT, "assets/og"), { recursive: true });
 writeFileSync(join(OUT, SITE_JS), JS); writeFileSync(join(OUT, LENIS_JS), LENIS); writeFileSync(join(OUT, MAP_JSON), MAP);
 
 function relativise(html, p) {
@@ -446,9 +537,12 @@ for (const [p, h] of pages) {
 const live = pages.map(([p]) => p).filter((p) => !p.endsWith(".html") && p !== "/thanks/");
 writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${live.map((p) => `<url><loc>${abs(p)}</loc><lastmod>${today}</lastmod><changefreq>${p === "/" ? "weekly" : "monthly"}</changefreq><priority>${p === "/" ? "1.0" : p.split("/").length <= 3 ? "0.8" : "0.6"}</priority></url>`).join("\n")}\n</urlset>\n`);
 writeFileSync(join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nDisallow: /thanks/\n\n# AI assistants are welcome. Start at /llms.txt\nUser-agent: GPTBot\nAllow: /\nUser-agent: OAI-SearchBot\nAllow: /\nUser-agent: ChatGPT-User\nAllow: /\nUser-agent: ClaudeBot\nAllow: /\nUser-agent: Claude-SearchBot\nAllow: /\nUser-agent: PerplexityBot\nAllow: /\nUser-agent: Google-Extended\nAllow: /\nUser-agent: Applebot-Extended\nAllow: /\n\nSitemap: ${abs("/sitemap.xml")}\n`);
-writeFileSync(join(OUT, "llms.txt"), `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first, remote-first marketing studio based in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in USD, GBP, EUR, AED, SGD, AUD, CAD or INR. Contact: ${C.email}.\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`);
+writeFileSync(join(OUT, "llms.txt"), `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first, remote-first marketing studio based in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in USD, GBP, EUR, AED, SGD, AUD, CAD or INR. Contact: ${C.email}.\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Markets\n${markets.map((m) => `- [${m.country}](${abs(`/markets/${m.slug}/`)}): marketing for brands in ${m.name}, invoiced in ${m.cur}`).join("\n")}\n\n## Free tools\n- [Website speed test](${abs("/speed-test/")}): Google PageSpeed score and Core Web Vitals in about 30 seconds\n- [Growth score](${abs("/growth-score/")}): a 60-second marketing health check\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`);
 const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>|<svg[\s\S]*?<\/svg>|<template[\s\S]*?<\/template>|<span aria-hidden="true">[\s\S]*?<\/span><\/h[12]>/g, (m) => (m.startsWith("<span aria-hidden") ? "" : "")).replace(/<div class="dot-bubble[\s\S]*?<\/div><\/div>/g, "").replace(/<h([1-3])[^>]*>/g, (m, n) => `\n${"#".repeat(+n)} `).replace(/<li[^>]*>/g, "\n- ").replace(/<\/p>|<\/h[1-3]>|<br\s*\/?>|<\/summary>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/[ \t]+/g, " ").replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
 writeFileSync(join(OUT, "llms-full.txt"), `# ${C.name} — full site text\n` + pages.filter(([p]) => live.includes(p)).map(([p, h]) => `\n\n---\nURL: ${abs(p)}\n\n${strip(typeof h === "function" ? h(0) : h)}`).join(""));
+writeFileSync(join(OUT, "humans.txt"), `/* TEAM */\nStudio: ${C.name}\nContact: ${C.email}\nFrom: India, working worldwide\n\n/* MASCOT */\nName: Dot\nRole: Head of Vibes\nSkills: staring, rolling, not blinking\n\n/* SITE */\nLast update: ${today}\nStandards: HTML, CSS, a little JavaScript\nFonts: Anybody, Instrument Sans\nTemplates used: 0\n`);
+mkdirSync(join(OUT, ".well-known"), { recursive: true });
+writeFileSync(join(OUT, ".well-known/security.txt"), `Contact: mailto:${C.email}\nExpires: ${new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10)}T00:00:00.000Z\nPreferred-Languages: en\nCanonical: ${abs("/.well-known/security.txt")}\n`);
 writeFileSync(join(OUT, "manifest.webmanifest"), JSON.stringify({ name: C.name, short_name: C.shortName, start_url: "/", display: "browser", background_color: "#ffffff", theme_color: "#ffffff", icons: [{ src: "/assets/icon-512.png", sizes: "512x512", type: "image/png" }, { src: "/assets/app-icon.svg", sizes: "any", type: "image/svg+xml" }] }));
 writeFileSync(join(OUT, ".htaccess"), `# dotindot.in — Apache (Hostinger)
 Options -Indexes
