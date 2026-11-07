@@ -1,0 +1,38 @@
+{
+  "_comment": "Everything that is specific to you lives here. Edit, run `node build.mjs`, upload dist/.",
+  "domain": "https://dotindot.in",
+  "name": "Dotindot Creative",
+  "shortName": "dotindot",
+  "tagline": "AI marketing-tech agency",
+  "founded": "2021",
+  "email": "hello@dotindot.in",
+  "phone": "+91 98765 43210",
+  "phoneDisplay": "+91 98765 43210",
+  "whatsapp": "919876543210",
+  "internalUrl": "https://internal.dotindot.in",
+  "leadIntakeUrl": "https://internal.dotindot.in/api/intake/leads/PASTE_YOUR_INTAKE_KEY_HERE",
+  "ga4": "",
+  "social": {
+    "instagram": "https://instagram.com/dotindot.creative",
+    "linkedin": "https://linkedin.com/company/dotindot",
+    "youtube": "",
+    "facebook": "",
+    "x": ""
+  },
+  "locations": [
+    {"slug": "erode", "city": "Erode", "state": "Tamil Nadu", "line1": "2nd Floor, 14 Brough Road", "line2": "Near Bus Stand", "pincode": "638001", "lat": 11.3410, "lng": 77.7172, "phone": "+91 98765 43210", "mapsUrl": "https://maps.google.com/?q=Dotindot+Creative+Erode", "hq": true},
+    {"slug": "coimbatore", "city": "Coimbatore", "state": "Tamil Nadu", "line1": "Avinashi Road", "line2": "Peelamedu", "pincode": "641004", "lat": 11.0168, "lng": 76.9558, "phone": "+91 98765 43210", "mapsUrl": "https://maps.google.com/?q=Dotindot+Creative+Coimbatore", "hq": false},
+    {"slug": "chennai", "city": "Chennai", "state": "Tamil Nadu", "line1": "Anna Salai", "line2": "Teynampet", "pincode": "600018", "lat": 13.0418, "lng": 80.2341, "phone": "+91 98765 43210", "mapsUrl": "https://maps.google.com/?q=Dotindot+Creative+Chennai", "hq": false}
+  ],
+  "hours": "Mon–Sat 9:30–18:30 IST",
+  "certifications": ["Google Partner", "Meta Business Partner", "MSME registered"],
+  "proof": {
+    "_comment": "Real numbers only. Leave a value empty to hide it.",
+    "clientsServed": "",
+    "adSpendManaged": "",
+    "leadsGenerated": "",
+    "yearsActive": ""
+  },
+  "testimonials": [],
+  "caseStudies": []
+}
