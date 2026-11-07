@@ -24,7 +24,7 @@ export const QUOTE_STATUS_STYLES = {
 const TABS = [
   { name: "Overview", path: "/sales", exact: true },
   { name: "Pipeline", path: "/sales/pipeline" },
-  { name: "Quotes", path: "/sales/quotes" },
+  { name: "Quotes", path: "/finance/billing?type=quotation" },
   { name: "Targets", path: "/sales/targets" },
   { name: "Lead Flow", path: "/lead-flow" },
 ];

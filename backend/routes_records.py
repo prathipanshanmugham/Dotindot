@@ -40,6 +40,8 @@ DELETE_KEYS = {
     "ai_tokens": "ai_settings", "ai_access_log": "ai_settings",
     # v3.1
     "growth_accounts": "growth.delete", "growth_months": "growth.delete",
+    # v3.2
+    "billing_docs": "billing.delete", "billing_terms": "billing.manage",
 }
 
 # Line items stored inside a parent record that can be removed one by one: collection -> {array field: module delete key}
@@ -70,7 +72,7 @@ async def _require(user: dict, coll: str):
 
 
 # v3.1: records that belong to a client are only deletable by people who can see that client (branch scope).
-CLIENT_OWNED = {"growth_accounts": "owner", "growth_months": "owner"}
+CLIENT_OWNED = {"growth_accounts": "owner", "growth_months": "owner", "billing_docs": "client_id"}
 
 
 async def _check_scope(user: dict, coll: str, existing: dict):

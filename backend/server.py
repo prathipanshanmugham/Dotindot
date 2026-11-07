@@ -57,6 +57,7 @@ from routes_loans import router as loans_router
 from routes_investors import router as investors_router
 from routes_ai import router as ai_router
 from routes_growth import router as growth_router
+from routes_billing import router as billing_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -86,7 +87,7 @@ for r in (auth_router, users_router, clients_router, projects_router, misc_route
           access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router,
           passwords_router, dashboard_router, records_router, agents_router, org_router,
           api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router,
-          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router):
+          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router, billing_router):
     app.include_router(r, prefix="/api")
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
@@ -186,6 +187,14 @@ async def startup():
     await db.growth_months.create_index("id", unique=True)
     await db.growth_months.create_index([("account_id", 1), ("month", 1)], unique=True)
     await db.growth_months.create_index([("owner", 1), ("month", 1)])
+    await db.billing_docs.create_index("id", unique=True)
+    await db.billing_docs.create_index("share_token", unique=True)
+    await db.billing_docs.create_index([("type", 1), ("status", 1), ("date", -1)])
+    await db.billing_docs.create_index("client_id")
+    await db.billing_terms.create_index("id", unique=True)
+    from routes_billing import migrate_old_quotes, ensure_default_terms
+    await ensure_default_terms()
+    await migrate_old_quotes()
     # Ignore-proof cleanup: remove any stale test users (test_*@dotindot.test) on every startup
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
     if removed.deleted_count:

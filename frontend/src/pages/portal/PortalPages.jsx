@@ -17,7 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TicketThread, STATUS_TONE } from "@/pages/support/SupportPage";
 import { Pill, ago } from "@/components/kit";
-import { LogOut, KeyRound, ChevronDown, LayoutDashboard, LifeBuoy, Plus, Star, Send } from "lucide-react";
+import { LogOut, KeyRound, ChevronDown, LayoutDashboard, LifeBuoy, Plus, Star, Send, Receipt, Download, CheckCircle2 } from "lucide-react";
+import { money, STATUS_LABEL as BILL_STATUS_LABEL, STATUS_TONE as BILL_STATUS_TONE, TYPE_LABEL } from "@/pages/finance/billing/billingKit";
+import { fmtDate } from "@/components/kit";
 
 const hasToken = () => { try { return !!localStorage.getItem(PORTAL_TOKEN); } catch { return false; } };
 
@@ -82,6 +84,53 @@ function ChangePassword({ open, onClose }) {
           <Button className="bg-[#F26B21] hover:bg-[#d95b16] text-white" disabled={busy || f.new_password.length < 8 || !f.current_password} onClick={save}>Save</Button></DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PortalBilling() {
+  const [data, setData] = useState(null);
+  const [accept, setAccept] = useState(null);
+  const [note, setNote] = useState("");
+  const load = () => portalApi.get("/portal/billing").then((r) => setData(r.data)).catch((e) => toast.error(apiError(e)));
+  useEffect(() => { load(); }, []);
+  const pdf = async (d) => {
+    try { const r = await portalApi.get(`/portal/billing/${d.id}/pdf`, { responseType: "blob" }); saveBlobResponse(r, `${d.number.replace(/\//g, "-")}.pdf`); } catch (e) { toast.error(await blobErrorText(e)); }
+  };
+  const doAccept = async () => {
+    try { await portalApi.post(`/portal/billing/${accept.id}/accept`, { name: "", note }); toast.success("Quotation accepted — thank you!"); setAccept(null); setNote(""); load(); } catch (e) { toast.error(apiError(e)); }
+  };
+  if (!data) return <div className="h-40 flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+  const open = data.docs.filter((d) => d.type === "quotation" && d.status === "sent");
+  const due = data.docs.filter((d) => d.type === "invoice" && d.balance > 0);
+  return (
+    <div className="space-y-4" data-testid="portal-billing">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-2xl bg-white border border-gray-200 p-4"><div className="text-xs text-gray-500">Quotations awaiting your go-ahead</div><div className="text-2xl font-bold">{open.length}</div></div>
+        <div className="rounded-2xl bg-white border border-gray-200 p-4"><div className="text-xs text-gray-500">Invoices open</div><div className="text-2xl font-bold">{due.length}</div></div>
+        <div className="rounded-2xl bg-white border border-gray-200 p-4"><div className="text-xs text-gray-500">Balance due</div><div className="text-2xl font-bold font-mono">{Object.entries(data.outstanding).filter(([, v]) => v > 0).map(([c, v]) => money(v, c, 0)).join(" · ") || "—"}</div></div>
+      </div>
+      <div className="rounded-2xl bg-white border border-gray-200 divide-y divide-gray-100">
+        {data.docs.length === 0 && <p className="p-6 text-sm text-gray-400 text-center">No quotations or invoices yet.</p>}
+        {data.docs.map((d) => (
+          <div key={d.id} className="p-4 flex flex-wrap items-center gap-3" data-testid={`portal-doc-${d.id}`}>
+            <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="font-mono font-semibold text-gray-900">{d.number}</span><Pill tone={BILL_STATUS_TONE[d.status]}>{BILL_STATUS_LABEL[d.status]}</Pill></div>
+              <div className="text-xs text-gray-500">{TYPE_LABEL[d.type]}{d.title ? ` · ${d.title}` : ""} · {fmtDate(d.date)}{d.due_date ? ` · due ${fmtDate(d.due_date)}` : d.valid_until ? ` · valid until ${fmtDate(d.valid_until)}` : ""}</div></div>
+            <div className="text-right"><div className="font-mono font-semibold">{money(d.total, d.currency)}</div>{d.balance > 0 && d.paid > 0 && <div className="text-xs text-gray-500">balance {money(d.balance, d.currency)}</div>}</div>
+            <Button size="sm" variant="outline" onClick={() => pdf(d)} data-testid={`portal-doc-pdf-${d.id}`}><Download className="h-3.5 w-3.5" /></Button>
+            {d.type === "quotation" && d.status === "sent" && <Button size="sm" className="bg-[#F26B21] hover:bg-[#E05A10] text-white" onClick={() => setAccept(d)} data-testid={`portal-accept-${d.id}`}><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Accept</Button>}
+          </div>))}
+      </div>
+      {accept && (
+        <Dialog open onOpenChange={(o) => !o && setAccept(null)}>
+          <DialogContent className="max-w-md" data-testid="portal-accept-dialog">
+            <DialogHeader><DialogTitle>Accept {accept.number}?</DialogTitle></DialogHeader>
+            <p className="text-sm text-gray-600">You're accepting the quotation for <b>{money(accept.total, accept.currency)}</b> and its terms. We'll start right away.</p>
+            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything to add? (optional)" />
+            <DialogFooter><Button variant="outline" onClick={() => setAccept(null)}>Cancel</Button><Button className="bg-[#F26B21] hover:bg-[#E05A10] text-white" onClick={doAccept} data-testid="portal-accept-confirm">Accept quotation</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   );
 }
 
@@ -252,13 +301,13 @@ export function PortalDashboardPage() {
             <p className="text-sm text-gray-500 mt-1">Here's how your work with dotindot is going.</p>
           </div>
           <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5" data-testid="portal-tabs">
-            {[["overview", "Overview", LayoutDashboard], ["support", "Support", LifeBuoy]].map(([k, label, Icon]) => (
+            {[["overview", "Overview", LayoutDashboard], ["billing", "Quotes & invoices", Receipt], ["support", "Support", LifeBuoy]].map(([k, label, Icon]) => (
               <button key={k} type="button" onClick={() => setTab(k)} data-testid={`portal-tab-${k}`}
                 className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-[#FFF7ED] text-[#F26B21]" : "text-gray-600"}`}><Icon className="h-4 w-4" />{label}</button>
             ))}
           </div>
         </div>
-        {tab === "support" ? <PortalSupport /> : (
+        {tab === "billing" ? <PortalBilling /> : tab === "support" ? <PortalSupport /> : (
           <>
             <PeriodBar value={period} onChange={setPeriod} periods={me?.periods || DEFAULT_PERIODS} onDownload={download} downloading={downloading} />
             {d ? <ClientDashboardView data={d} /> : <div className="h-64 flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>}

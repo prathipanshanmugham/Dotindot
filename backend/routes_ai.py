@@ -64,6 +64,8 @@ MODULES: Dict[str, dict] = {
     "social": {"label": "Social media posts", "coll": "social_posts", "search": ["caption", "platform"],
                "write": {"create": ["client_id", "platform", "caption", "scheduled_at", "content_type"], "update": ["caption", "status"]}},
     "influencers": {"label": "Influencers", "coll": "influencers", "search": ["name", "handle"]},
+    "billing": {"label": "Quotations & invoices (amounts, status, payments)", "coll": "billing_docs", "search": ["number", "client_name", "title"],
+                "hide": {"share_token", "accepted_ip"}},
     "growth": {"label": "Digital growth (followers, views, reach by month)", "colls": ["growth_accounts", "growth_months"],
                "search": ["handle", "owner_name", "platform", "month"], "hide": {"sync.token_enc", "sync.token_hint"},
                "write": {"create": ["account_id", "month", "values", "note"], "update": []}},
@@ -96,7 +98,7 @@ SENSITIVE_PERM = {"payroll": "payroll", "hr_personal": "hr", "investors": "inves
 # You can only open a module to AI (or put it on a token) if you can see that data in the app yourself.
 MODULE_PERM = {"clients": "clients", "projects": "projects", "leads": "sales.pipeline", "client_leads": "lead_flow", "quotes": "sales.quotes",
                "finance": "finance.ledger", "expenses": "finance.expenses", "subscriptions": "finance.subscriptions", "loans": "finance.loans",
-               "ads": "ads", "social": "social", "influencers": "influencers", "growth": "growth", "support": "support", "employees": "employees",
+               "ads": "ads", "social": "social", "influencers": "influencers", "growth": "growth", "billing": "billing", "support": "support", "employees": "employees",
                "attendance": "daily_reports.team", "timesheets": "daily_reports.team", "holidays": "daily_reports", "hr": "hr", "assets": "assets",
                "partnerships": "partnerships", "locations": "locations", "org": "org_structure", "agents": "ai_agents",
                "api_credits": "finance.api_credits", "payroll": "payroll", "hr_records": "hr", "investors": "investors"}

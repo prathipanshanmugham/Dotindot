@@ -29,9 +29,6 @@ import CeoDashboard from "@/pages/CeoDashboard";
 import SalesOverview from "@/pages/sales/SalesOverview";
 import PipelinePage from "@/pages/sales/PipelinePage";
 import LeadDetailPage from "@/pages/sales/LeadDetailPage";
-import QuotesPage from "@/pages/sales/QuotesPage";
-import QuoteBuilderPage from "@/pages/sales/QuoteBuilderPage";
-import QuoteViewPage from "@/pages/sales/QuoteViewPage";
 import TargetsPage from "@/pages/sales/TargetsPage";
 import EmployeesPage from "@/pages/EmployeesPage";
 import EmployeeProfilePage from "@/pages/EmployeeProfilePage";
@@ -58,6 +55,11 @@ import { PortalLoginPage, PortalDashboardPage } from "@/pages/portal/PortalPages
 import SupportPage from "@/pages/support/SupportPage";
 import LeadFlowPage from "@/pages/sales/LeadFlowPage";
 import GrowthPage from "@/pages/growth/GrowthPage";
+import BillingPage from "@/pages/finance/billing/BillingPage";
+import BillingEditorPage from "@/pages/finance/billing/BillingEditorPage";
+import BillingDocPage from "@/pages/finance/billing/BillingDocPage";
+import SharePage from "@/pages/finance/billing/SharePage";
+import CompanyPage from "@/pages/settings/CompanyPage";
 import { HROverviewPage, HRPeoplePage, OnboardingPage, OffboardingPage, SkillsPage, KTPage } from "@/pages/hr/HRPages";
 import { PayrollPage, IncentivesPage } from "@/pages/hr/PayrollPages";
 import MyHRPage from "@/pages/hr/MyHRPage";
@@ -128,6 +130,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/portal/login" element={<PortalLoginPage />} />
           <Route path="/portal" element={<PortalDashboardPage />} />
+          <Route path="/share/:token" element={<SharePage />} />
           <Route path="/investor/login" element={<InvestorLoginPage />} />
           <Route path="/investor" element={<InvestorDashboardPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -155,15 +158,20 @@ function App() {
           <Route path="/finance/profit" element={<Protected perm="finance.project_profit"><ProjectProfitPage /></Protected>} />
           <Route path="/finance/employees" element={<Protected perm="finance.employee_revenue"><EmployeeRevenuePage /></Protected>} />
           <Route path="/finance/loans" element={<Protected perm="finance.loans"><LoansPage /></Protected>} />
+          <Route path="/finance/billing" element={<Protected perm="billing"><BillingPage /></Protected>} />
+          <Route path="/finance/billing/new" element={<Protected perm="billing.manage"><BillingEditorPage /></Protected>} />
+          <Route path="/finance/billing/:id" element={<Protected perm="billing"><BillingDocPage /></Protected>} />
+          <Route path="/finance/billing/:id/edit" element={<Protected perm="billing.manage"><BillingEditorPage /></Protected>} />
+          <Route path="/settings/company" element={<Protected perm="billing"><CompanyPage /></Protected>} />
           <Route path="/investors" element={<Protected perm="investors"><InvestorsPage /></Protected>} />
           <Route path="/my-expenses" element={<Protected><MyExpensesPage /></Protected>} />
           <Route path="/sales" element={<Protected perm={SALES_ANY}><SalesOverview /></Protected>} />
           <Route path="/sales/pipeline" element={<Protected perm="sales.pipeline"><PipelinePage /></Protected>} />
           <Route path="/sales/leads/:id" element={<Protected perm="sales.pipeline"><LeadDetailPage /></Protected>} />
-          <Route path="/sales/quotes" element={<Protected perm="sales.quotes"><QuotesPage /></Protected>} />
-          <Route path="/sales/quotes/new" element={<Protected perm="sales.quotes" roles={["admin", "sales"]}><QuoteBuilderPage /></Protected>} />
-          <Route path="/sales/quotes/:id" element={<Protected perm="sales.quotes"><QuoteViewPage /></Protected>} />
-          <Route path="/sales/quotes/:id/edit" element={<Protected perm="sales.quotes" roles={["admin", "sales"]}><QuoteBuilderPage /></Protected>} />
+          <Route path="/sales/quotes" element={<Navigate to="/finance/billing?type=quotation" replace />} />
+          <Route path="/sales/quotes/new" element={<Navigate to="/finance/billing/new?type=quotation" replace />} />
+          <Route path="/sales/quotes/:id" element={<Navigate to="/finance/billing?type=quotation" replace />} />
+          <Route path="/sales/quotes/:id/edit" element={<Navigate to="/finance/billing?type=quotation" replace />} />
           <Route path="/sales/targets" element={<Protected perm="sales.targets"><TargetsPage /></Protected>} />
           <Route path="/lead-flow" element={<Protected perm={["lead_flow", "sales.pipeline"]}><LeadFlowPage /></Protected>} />
           <Route path="/growth" element={<Protected perm={["growth"]}><GrowthPage /></Protected>} />

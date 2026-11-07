@@ -15,6 +15,7 @@ const TABS = [
   { name: "AI Spend", path: "/finance/ai", roles: ["super_admin", "admin", "finance"] },
   { name: "API Credits", path: "/finance/api-credits", roles: ["super_admin", "admin", "finance"], perm: "finance.api_credits" },
   { name: "Loans", path: "/finance/loans", roles: ["super_admin", "admin", "finance"], perm: "finance.loans" },
+  { name: "Billing", path: "/finance/billing", roles: ["super_admin", "admin", "finance", "sales"], perm: "billing" },
   { name: "Marketing", path: "/finance/marketing", roles: ["super_admin", "admin", "finance"] },
   { name: "Project Profit", path: "/finance/profit", roles: ["super_admin", "admin", "finance", "pm"] },
   { name: "Employee Revenue", path: "/finance/employees", roles: ["super_admin", "admin", "finance"] },

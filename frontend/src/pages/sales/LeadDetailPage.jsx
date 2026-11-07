@@ -220,7 +220,7 @@ export default function LeadDetailPage() {
             <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base font-semibold">Quotes</CardTitle>
               {canWrite && (
-                <Button size="sm" variant="outline" onClick={() => navigate(`/sales/quotes/new?lead=${id}`)} data-testid="new-quote-for-lead-btn">
+                <Button size="sm" variant="outline" onClick={() => navigate(`/finance/billing/new?type=quotation&lead=${id}`)} data-testid="new-quote-for-lead-btn">
                   <FileText className="h-3.5 w-3.5 mr-1.5" /> New quote
                 </Button>
               )}
@@ -228,13 +228,13 @@ export default function LeadDetailPage() {
             <CardContent className="space-y-2">
               {(lead.quotes || []).length === 0 && <p className="text-sm text-gray-400">No quotes for this lead.</p>}
               {(lead.quotes || []).map((q) => (
-                <Link key={q.id} to={`/sales/quotes/${q.id}`} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2.5 hover:border-orange-300 transition-colors" data-testid={`lead-quote-${q.id}`}>
+                <Link key={q.id} to={`/finance/billing/${q.id}`} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2.5 hover:border-orange-300 transition-colors" data-testid={`lead-quote-${q.id}`}>
                   <div>
                     <div className="text-sm font-semibold text-gray-800">{q.number} · {q.title}</div>
-                    <div className="text-xs text-gray-400">Valid till {q.validity_date}</div>
+                    <div className="text-xs text-gray-400">Valid till {q.validity_date || "—"}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-semibold">{formatINR(q.total)}</span>
+                    <span className="font-mono text-sm font-semibold">{q.currency && q.currency !== "INR" ? `${q.currency} ${Number(q.total).toLocaleString("en-IN")}` : formatINR(q.total)}</span>
                     <Badge variant="outline" className={QUOTE_STATUS_STYLES[q.status]}>{labelize(q.status)}</Badge>
                   </div>
                 </Link>

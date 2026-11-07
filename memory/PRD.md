@@ -159,6 +159,16 @@ Internal web app (FARM: FastAPI + React + MongoDB) for Dotindot Creative, an AI-
 - Role migration `role_defaults_v31`: Admin all growth keys; Social Media + Ads managers view + manage; Sales + PM view.
 - Optional demo data: `seed_v31.py` (12 months for dotindot + 6 clients). Tests: `tests/test_v31_growth.py` (23 tests, self-contained).
 
+## v3.2 Revision 11 (7 Nov 2026) — Quotations & Invoicing
+**Billing** (Finance → Billing, `/finance/billing`; perms `billing` / `billing.manage` / `billing.delete`; `routes_billing.py`; collections `billing_docs`, `billing_terms`; settings doc `company`). Replaces Sales → Quotes (old quotes migrated as quotations, old routes redirect).
+- **Company profile** (Settings → Company & billing): legal name, address, GSTIN/PAN/CIN/Udyam/LUT, bank + SWIFT, UPI id, logo, signature + signatory, certifications (name/issuer/number/validity/badge image), numbering prefixes, defaults (validity, due days, GST %, SAC, currency, footer note). Images stored as data URLs ≤400 KB, validated.
+- **Terms library**: 28 built-in clauses across payment / scope / timeline / revisions / IP / confidentiality / cancellation / liability / ads / hosting / general, tagged by service type (web, seo, ads, social, branding, video, influencer, retainer, ai, export) and marked default-for quotation/invoice; editable, plus one-off custom clauses per document.
+- **Documents**: quotation, proforma, tax invoice, credit note. INR with GST (CGST+SGST same state, IGST other state; validated against company and client state), zero-rated export/SEZ under LUT, or no tax. USD/EUR/AED/GBP/SGD/AUD/CAD with exchange rate (INR equivalent kept). Per-line SAC, qty/unit, discount %, tax %; overall discount; round-off to the rupee; amount in words (lakh/crore for INR); numbering `PREFIX/FY/0001` per type per April–March FY. Quote → proforma/invoice → credit note with links both ways; payments (part payments, method, reference, INR received for foreign), status derived (part paid / paid / overdue); duplicate; cancel. Edit locked once paid against.
+- **PDF**: branded letterhead (uploaded logo or dotindot wordmark), parties + document facts, items table, totals, GST summary, **UPI QR** (`upi://pay` with exact balance + invoice number) on INR documents, bank/SWIFT block + "charges OUR" note for foreign, terms, certifications strip, signature; "Export invoice"/"Tax invoice"/"Proforma"/"Quotation" titles; Unicode-safe filenames.
+- **Sharing**: share link `/share/{token}` (public, no login) shows the document, PDF and lets a prospect accept a quotation (name/email recorded, bell notification); client portal gets a "Quotes & invoices" tab (list, PDF, accept).
+- Receivables summary (outstanding, overdue, ageing buckets, invoiced/collected this month, open quotes), bell alert for overdue invoices; branch scope on everything; AI module `billing` (read; secrets hidden).
+- Tests: `tests/test_v32_billing.py` (19). Demo: `seed_v32.py`.
+
 ## Prioritized Backlog (post-launch ideas)
 - P2: multi-currency, email alert digests, scheduled auto-generated monthly reports, quote e-signature
 

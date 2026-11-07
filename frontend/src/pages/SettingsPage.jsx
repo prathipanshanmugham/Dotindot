@@ -88,6 +88,21 @@ export default function SettingsPage() {
         </Link>
       )}
 
+      {hasPerm("billing") && (
+        <Link to="/settings/company" className="block group" data-testid="settings-company-link">
+          <Card className="border-gray-200/80 shadow-sm group-hover:border-orange-200 transition-colors">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="h-11 w-11 rounded-2xl bg-gray-900 text-white flex items-center justify-center shrink-0"><Building2 className="h-5 w-5" /></div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-gray-900">Company & billing</div>
+                <p className="text-xs text-gray-500 mt-0.5">Legal details, GSTIN, bank & UPI, logo, signature, certifications, numbering and the terms library used on quotations and invoices.</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-[#F26B21]" />
+            </CardContent>
+          </Card>
+        </Link>
+      )}
+
       <ChangePasswordCard />
 
       {user?.role === "super_admin" && (

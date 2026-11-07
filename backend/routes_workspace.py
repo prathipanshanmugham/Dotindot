@@ -73,6 +73,9 @@ COLLECTIONS = {
     # v3.1
     "growth_accounts": {"label": "Digital Growth Accounts", "search": ["handle", "owner_name", "platform"]},
     "growth_months": {"label": "Digital Growth Numbers", "search": ["month", "platform"]},
+    # v3.2
+    "billing_docs": {"label": "Quotations & Invoices", "search": ["number", "client_name", "title"]},
+    "billing_terms": {"label": "Billing Terms Library", "search": ["title", "category"]},
 }
 
 # Collections that hold platform internals — never listed or wiped.
@@ -124,6 +127,8 @@ DEPS["clients"] += [("client_leads", "client_id", "delete"), ("tickets", "client
 # v3.1: a client's growth accounts and their monthly numbers go with the client; numbers go with their account.
 DEPS["clients"] += [("growth_accounts", "client_id", "delete"), ("growth_months", "client_id", "delete")]
 DEPS["growth_accounts"] = [("growth_months", "account_id", "delete")]
+# v3.2: a client's quotations and invoices are kept (statutory records) but unlinked when the client goes
+DEPS["clients"] += [("billing_docs", "client_id", "unset")]
 
 
 async def require_super_admin(user: dict = Depends(get_current_user)) -> dict:

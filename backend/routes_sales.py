@@ -108,7 +108,10 @@ async def get_lead(lead_id: str, user: dict = Depends(require_roles(*READ))):
     for a in activities:
         a["created_by_name"] = umap.get(a.get("created_by"), "")
     lead["activities"] = activities
-    lead["quotes"] = await db.quotes.find({"lead_id": lead_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    # v3.2: quotations live in Billing now (old ones were migrated there)
+    lead["quotes"] = [{"id": q["id"], "number": q["number"], "title": q.get("title", ""), "total": q["total"], "currency": q["currency"], "status": q["status"],
+                       "validity_date": q.get("valid_until"), "billing": True}
+                      for q in await db.billing_docs.find({"lead_id": lead_id, "type": "quotation"}, {"_id": 0}).sort("created_at", -1).to_list(100)]
     if lead.get("converted_client_id"):
         client = await db.clients.find_one({"id": lead["converted_client_id"]}, {"_id": 0, "id": 1, "name": 1})
         lead["converted_client_name"] = client["name"] if client else ""
