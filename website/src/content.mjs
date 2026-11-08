@@ -1,13 +1,13 @@
-// All copy for dotindot.in. Plain words first, jokes second, never the other way round.
-// Nothing here claims a client, a number or an office we can't back up. Proof lives in site.config.json.
+// All copy for dotindot.in. Plain, confident, specific.
+// Nothing here claims a client, a number or an office we can't back up. Clients, testimonials, team and numbers live in site.config.json.
 
 export const services = [
   {
-    slug: "performance-ads", name: "Performance ads", short: "Meta, Google, LinkedIn and TikTok ads judged on what a customer costs you.",
-    tagline: "Ads that pay rent.",
-    joke: "We love clicks. We love paid invoices more.",
+    slug: "performance-ads", name: "Performance marketing", short: "Meta, Google, LinkedIn and TikTok ads judged on what a customer costs you.",
+    tagline: "Paid media measured on revenue, not reach.",
     promise: "Paid campaigns with one job: bring in customers at a cost that makes sense for your margins.",
     intro: "We plan, build and run campaigns on Meta, Google, YouTube, LinkedIn and TikTok, then optimise every week against the leads and sales that actually landed in your CRM — not the clicks the platforms like to brag about.",
+    highlights: ["Meta, Google, LinkedIn and TikTok campaigns", "Server-side conversion tracking", "Monthly creative testing", "Campaign landing pages"],
     deliverables: ["Account, pixel and server-side conversion tracking that survives privacy changes", "Creative testing every month, scored by cost per qualified lead or sale", "Landing pages built for the campaign, not your homepage", "Weekly optimisation and a monthly report in plain language", "A lead-quality loop: your sales team flags junk, we tune targeting"],
     fit: ["You sell something people search for or scroll past", "You can tell us what a customer is worth", "Your ads run but nobody can say what they return", "You're entering a new country and need demand fast"],
     steps: [["Week 1", "Tracking audit and fixes, offer and audience plan"], ["Week 2", "Creative and landing pages, campaigns live"], ["Weeks 3–4", "Learning phase, first cuts and doubles-down"], ["Every month", "New creative, budget shifts, a report you'll actually read"]],
@@ -17,13 +17,13 @@ export const services = [
     icon: "target",
   },
   {
-    slug: "social-content", name: "Social & content", short: "Reels, carousels and stories planned a month ahead and posted for you.",
-    tagline: "Thumb-stopping, not thumb-numbing.",
-    joke: "We've seen enough “Happy Monday!” posts for several lifetimes. You won't get one from us.",
+    slug: "social-content", name: "Social media & content", short: "Reels, carousels and stories planned a month ahead and posted for you.",
+    tagline: "An audience that grows — and buys.",
     promise: "A content system that grows an audience people actually buy from — on Instagram, LinkedIn, YouTube, TikTok and Facebook.",
     intro: "Monthly themes, scripts, shoots, edits built for retention, captions written for your customer, and the follower, reach, view and engagement numbers tracked month on month so everyone can see what's working.",
-    deliverables: ["A monthly content calendar you approve before anything goes out", "Short-form video, carousels and stories — edited for the first three seconds", "AI-assisted scripting and captioning, human-checked for tone", "Community management: comments and DMs answered in working hours", "A monthly growth dashboard: followers, reach, views, engagement and leads"],
-    fit: ["Founders building a personal brand", "Consumer brands that live or die on attention", "B2B companies that want LinkedIn to bring in pipeline", "Teams posting “when there's time” (so, never)"],
+    highlights: ["Monthly content calendar", "Short-form video, carousels and stories", "Community management", "Growth reporting every month"],
+    deliverables: ["A monthly content calendar you approve before anything goes out", "Short-form video, carousels and stories, edited for the first three seconds", "AI-assisted scripting and captioning, human-checked for tone", "Community management: comments and DMs answered in working hours", "A monthly growth dashboard: followers, reach, views, engagement and leads"],
+    fit: ["Founders building a personal brand", "Consumer brands that live or die on attention", "B2B companies that want LinkedIn to bring in pipeline", "Teams that post when there's time, which means rarely"],
     steps: [["Week 1", "Brand voice, pillars and the first month's calendar"], ["Week 2", "Scripts, shoot or asset collection, first edits"], ["Weeks 3–4", "Publishing, community, first numbers"], ["Every month", "Keep what grew, drop what didn't, repeat"]],
     faq: [["Do you shoot, or do we send footage?", "Both work. We can run remote shoots with your team using a shot list, work with local crews in your city, or edit what you already have."],
       ["Which platforms should we be on?", "Wherever your customers already spend their evenings. For most consumer brands that's Instagram and TikTok; for B2B, LinkedIn first."],
@@ -32,10 +32,10 @@ export const services = [
   },
   {
     slug: "seo-ai-search", name: "SEO & AI search", short: "Rank on Google and get cited when people ask ChatGPT, Gemini or Perplexity.",
-    tagline: "Be the answer.",
-    joke: "When someone asks an AI who's best at what you do, we'd like it to stop saying “it depends”.",
+    tagline: "Found on Google. Cited by AI.",
     promise: "Show up on Google's first page and inside AI assistants' answers for the questions your customers actually ask.",
     intro: "Search has split in two: the classic results page, and AI answers that quote a handful of sources. We work on both — technical SEO, content built around real questions, structured data, and clear, citable pages that assistants like to quote.",
+    highlights: ["Technical SEO and Core Web Vitals", "Content from search and AI-prompt research", "AI-search readiness and schema", "International and local SEO"],
     deliverables: ["Technical audit and fixes: speed, Core Web Vitals, indexing, schema", "Content planned from real search and AI-prompt research", "AI-search readiness: llms.txt, FAQ and organisation schema, entity consistency", "International SEO: hreflang, country targeting and local listings", "A monthly ranking, traffic and AI-mention report"],
     fit: ["You're invisible for searches you should own", "Competitors keep getting quoted by AI assistants and you don't", "You're launching in a new country or language", "Your site has content but no traffic"],
     steps: [["Weeks 1–2", "Technical audit, keyword and prompt research"], ["Weeks 3–4", "Fixes shipped, content plan approved"], ["Months 2–3", "Content and authority work, first movement"], ["Every month", "Rankings, traffic and AI mentions, side by side"]],
@@ -46,12 +46,12 @@ export const services = [
   },
   {
     slug: "websites-apps", name: "Websites & apps", short: "Fast, search-ready websites and custom web apps wired into your CRM.",
-    tagline: "Loads before you blink.",
-    joke: "This website loads in under a second. We checked with a very serious stopwatch.",
+    tagline: "Fast, findable and built to convert.",
     promise: "Websites built around the one thing you want visitors to do — and fast enough that they stay long enough to do it.",
     intro: "From a sharp marketing site to e-commerce, booking flows, client portals and internal tools. We design for your customer, write the words with you, build it clean, and connect every form to your CRM so no enquiry falls through the cracks.",
+    highlights: ["Marketing sites and e-commerce", "Client portals and custom web apps", "Speed, accessibility and SEO built in", "Every form wired into your CRM"],
     deliverables: ["Sitemap and messaging built around your customer's questions", "Design you review before a line of code is written", "The right stack for the job: static for speed, Shopify or WordPress for easy editing, custom React and Python for apps", "Speed, accessibility and SEO built in, not bolted on", "Lead capture into your CRM, analytics, hosting and a 30-day warranty"],
-    fit: ["Your current site is slow, dated or embarrassing at pitches", "You need landing pages that convert ad traffic", "You sell online and checkout leaks money", "You need a portal, dashboard or tool nobody sells off the shelf"],
+    fit: ["Your current site is slow, dated or undersells you", "You need landing pages that convert ad traffic", "You sell online and checkout leaks money", "You need a portal, dashboard or tool nobody sells off the shelf"],
     steps: [["Week 1", "Discovery, sitemap and messaging"], ["Weeks 2–3", "Design rounds with you"], ["Weeks 3–5", "Build, content, integrations"], ["Launch", "Speed and SEO checks, tracking, handover"]],
     faq: [["How long does a website take?", "A marketing site: three to five weeks. E-commerce: six to eight. Custom apps are scoped individually with a fixed quotation."],
       ["Can our team edit it ourselves?", "Yes, if you want to. We'll pick a stack your team can update without calling us every time."],
@@ -60,10 +60,10 @@ export const services = [
   },
   {
     slug: "brand-video", name: "Brand & video", short: "Identity, packaging and video that make you look like the category leader.",
-    tagline: "Recognisable from across the room.",
-    joke: "Logos that don't look like they were made at 2 am. We make ours at 11 am, well rested.",
+    tagline: "A brand that looks like the category leader.",
     promise: "A brand people recognise at a glance — name, logo, voice, packaging — and video that tells your story in thirty seconds.",
     intro: "Naming and identity for new ventures, refreshes for established ones, and video: brand films, product videos, explainers, reels and AI-assisted ad variations, scripted and edited by our team.",
+    highlights: ["Naming, logo and identity systems", "Packaging and brand guidelines", "Brand films and product videos", "AI-assisted video ads at scale"],
     deliverables: ["Logo and identity system with a brand book", "Packaging, decks, social templates and stationery", "Brand films, product and explainer videos", "AI-assisted video ads in multiple formats and languages", "Launch kits for campaigns and new markets"],
     fit: ["You're launching something new", "Your brand looks smaller than your business", "You're entering a new market and need to look local", "You need video at a pace your budget can survive"],
     steps: [["Week 1", "Discovery and positioning"], ["Weeks 2–3", "Concepts and direction"], ["Weeks 3–5", "Refinement and the full system"], ["Handover", "Brand book, files and templates"]],
@@ -73,10 +73,10 @@ export const services = [
   },
   {
     slug: "ai-automation", name: "AI agents & automation", short: "Agents that answer, qualify and follow up — on WhatsApp, chat and email, all night.",
-    tagline: "Your night shift.",
-    joke: "Our mascot never sleeps. Mostly because it has no eyelids.",
+    tagline: "Every enquiry answered, day and night.",
     promise: "Put AI where it saves real hours: answering enquiries, qualifying leads, following up, and writing the report.",
     intro: "We build practical automations on the tools you already use — WhatsApp Business, your CRM, Google Workspace, your website — and AI agents trained on your business that answer and qualify enquiries around the clock, then hand over to a human the moment it matters.",
+    highlights: ["WhatsApp, chat and email agents", "Lead routing and follow-up", "Automated reporting and dashboards", "Custom internal tools"],
     deliverables: ["WhatsApp, web chat and email agents trained only on what you approve", "Instant lead routing, scoring and follow-up sequences", "Review requests and reputation workflows", "Automated reporting and live dashboards", "Custom internal tools and AI integrations"],
     fit: ["You get more enquiries than people to answer them", "Leads arrive on WhatsApp, forms, calls and DMs, and some vanish", "Your team copies data between tools by hand", "Your Monday starts with building last week's report"],
     steps: [["Week 1", "Map the workflow and the hand-offs"], ["Week 2", "Build and train on your approved answers"], ["Week 3", "Test with real conversations, human in the loop"], ["Every month", "Review transcripts, improve answers, add the next workflow"]],
@@ -87,48 +87,51 @@ export const services = [
 ];
 
 export const steps = [
-  { n: "01", title: "Audit", when: "Days 1–5", text: "We go through your website, search presence, social accounts and ads like a curious cat in a new flat. You get a written report and a 30-minute call — whether or not you hire us.", aside: "It's free. Dot checked." },
-  { n: "02", title: "Plan", when: "Days 5–10", text: "A 90-day plan: channels, budget, creative, and the exact numbers we'll be judged on. One fixed quotation in your currency. No surprises, no small print in 4-point type.", aside: "We quote in eight currencies. And zero buzzwords." },
-  { n: "03", title: "Build", when: "Days 10–30", text: "Tracking, landing pages, creative, content calendar, campaigns, automations. You approve everything before it goes live.", aside: "Nothing ships on a Friday at 6 pm. That's a rule." },
-  { n: "04", title: "Grow", when: "Day 30 onwards", text: "Weekly optimisation, a monthly review with your team, and a live dashboard you can open any time. Keep what works, cut what doesn't, repeat.", aside: "Graphs go up and to the right. We'll show you why." },
+  { n: "01", title: "Audit", when: "Days 1–5", text: "We review your website, search and AI-search visibility, social accounts and ad accounts. You get a written report and a 30-minute walkthrough, whether or not you go on to work with us." },
+  { n: "02", title: "Plan", when: "Days 5–10", text: "A 90-day plan: channels, budget, creative and the exact numbers we'll be measured on, with one fixed quotation in your currency." },
+  { n: "03", title: "Build", when: "Days 10–30", text: "Tracking, landing pages, creative, content, campaigns and automations. You approve everything before it goes live." },
+  { n: "04", title: "Grow", when: "Day 30 onwards", text: "Weekly optimisation, a monthly review with your team and a live dashboard you can open any time. We keep what works and cut what doesn't." },
 ];
 
+// how AI and people split the work (about page)
 export const aiHuman = [
-  ["Drafts forty caption options in four seconds.", "Picks the one that doesn't say “synergy”."],
-  ["Spots the ad quietly burning money at 3 am.", "Switches it off before breakfast."],
-  ["Answers the two-hundredth “price?” DM, politely.", "Closes the deal on the call."],
-  ["Crunches a month of numbers into a report.", "Explains it without a single acronym."],
-  ["Generates twelve video ad variations.", "Throws away nine. Keeps the three that feel like you."],
+  ["Drafts and variations", "Research, first drafts, ad variations, resizes and subtitles in minutes.", "Specialists choose what is on-brand and worth the money."],
+  ["Monitoring", "Watches spend, rankings and site health around the clock.", "Strategists decide what to change, and why."],
+  ["Reporting", "Pulls every channel into one live dashboard.", "Account leads explain what the numbers mean for your business."],
+  ["First response", "Answers and qualifies new enquiries instantly, from approved information only.", "Your team takes over the moment a conversation matters."],
 ];
 
 export const values = [
-  ["Numbers over adjectives.", "“Amazing results” means nothing. “Cost per lead down from 40 to 24” means something."],
-  ["Fast is a feature.", "Fast sites, fast replies, fast decisions. Slow is just expensive in disguise."],
-  ["Say it plainly.", "If we can't explain it to your grandmother, we don't understand it well enough."],
-  ["You own everything.", "Accounts, ads, code, content. Your name on all of it, from day one."],
-  ["Be nice. It's cheaper.", "Good work happens between people who like working together. We've checked."],
+  ["Evidence over adjectives", "We report cost per lead, revenue and rankings, not “great engagement”. If we can't measure it, we say so."],
+  ["Speed is a feature", "Fast websites, fast replies, fast decisions. Slow is just expensive."],
+  ["Plain language", "Clear plans, clear reports and no jargon in client conversations."],
+  ["You own everything", "Ad accounts, code, content and data sit in your name from day one."],
+  ["Long-term partnerships", "Month-to-month terms and fixed quotations. We earn the next month by delivering this one."],
 ];
 
+// why brands choose us (home + about)
+export const whyUs = [
+  ["AI-first, specialist-led", "AI handles research, drafting, monitoring and reporting so work moves faster and costs less. Senior specialists own the strategy and approve everything your customers see."],
+  ["One team for every channel", "Paid media, search, content, websites and automation under one roof, working from one plan and one dashboard. No hand-offs between agencies, no finger-pointing."],
+  ["Built for global brands", "We work in your hours across the UK, Europe, the Middle East, Asia-Pacific and the Americas, and quote and invoice in your currency."],
+  ["Transparent by default", "A live client portal with reports, approvals and invoices. Fixed quotations, month-to-month terms and never a percentage of your ad spend."],
+];
+
+// the disciplines on the team
+export const expertise = ["Performance marketing", "Search and AI-search optimisation", "Social media and content production", "Brand and visual design", "Video production", "Full-stack web and app engineering", "AI agents and marketing automation", "Analytics and reporting"];
+
+// industries we work in (from real client work)
+export const industries = ["Energy and solar", "Manufacturing and industrial", "Retail and e-commerce", "Consumer brands", "Professional services", "Technology"];
+
 export const faqs = [
-  ["What does dotindot actually do?", "We're an AI-first marketing studio. We run ads, make content, do SEO and AI-search optimisation, build websites and apps, create brands and video, and automate the repetitive parts of marketing with AI agents — for brands anywhere in the world."],
-  ["Where are you based?", "Our team is in India and works remote-first with clients around the world, over video calls, WhatsApp and shared dashboards. We'll travel when a project genuinely needs it."],
+  ["What does Dotindot do?", "We're an AI-first growth agency. We run ads, make content, do SEO and AI-search optimisation, build websites and apps, create brands and video, and automate the repetitive parts of marketing with AI agents — for brands anywhere in the world."],
+  ["Where are you based?", "Our team is headquartered in India and works with clients around the world over video calls, WhatsApp and a shared client portal. We travel when a project needs it."],
   ["Which time zones do you cover?", "Our day overlaps comfortably with Europe, the Gulf and Asia-Pacific. For the Americas we hold calls early or late, and the work keeps moving while you sleep."],
   ["Which currencies do you invoice in?", "USD, GBP, EUR, AED, SGD, AUD, CAD or INR — whatever's simplest for your accounts team. Quotations come in the same currency."],
   ["How much does it cost?", "Every engagement gets a fixed quotation after the free audit. Retainers are monthly; one-off projects like websites and brand identities are priced per scope. We never take a percentage of your ad spend."],
   ["How do we know it's working?", "Every client gets a live dashboard — leads by source, cost per lead, follower growth, views, rankings — and a monthly review where we go through it together."],
   ["Do we have to sign a long contract?", "No. Retainers are month to month with 30 days' notice. Projects have a fixed scope and timeline."],
-  ["Is it really “AI-first”?", "Yes. AI does the drafting, monitoring and number-crunching so it happens faster and cheaper. People make every decision a customer sees."],
-];
-
-export const jokes = [
-  "I asked the algorithm for more reach. It asked for my budget.",
-  "Bounce rate is only a good thing when I'm the one bouncing.",
-  "A/B testing is asking the internet “this or this?” four thousand times.",
-  "I don't blink. Great for watching dashboards. Terrible at staring contests — nobody plays with me.",
-  "Light mode only. I'm orange. I'd vanish in the dark.",
-  "Our designer said “just one more tweak” in 2022. We're still waiting.",
-  "100% dot. 0% calories.",
-  "An SEO walks into a bar, pub, tavern, inn, best bar near me…",
+  ["What does “AI-first” mean in practice?", "AI does the drafting, monitoring and number-crunching so it happens faster and at lower cost. Specialists make every decision a customer sees."],
 ];
 
 export const insights = [
@@ -211,7 +214,7 @@ export const insights = [
 
 export const careers = [
   { title: "Performance marketer", place: "Remote, full-time", text: "You've run Meta and Google campaigns to a cost per customer and can explain, calmly, why it moved." },
-  { title: "Content creator (short-form video)", place: "Remote, full-time", text: "You script, shoot, edit, and know exactly what stops a thumb in the first second." },
+  { title: "Content creator (short-form video)", place: "Remote, full-time", text: "You script, shoot and edit short-form video, and you know what holds attention in the first second." },
   { title: "Full-stack developer (React / Python)", place: "Remote, full-time", text: "You've shipped production apps, you care about speed, and you write code other people enjoy reading." },
   { title: "AI automation engineer", place: "Remote, full-time", text: "You've built agents and workflows that real customers use, and you know when not to use AI." },
 ];
@@ -280,12 +283,12 @@ export const markets = [
       ["Do you run regional-language campaigns?", "Yes — Tamil, Hindi and other languages for ads, reels and landing pages."]] },
 ];
 
-// ---------- growth score quiz ----------
+// ---------- marketing health check ----------
 export const quiz = [
-  { q: "How fast does your website load on a phone?", a: [["Under 2 seconds", 3], ["2–5 seconds", 1], ["It's… still loading", 0]], fix: "Speed up your website — every second costs enquiries." },
-  { q: "Ask ChatGPT for the best in your field. Are you named?", a: [["Yes, proudly", 3], ["No idea", 1], ["Nope", 0]], fix: "Get cited by AI assistants (AI search optimisation)." },
-  { q: "How often do you post on social media?", a: [["Weekly or more", 3], ["When we remember", 1], ["What's social media?", 0]], fix: "Build a content calendar that runs itself." },
-  { q: "Do you know what one lead costs you?", a: [["To the cent", 3], ["Roughly", 1], ["Not a clue", 0]], fix: "Set up tracking so every lead has a known cost." },
-  { q: "How fast do you reply to a new enquiry?", a: [["Under 5 minutes", 3], ["Same day", 1], ["Eventually", 0]], fix: "Answer every enquiry in seconds with an AI agent." },
-  { q: "Do people recognise your brand at a glance?", a: [["Instantly", 3], ["Sort of", 1], ["We're working on it", 0]], fix: "Sharpen your brand so you look like the category leader." },
+  { q: "How fast does your website load on a phone?", a: [["Under 2 seconds", 3], ["2–5 seconds", 1], ["Over 5 seconds", 0]], fix: "Speed up your website — every second costs enquiries." },
+  { q: "Ask ChatGPT for the best in your field. Are you named?", a: [["Yes", 3], ["Not sure", 1], ["No", 0]], fix: "Get cited by AI assistants (AI search optimisation)." },
+  { q: "How often do you post on social media?", a: [["Weekly or more", 3], ["Occasionally", 1], ["Rarely or never", 0]], fix: "Build a content calendar that runs itself." },
+  { q: "Do you know what one lead costs you?", a: [["Precisely", 3], ["Roughly", 1], ["We don't track it", 0]], fix: "Set up tracking so every lead has a known cost." },
+  { q: "How fast do you reply to a new enquiry?", a: [["Under 5 minutes", 3], ["Same day", 1], ["A day or more", 0]], fix: "Answer every enquiry in seconds with an AI agent." },
+  { q: "Do people recognise your brand at a glance?", a: [["Instantly", 3], ["Somewhat", 1], ["Not yet", 0]], fix: "Sharpen your brand so you look like the category leader." },
 ];

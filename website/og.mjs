@@ -1,55 +1,72 @@
-// Dev-only: renders a 1200×630 share image per page into assets/og/. Needs Playwright (npm i -D playwright) and a built dist/.
-// Usage: node build.mjs && node og.mjs && node build.mjs   (the second build picks the images up)
+// Dev-only: renders a 1200×630 share image per page into assets/og/ (and assets/og.png for the home page).
+// Needs Playwright. Usage: node og.mjs && node build.mjs
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { services, insights, markets, seoTitles } from "./src/content.mjs";
+import { services, insights, markets } from "./src/content.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
-const html = readFileSync(join(ROOT, "dist/index.html"), "utf8");
-const css = html.match(/<style>([\s\S]*?)<\/style>/)[1].replace(/url\(\/assets\//g, `url(file://${ROOT}/assets/`);
-const dot = html.match(/<svg class="dotf"[\s\S]*?<\/svg>/)[0];
+const font = readFileSync(join(ROOT, "assets/fonts/schibsted.woff2")).toString("base64");
 const wm = readFileSync(join(ROOT, "assets/wordmark-color.svg"), "utf8");
+const map = JSON.parse(readFileSync(join(ROOT, "assets/vendor/worldmap.json"), "utf8"));
+
+// the dotted world, with India at the centre of arcs to each market
+const K = 6.0, OX = 610, OY = 56;
+const dots = [];
+for (let i = 0; i < map.p.length; i += 2) dots.push(`<circle cx="${(OX + map.p[i] * K).toFixed(1)}" cy="${(OY + map.p[i + 1] * K).toFixed(1)}" r="2.1"/>`);
+const P = (n) => [OX + map.pins[n][0] * K, OY + map.pins[n][1] * K];
+const hub = P("Chennai");
+const arcs = ["London", "New York", "Dubai", "Singapore", "Sydney"].map((n) => {
+  const b = P(n), mx = (hub[0] + b[0]) / 2, d = Math.hypot(b[0] - hub[0], b[1] - hub[1]);
+  return `<path d="M${hub[0]} ${hub[1]} Q${mx} ${(hub[1] + b[1]) / 2 - d * .32} ${b[0]} ${b[1]}" fill="none" stroke="#ff7a1a" stroke-width="2.2" stroke-opacity=".8"/><circle cx="${b[0]}" cy="${b[1]}" r="6" fill="#ff7a1a"/>`;
+}).join("");
+const MAP = `<svg class="map" viewBox="0 0 1200 630" aria-hidden="true"><g fill="#d5dae2">${dots.join("")}</g>${arcs}<circle cx="${hub[0]}" cy="${hub[1]}" r="7" fill="#0e1b33"/></svg>`;
 
 const cards = [
-  ["home", "Make your brand impossible to scroll past.", "AI-first marketing studio for brands worldwide", "happy"],
-  ["services", "Everything your brand needs online.", "Ads, social, SEO & AI search, websites, brand, AI agents", "happy"],
-  ...services.map((s) => [`services-${s.slug}`, s.tagline, s.name, "love"]),
-  ["markets", "Wherever your customers are.", "UK, US, UAE, Singapore, Australia, India", "wow"],
-  ...markets.map((m) => [`markets-${m.slug}`, `Marketing for brands in ${m.name}.`, `Your hours, invoiced in ${m.cur}`, "wow"]),
-  ["insights", "Practical notes from the work.", "Insights on ads, SEO, AI search and websites", "wink"],
-  ...insights.map((a) => [`insights-${a.slug}`, a.title, `${a.minutes} min read`, "wink"]),
-  ["speed-test", "How fast is your website, really?", "Free speed test, powered by Google PageSpeed", "wow"],
-  ["growth-score", "How loud is your dot?", "A 60-second marketing health check", "wink"],
-  ["process", "From hello to growth in four steps.", "Audit, plan, build, grow", "happy"],
-  ["about", "We're dotindot.", "An AI-first, remote-first marketing studio", "happy"],
-  ["contact", "Say hello.", "A human replies within one working day", "love"],
-  ["free-audit", "Free growth audit.", "Website, search, social and ads — honestly reviewed", "love"],
-  ["careers", "Work with us.", "Remote marketing, content and engineering roles", "happy"],
+  ["home", "Marketing that performs. Technology that scales.", "AI-first growth agency for brands worldwide"],
+  ["services", "Services", "Performance marketing, SEO & AI search, websites, brand, AI automation"],
+  ...services.map((s) => [`services-${s.slug}`, s.name, s.tagline]),
+  ["clients", "Clients", "Who we work with"],
+  ["markets", "Markets", "UK, US, UAE, Singapore, Australia and India"],
+  ...markets.map((m) => [`markets-${m.slug}`, `Marketing for brands in ${m.name}`, `Your hours, invoiced in ${m.cur}`]),
+  ["insights", "Insights", "Practical thinking on marketing, search and AI"],
+  ...insights.map((a) => [`insights-${a.slug}`, a.title, `${a.minutes} min read`]),
+  ["speed-test", "Website speed test", "Free, powered by Google PageSpeed Insights"],
+  ["growth-score", "Marketing health check", "A 60-second assessment with a score out of 100"],
+  ["process", "How we work", "Audit, plan, build, grow"],
+  ["about", "About Dotindot", "An AI-first growth agency working worldwide"],
+  ["contact", "Contact", "A specialist replies within one working day"],
+  ["free-audit", "Free growth audit", "Website, search, social and ads, independently reviewed"],
+  ["careers", "Careers", "Marketing, content and engineering roles"],
 ];
-
-const page = (title, sub, mood) => `<!doctype html><html><head><meta charset="utf-8"><style>${css}
-body{margin:0;width:1200px;height:630px;overflow:hidden;background:#fff}
-.og{position:relative;width:1200px;height:630px;padding:70px 76px;box-sizing:border-box}
-.og h1{font-size:${title.length > 48 ? 72 : title.length > 30 ? 88 : 104}px;line-height:.95;font-stretch:108%;letter-spacing:-.045em;max-width:8.6em;text-wrap:balance}
-.og .sub{position:absolute;left:76px;bottom:128px;font:600 28px var(--text);color:var(--slate);max-width:700px}
-.og .wm{position:absolute;left:76px;bottom:62px;width:190px}
-.og .dw{position:absolute;right:72px;bottom:66px;width:230px}
-.og .dw svg,.og .wm svg{width:100%;height:auto;overflow:visible}
-.og i{position:absolute;border-radius:50%;background:var(--dot)}
-.og .bar{position:absolute;left:0;top:0;width:100%;height:14px;background:var(--dot)}
-</style></head><body><div class="og"><div class="bar"></div><h1>${title.replace(/</g, "&lt;")}</h1><p class="sub">${sub.replace(/</g, "&lt;")}</p><span class="wm">${wm}</span>
-<span class="dw" data-mood="${mood}">${dot}</span><i style="right:64px;top:58px;width:22px;height:22px"></i><i style="right:150px;top:240px;width:14px;height:14px"></i><i style="right:330px;bottom:96px;width:10px;height:10px"></i></div></body></html>`;
+const escH = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const title = (t) => {
+  const parts = t.split(/(?<=\.)\s+/); // keep full stops orange
+  return parts.map((p) => escH(p.replace(/\.$/, "")) + '<span class="stop">.</span>').join(" ");
+};
+const page = (t, sub) => `<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:S;src:url(data:font/woff2;base64,${font}) format("woff2");font-weight:400 900}
+*{box-sizing:border-box;margin:0}
+body{width:1200px;height:630px;overflow:hidden;background:#fff;font-family:S,sans-serif;color:#0e1b33}
+.map{position:absolute;inset:0;width:1200px;height:630px}
+.wm{position:absolute;left:72px;top:64px;width:200px}.wm svg{width:100%;height:auto}
+.txt{position:absolute;left:72px;bottom:72px;width:${t.length > 44 ? 900 : 760}px}
+h1{font-weight:800;font-size:${t.length > 60 ? 58 : t.length > 34 ? 70 : 92}px;line-height:1.02;letter-spacing:-.04em}
+.stop{color:#ff7a1a}
+p{margin-top:22px;font-size:28px;font-weight:500;color:#5c6679;letter-spacing:-.01em}
+.bar{position:absolute;left:0;right:0;bottom:0;height:10px;background:#0e1b33}
+.bar i{position:absolute;left:0;top:0;bottom:0;width:180px;background:#ff7a1a}
+</style></head><body>${MAP}<span class="wm">${wm}</span><div class="txt"><h1>${title(t)}</h1><p>${escH(sub)}</p></div><div class="bar"><i></i></div></body></html>`;
 
 mkdirSync(join(ROOT, "assets/og"), { recursive: true });
-const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1200, height: 630 } });
-for (const [key, title, sub, mood] of cards) {
-  const f = join(ROOT, "dist/_og.html"); writeFileSync(f, page(title, sub, mood));
-  await p.goto("file://" + f); await p.waitForTimeout(150);
-  await p.screenshot({ path: join(ROOT, `assets/og/${key}.jpg`), type: "jpeg", quality: 86 });
+const b = await chromium.launch(); const pg = await b.newPage({ viewport: { width: 1200, height: 630 } });
+for (const [key, t, sub] of cards) {
+  await pg.setContent(page(t, sub)); await pg.waitForTimeout(80);
+  await pg.screenshot({ path: join(ROOT, `assets/og/${key}.jpg`), type: "jpeg", quality: 88 });
+  if (key === "home") await pg.screenshot({ path: join(ROOT, "assets/og.png"), type: "png" });
 }
 await b.close();
 console.log(`rendered ${cards.length} share images → assets/og/`);

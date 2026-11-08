@@ -3,7 +3,7 @@
   "domain": "https://dotindot.in",
   "name": "Dotindot Creative",
   "shortName": "dotindot",
-  "tagline": "AI-first marketing studio",
+  "tagline": "AI-first growth agency",
   "email": "hello@dotindot.in",
   "phone": "+91 98765 43210",
   "phoneDisplay": "+91 98765 43210",
@@ -40,8 +40,35 @@
     "adSpendManaged": "",
     "leadsGenerated": ""
   },
+  "clients": [
+    {
+      "name": "AVN Solar",
+      "industry": "Solar energy",
+      "url": "https://avnsolar.in",
+      "logo": ""
+    },
+    {
+      "name": "Mosor Leather",
+      "industry": "E-commerce",
+      "url": "",
+      "logo": ""
+    }
+  ],
+  "_clients": "Real clients only, shown on the home and Clients pages. logo: optional path to an SVG/PNG in assets/clients/ (e.g. \"assets/clients/avn-solar.svg\"); without one the name is set in type.",
   "testimonials": [],
+  "_testimonials": "Real quotes only, with the client's permission. Each: {\"quote\": \"...\", \"name\": \"...\", \"role\": \"...\", \"company\": \"...\"}. Empty = the block is hidden.",
   "caseStudies": [],
+  "_caseStudies": "Each: {\"client\": \"...\", \"title\": \"...\", \"result\": \"e.g. Cost per lead down 38%\", \"summary\": \"...\"}. Empty = hidden.",
+  "team": [
+    {
+      "name": "Prathipan",
+      "role": "Founder",
+      "bio": "",
+      "photo": "",
+      "linkedin": ""
+    }
+  ],
+  "_team": "Leadership shown on the home and About pages. photo: optional path in assets/team/ (square JPG/PNG); without one, initials are shown.",
   "verify": {
     "_comment": "Paste the content= values from Google Search Console and Bing Webmaster Tools (HTML tag method).",
     "google": "",
