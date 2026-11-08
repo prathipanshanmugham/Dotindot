@@ -39,7 +39,7 @@ In the app's folder on the VPS (for example `/var/www/dotindot`), run these two 
 
 ## Stage 2: move to dotindot.in (when revisions are done)
 
-1. **DNS.** In hPanel go to Domains → dotindot.in → DNS. Point the `@` and `www` A records at the VPS IP, the same IP as `internal`. Delete any other `@`/`www` A, AAAA or CNAME records left over from the old website. Keep the MX and TXT records so email keeps working.
+1. **DNS.** The nameservers are at GoDaddy, so the DNS records live there: GoDaddy → My Products → dotindot.in → DNS. Point the `@` and `www` A records at the VPS IP, the same IP as `internal`. Delete any other `@`/`www` A, AAAA or CNAME records left over from the old website. Keep the MX and TXT records so email keeps working.
 2. When `getent hosts dotindot.in` on the VPS shows that IP, run `sudo bash deploy/setup-server.sh --go-live`. It checks DNS, rewrites the nginx site for all three addresses and gets certificates for dotindot.in and www.
 3. Submit `https://dotindot.in/sitemap.xml` in Google Search Console and Bing Webmaster Tools.
 

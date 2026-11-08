@@ -55,7 +55,7 @@ if [ "$MODE" = live ]; then
     got="$(ips_of "$h" | paste -sd' ' - || true)"
     if [ -z "$got" ] || ! grep -qxF -f <(echo "$HERE_IPS") <<< "$(ips_of "$h")"; then
       die "$h points to '${got:-nothing}', not this server ($(ips_of "$INTERNAL" | paste -sd' ' -)).
-  In hPanel → Domains → $DOMAIN → DNS, set the A records for @ and www to that IP, remove old @/www records
+  In your DNS (GoDaddy → My Products → $DOMAIN → DNS), set the A records for @ and www to that IP, remove old @/www records
   (keep MX/TXT for email), wait until 'getent hosts $h' shows it, then run this again."
     fi
     echo "  $h → $got ✓"
