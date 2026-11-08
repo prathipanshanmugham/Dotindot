@@ -37,13 +37,22 @@ fi
 # ---------------------------------------------------------------- employee & client app → frontend/build (served at /app)
 say "Building the app (/app) — takes a few minutes"
 cd "$REPO/frontend"
-if command -v yarn >/dev/null 2>&1; then PM=yarn; else PM=npm; fi
-if [ ! -d node_modules ] || changed frontend/package.json frontend/yarn.lock frontend/package-lock.json; then
-  if [ "$PM" = yarn ]; then yarn install --silent --network-timeout 600000; else npm install --no-audit --no-fund --silent; fi
+# The app is a yarn project: package.json pins yarn 1.22.22 and fixes package versions through "resolutions".
+# npm ignores both and installs a tree that can't build, so always use yarn — through Node's corepack if the
+# yarn command isn't installed.
+if command -v yarn >/dev/null 2>&1; then YARN=(yarn)
+elif command -v corepack >/dev/null 2>&1 && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack yarn --version >/dev/null 2>&1; then
+  export COREPACK_ENABLE_DOWNLOAD_PROMPT=0; YARN=(corepack yarn)
+else YARN=(npx --yes yarn@1.22.22); fi
+echo "  installing packages with: ${YARN[*]}"
+if [ -d node_modules ] && [ ! -f node_modules/.yarn-integrity ]; then
+  echo "  removing packages installed by npm (they can't build this app)"; rm -rf node_modules
 fi
+"${YARN[@]}" install --non-interactive --network-timeout 600000 >/tmp/dotindot-app-install.log 2>&1 \
+  || { tail -20 /tmp/dotindot-app-install.log; echo "Installing the app's packages failed — the live site is unchanged."; exit 1; }
 rm -rf build.new
 # same-origin API (dotindot.in/api) whatever frontend/.env says; the build lands next to the live one
-REACT_APP_BACKEND_URL="" BUILD_PATH=build.new GENERATE_SOURCEMAP=false CI=false $PM run build >/tmp/dotindot-app-build.log 2>&1 \
+REACT_APP_BACKEND_URL="" BUILD_PATH=build.new GENERATE_SOURCEMAP=false CI=false "${YARN[@]}" run build >/tmp/dotindot-app-build.log 2>&1 \
   || { tail -30 /tmp/dotindot-app-build.log; echo "App build failed — the live site is unchanged."; exit 1; }
 [ -f build.new/index.html ] || { echo "App build produced no index.html — the live site is unchanged."; exit 1; }
 
