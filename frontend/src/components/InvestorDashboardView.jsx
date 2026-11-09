@@ -20,7 +20,12 @@ export default function InvestorDashboardView({ d }) {
       {d.valuation && <p className="text-xs text-gray-500">Current value uses the company valuation of <b>{inr(d.valuation.valuation)}</b> dated {fmtDate(d.valuation.date)}{d.valuation.method ? ` (${d.valuation.method})` : ""}.</p>}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <Card className="border-gray-200/80 shadow-sm lg:col-span-3"><CardHeader className="pb-2"><CardTitle className="text-base font-semibold">Your investments</CardTitle></CardHeader>
-          <CardContent className="pt-0 overflow-x-auto"><table className="w-full text-sm" data-testid="inv-investments">
+          <CardContent className="pt-0 overflow-x-auto">
+            <ul className="sm:hidden divide-y divide-gray-50" data-testid="inv-investments-mobile">{d.investments.map((x) => (
+              <li key={x.id} className="py-2.5 text-sm"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="text-gray-800">{x.instrument_label}{x.status !== "active" && <Pill className="ml-1">{x.status}</Pill>}</div>
+                <div className="text-xs text-gray-400">{fmtDate(x.date)} · {x.stake_percent ? `${x.stake_percent}% stake` : x.interest_rate ? `${x.interest_rate}% p.a.` : "—"}</div></div>
+                <div className="text-right"><div className="font-mono font-semibold whitespace-nowrap">{inr(x.current_value)}</div><div className="text-[11px] text-gray-400 font-mono whitespace-nowrap">from {inr(x.amount)}</div></div></div></li>))}</ul>
+            <table className="hidden sm:table w-full text-sm" data-testid="inv-investments">
             <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100"><th className="text-left py-2">Date</th><th className="text-left py-2">Type</th><th className="text-right py-2">Amount</th><th className="text-right py-2">Terms</th><th className="text-right py-2">Value now</th></tr></thead>
             <tbody>{d.investments.map((x) => (
               <tr key={x.id} className="border-b border-gray-50 last:border-0"><td className="py-2 whitespace-nowrap">{fmtDate(x.date)}</td><td className="py-2">{x.instrument_label}{x.status !== "active" && <Pill className="ml-1">{x.status}</Pill>}</td>

@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, statSync, exist
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { services, steps, aiHuman, values, faqs, whyUs, expertise, industries, insights, careers, tools, markets, quiz, seoTitles } from "./src/content.mjs";
+import { services, steps, aiHuman, values, faqs, whyUs, expertise, industries, insights as INSIGHTS0, careers, tools, markets, quiz, seoTitles } from "./src/content.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const C = JSON.parse(readFileSync(join(ROOT, "site.config.json"), "utf8"));
@@ -11,14 +11,29 @@ if (process.env.INTAKE_URL) C.leadIntakeUrl = process.env.INTAKE_URL; // for loc
 // What the website editor (employee app → Website) publishes overrides site.config.json: clients, testimonials,
 // team, case studies, key numbers and contact details. The backend writes this file, then rebuilds.
 const CONTENT_FILE = process.env.CONTENT_FILE || join(ROOT, "content.json");
+let X = {};
 if (existsSync(CONTENT_FILE)) {
   try {
-    const X = JSON.parse(readFileSync(CONTENT_FILE, "utf8"));
+    X = JSON.parse(readFileSync(CONTENT_FILE, "utf8"));
     for (const k of ["clients", "testimonials", "team", "caseStudies", "proof"]) if (Array.isArray(X[k])) C[k] = X[k];
     for (const k of ["email", "phone", "phoneDisplay", "whatsapp"]) if (typeof X[k] === "string") C[k] = X[k];
     if (X.social && typeof X.social === "object") C.social = X.social;
-  } catch (e) { console.warn("content.json ignored:", e.message); }
+  } catch (e) { X = {}; console.warn("content.json ignored:", e.message); }
 }
+// offices, certifications, articles, SEO, legal pages and the chat assistant — also from the editor
+const locations = (X.locations || C.locations || []).filter((l) => l && l.name && l.address);
+const certs = (X.certifications || C.certifications || []).filter((c) => c && c.name);
+const SEO = X.seo || {};
+C.verify = { ...(C.verify || {}), ...(SEO.google ? { google: SEO.google } : {}), ...(SEO.bing ? { bing: SEO.bing } : {}) };
+if (SEO.ga4) C.ga4 = SEO.ga4;
+const PG = X.pages || {};
+const PAGES0 = JSON.parse(readFileSync(join(ROOT, "src/pages.json"), "utf8"));
+const CHAT = X.chat || { enabled: true, name: "Dot", greeting: "" };
+const readMins = (body) => Math.max(1, Math.round(String(Array.isArray(body) ? body.join(" ") : body || "").split(/\s+/).filter(Boolean).length / 220));
+const insights = (Array.isArray(X.insights) ? X.insights : INSIGHTS0).filter((a) => a && a.slug && a.title)
+  .map((a) => ({ ...a, minutes: readMins(a.body) })).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+const CURS = [...new Set(["USD", ...markets.map((m) => m.cur)])];
+const curList = CURS.slice(0, -1).join(", ") + " or " + CURS[CURS.length - 1];
 const MEDIA = process.env.WEBSITE_MEDIA_DIR || join(ROOT, "media");
 const OUT = process.env.OUT_DIR ? resolve(process.env.OUT_DIR) : join(ROOT, "dist"); // deploy builds into a temp folder, then swaps
 const PREVIEW = !!process.env.PREVIEW;
@@ -36,6 +51,18 @@ const MAP_JSON = `assets/worldmap.${hash(MAP)}.json`;
 
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
+const inline = (t) => esc(t)
+  .replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:|\/)[^\s)]+)\)/g, (m, x, u) => `<a class="link" href="${u}"${/^https?:/.test(u) ? ' target="_blank" rel="noopener"' : ""}>${x}</a>`)
+  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
+const mdHtml = (src, vars = {}) => String(Array.isArray(src) ? src.join("\n\n") : src || "").replace(/\r/g, "")
+  .replace(/\{\{(\w+)\}\}/g, (m, k) => (k in vars ? vars[k] : m)).split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean).map((b) => {
+    const h = b.match(/^(#{2,4})\s+(.+)$/);
+    if (h && !b.includes("\n")) return `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;
+    const lines = b.split("\n");
+    if (lines.every((l) => /^\s*\d+[.)]\s+/.test(l))) return `<ol>${lines.map((l) => `<li>${inline(l.replace(/^\s*\d+[.)]\s+/, ""))}</li>`).join("")}</ol>`;
+    if (lines.every((l) => /^\s*[-*•]\s+/.test(l))) return `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*[-*•]\s+/, ""))}</li>`).join("")}</ul>`;
+    return `<p>${lines.map(inline).join("<br>")}</p>`;
+  }).join("\n");
 const lc = (s) => s.split(" ").map((w) => (/^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase())).join(" ");
 const abs = (p) => C.domain.replace(/\/$/, "") + p;
 const tel = (C.phone || "").replace(/[^\d+]/g, "");
@@ -68,10 +95,12 @@ const crumbs = (items) => `<nav class="crumbs" aria-label="Breadcrumb"><a href="
 const phero = ({ h, lead, trail = [], btns = "", cls = "" }) => `<section class="phero ${cls}"><div class="wrap">${trail.length ? crumbs(trail) : ""}${H1(h)}${lead ? `<p class="lead">${lead}</p>` : ""}${btns ? `<div class="btns">${btns}</div>` : ""}</div></section>`;
 
 // ---------- schema ----------
+const postal = (l) => (l ? { "@type": "PostalAddress", streetAddress: l.address.replace(/\s*\n\s*/g, ", "), ...(l.city ? { addressLocality: l.city } : {}), addressCountry: l.country || "IN" } : { "@type": "PostalAddress", addressCountry: "IN" });
 const ORG = {
   "@context": "https://schema.org", "@type": "Organization", "@id": abs("/#org"), name: C.name, alternateName: C.shortName, url: abs("/"), logo: abs("/assets/icon-512.png"), image: abs("/assets/og.png"),
   description: "AI-first growth agency for brands worldwide: performance marketing, social media and content, SEO and AI search, websites and apps, brand and video, AI agents and automation.",
-  email: C.email, telephone: C.phone, areaServed: "Worldwide", address: { "@type": "PostalAddress", addressCountry: "IN" },
+  email: C.email, telephone: C.phone, areaServed: "Worldwide", address: postal(locations.find((l) => l.hq) || locations[0]),
+  ...(locations.length ? { location: locations.map((l) => ({ "@type": "Place", name: `${C.name}, ${l.name}`, address: postal(l), ...(l.phone ? { telephone: l.phone } : {}) })) } : {}),
   sameAs: Object.values(C.social).filter(Boolean), knowsAbout: services.map((s) => s.name).concat(["Generative engine optimisation", "Conversion rate optimisation"]),
   slogan: "Marketing that performs. Technology that scales.",
   ...(team.length ? { founder: team.filter((p) => /founder/i.test(p.role)).map((p) => ({ "@type": "Person", name: p.name, jobTitle: p.role })) } : {}),
@@ -111,7 +140,8 @@ function footer() {
   return `<footer class="ftr"><div class="wrap">
 <div class="ftr-grid">
 <div class="ftr-brand"><img src="/assets/wordmark-color.svg" alt="dotindot." width="150" height="29"><p>${esc(C.name)} is an AI-first growth agency for brands worldwide: marketing that performs and technology that scales.</p>
-<div class="contact"><a href="mailto:${C.email}">${C.email}</a><a href="tel:${tel}">${esc(C.phoneDisplay)}</a><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a></div></div>
+<div class="contact"><a href="mailto:${C.email}">${C.email}</a><a href="tel:${tel}">${esc(C.phoneDisplay)}</a><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a></div>
+${locations.length ? `<p class="ftr-offices"><a href="/contact/#offices">Offices</a>: ${locations.map((l) => esc(l.name)).join(", ")}</p>` : ""}</div>
 <div><h3>Services</h3><ul>${services.map((s) => `<li><a href="/services/${s.slug}/">${esc(s.name)}</a></li>`).join("")}</ul></div>
 <div><h3>Company</h3><ul><li><a href="/about/">About</a></li><li><a href="/clients/">Clients</a></li><li><a href="/process/">How we work</a></li><li><a href="/insights/">Insights</a></li><li><a href="/careers/">Careers</a></li><li><a href="/contact/">Contact</a></li></ul></div>
 <div><h3>Resources</h3><ul><li><a href="/free-audit/">Free growth audit</a></li><li><a href="/speed-test/">Website speed test</a></li><li><a href="/growth-score/">Marketing health check</a></li></ul><h3 style="margin-top:28px">Follow</h3><ul>${soc}</ul></div>
@@ -125,14 +155,19 @@ function footer() {
 </div></footer>`;
 }
 
-function layout({ path, title, desc, body, ld = [], noindex = false, type = "website", fullTitle, og = "", crumbs: trail = null }) {
+const INDEX = [];
+function layout({ path, title, desc, body, ld = [], noindex = false, type = "website", fullTitle, og = "", ogImage = "", crumbs: trail = null }) {
   const url = abs(path);
-  const t = fullTitle || `${title} — ${C.name}`;
-  const ogImg = og && existsSync(join(ROOT, `assets/og/${og}.jpg`)) ? `/assets/og/${og}.jpg` : "/assets/og.png";
+  const t0 = fullTitle || `${title} — ${C.name}`, ov = (SEO.pages || {})[path] || {};
+  if (!noindex) INDEX.push({ path, title: t0, description: desc, kind: type === "article" ? "article" : "page" });
+  const t = ov.title || t0;
+  desc = ov.description || desc;
+  const ogImg = ogImage ? `/${ogImage.replace(/^\//, "")}` : og && existsSync(join(ROOT, `assets/og/${og}.jpg`)) ? `/assets/og/${og}.jpg` : "/assets/og.png";
   const page = { "@context": "https://schema.org", "@type": path.startsWith("/contact") ? "ContactPage" : path.startsWith("/about") ? "AboutPage" : "WebPage", "@id": url + "#webpage", url, name: t, description: desc, inLanguage: "en", isPartOf: { "@id": abs("/#site") }, about: { "@id": abs("/#org") }, primaryImageOfPage: abs(ogImg), speakable: { "@type": "SpeakableSpecification", cssSelector: ["h1", ".lead"] }, ...(trail ? { breadcrumb: crumbsLd(trail) } : {}) };
   const verify = [C.verify && C.verify.google ? `<meta name="google-site-verification" content="${esc(C.verify.google)}">` : "", C.verify && C.verify.bing ? `<meta name="msvalidate.01" content="${esc(C.verify.bing)}">` : ""].join("");
   const ga = C.ga4 ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${C.ga4}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${C.ga4}',{anonymize_ip:true})</script>` : "";
-  const cfg = { intake: C.leadIntakeUrl, whatsapp: C.whatsapp, email: C.email, preview: PREVIEW, psiKey: C.pageSpeedApiKey || "" };
+  const cfg = { intake: C.leadIntakeUrl, whatsapp: C.whatsapp, email: C.email, preview: PREVIEW, psiKey: C.pageSpeedApiKey || "",
+    chat: CHAT.enabled ? { api: "/api/chat", name: CHAT.name || "Dot", greeting: CHAT.greeting || "", privacy: "{{R}}privacy/" + (PREVIEW ? "index.html" : ""), audit: "{{R}}free-audit/" + (PREVIEW ? "index.html" : "") } : null };
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -192,11 +227,21 @@ const faqBlock = (qa) => `<div class="faq">${qa.map(([q, a]) => `<details><summa
 const faqSec = (title, qa, cls = "") => `<section class="sec ${cls}"><div class="wrap two"><div>${H2(title)}</div><div data-reveal>${faqBlock(qa)}</div></div></section>`;
 const svcGrid = (n = 4) => `<div class="svc-grid" data-reveal-group>${services.map((s) => `<article class="svc" data-reveal><h3><a href="/services/${s.slug}/">${esc(s.name)}</a></h3><p class="tag">${esc(s.tagline)}</p><p>${esc(s.short)}</p><ul>${s.highlights.slice(0, n).map((d) => `<li>${esc(d)}</li>`).join("")}</ul>${go("Explore")}</article>`).join("")}</div>`;
 const logoWall = () => {
-  if (!clients.length) return PREVIEW ? `<div class="ph"><b>Client logos</b>Add real clients in site.config.json → clients. They appear here as logos or names.</div>` : "";
+  if (!clients.length) return PREVIEW ? `<div class="ph"><b>Client logos</b>Add real clients in the app → Website → Clients. They appear here with their logo and a short description.</div>` : "";
   const rest = (4 - (clients.length % 4)) % 4 || 4;
-  return `<ul class="logos" data-reveal>${clients.map((c) => `<li>${c.logo ? `<img src="/${esc(c.logo.replace(/^\//, ""))}" alt="${esc(c.name)}" loading="lazy">` : `<b>${esc(c.name)}</b>`}${c.industry ? `<span>${esc(c.industry)}</span>` : ""}</li>`).join("")}
+  return `<ul class="logos" data-reveal>${clients.map((c) => `<li>${c.logo ? `<img src="/${esc(c.logo.replace(/^\//, ""))}" alt="${esc(c.name)}" loading="lazy">` : `<b>${esc(c.name)}</b>`}${c.industry ? `<span>${esc(c.industry)}</span>` : ""}${c.description ? `<p>${esc(c.description)}</p>` : ""}</li>`).join("")}
 <li class="cta-cell" style="--span:${rest}"><b>Your brand</b><span><a class="link" href="/contact/">Start a project</a></span></li></ul>`;
 };
+const certStrip = () => (certs.length ? `<div class="certs" data-reveal><p class="label">Certifications and partnerships</p><ul>${certs.map((c) => {
+  const inner = c.logo ? `<img src="/${esc(c.logo.replace(/^\//, ""))}" alt="${esc(c.name)}" loading="lazy">` : `<b>${esc(c.name)}</b>`;
+  return `<li title="${esc(c.name)}">${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${inner}</a>` : inner}</li>`;
+}).join("")}</ul></div>` : "");
+const mapsUrl = (l) => l.map_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([C.name, l.address.replace(/\n/g, ", "), l.city, l.country].filter(Boolean).join(", "))}`;
+const officesBlock = () => (locations.length ? `<section class="sec" id="offices"><div class="wrap"><div class="shead">${H2(locations.length > 1 ? "Our offices" : "Our office")}<p data-reveal>Visit us, call the office nearest you, or write to any of us: every office works with brands worldwide.</p></div>
+<div class="offices" data-reveal-group>${locations.map((l) => `<article class="office" data-reveal><h3>${esc(l.name)}${l.hq ? '<span class="hq">Head office</span>' : ""}</h3>
+<address>${esc(l.address).replace(/\n/g, "<br>")}${l.city || l.country ? `<br>${esc([l.city, l.country].filter(Boolean).join(", "))}` : ""}</address>
+<p class="o-links">${l.phone ? `<a href="tel:${esc(l.phone.replace(/[^\d+]/g, ""))}">${esc(l.phone)}</a>` : ""}${l.email ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : ""}</p>
+${l.hours ? `<p class="o-hours">${esc(l.hours)}</p>` : ""}<a class="go" href="${esc(mapsUrl(l))}" target="_blank" rel="noopener">Directions ${I.arrow}</a></article>`).join("")}</div></div></section>` : "");
 const quoteBlock = () => {
   if (!testimonials.length) return PREVIEW ? `<div class="quotes"><div class="ph"><b>Client testimonials</b>Real quotes appear here once added in the app → Website → Testimonials, with the client's permission. Nothing is shown until then.</div></div>` : "";
   const many = testimonials.length > 1;
@@ -209,7 +254,7 @@ const whyGrid = () => `<div class="why" data-reveal>${whyUs.map(([h, p]) => `<di
 const stepsBlock = () => `<div class="steps" data-steps><div class="steps-line" aria-hidden="true"><i></i></div>${steps.map((s) => `<article class="step" data-reveal><span class="n">${s.n}</span><h3>${esc(s.title)}</h3><span class="when">${esc(s.when)}</span><p>${esc(s.text)}</p></article>`).join("")}</div>`;
 const fmtDate = (d, long) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: long ? "long" : "short", year: "numeric" });
 const postCards = (list, cls = "cols") => `<div class="posts ${cls}">${list.map((a) => `<article class="post" data-reveal><time datetime="${a.date}">${fmtDate(a.date)}</time><h3><a href="/insights/${a.slug}/">${esc(a.title)}</a></h3><p>${esc(a.summary)}</p>${cls === "rows" ? go(`${a.minutes} min read`) : ""}</article>`).join("")}</div>`;
-const CLOCKS = [["London", "Europe/London"], ["New York", "America/New_York"], ["Dubai", "Asia/Dubai"], ["Singapore", "Asia/Singapore"], ["Sydney", "Australia/Sydney"], ["India (HQ)", "Asia/Kolkata"]];
+const CLOCKS = markets.filter((m) => m.tz !== "Asia/Kolkata").map((m) => [m.city, m.tz]).concat([["India (HQ)", "Asia/Kolkata"]]);
 const clocks = () => `<div class="clocks" data-reveal>${CLOCKS.map(([n, z]) => `<div class="clock" data-tz="${z}"><b>--:--</b><span><i></i>${esc(n)}</span></div>`).join("")}</div>`;
 const quizBlock = (id) => `<div class="quiz" data-quiz="${id}">
 <div class="qz-top"><div class="qz-bar" aria-hidden="true"><i style="width:0"></i></div><span class="qz-count">1 of ${quiz.length}</span></div>
@@ -248,18 +293,18 @@ const homeBody = `
 <section class="hero" aria-labelledby="h"><div class="wrap">
 <h1 id="h" class="h-hero"><span class="sr">${heroLines.join(". ")}.</span><span aria-hidden="true">${heroLines.map((l, i) => `<span class="ln"><span style="--i:${i}">${esc(l).replace(/(\S+)$/, `<span class="nw">$1<span class="dot"${i === heroLines.length - 1 ? " data-fs" : ""}></span></span>`)}</span></span>`).join("")}</span></h1>
 <div class="hero-row"><div class="hero-copy">
-<p class="lead">${esc(C.name)} is an AI-first growth agency. We run performance marketing, search and content, and build the websites, apps and automation behind them, for brands across the UK, US, Middle East, Asia-Pacific and India.</p>
+<p class="lead">${esc(C.name)} is an AI-first growth agency. We run performance marketing, search and content, and build the websites, apps and automation behind them, for brands across the UK, Europe, North America, the Middle East, Asia-Pacific and India.</p>
 <div class="btns"><a class="btn" href="/free-audit/">Get a free growth audit</a><a class="btn ghost" href="#services">Explore our services</a></div>
 </div>
 <div class="hero-map" data-map="/${MAP_JSON}" aria-hidden="true"><canvas></canvas></div></div>
-<div class="facts">${proof.length >= 3 ? proof.slice(0, 3).map((p) => `<div><b>${esc(p.value)}</b><span>${esc(p.label)}</span></div>`).join("") : `<div><b>Six disciplines, one team</b><span>Paid media, search, content, web, brand and AI</span></div><div><b>Your hours, your currency</b><span>Quotes and invoices in eight currencies</span></div><div><b>A reply within one working day</b><span>From a specialist, not a ticket queue</span></div>`}</div>
+<div class="facts">${proof.length >= 3 ? proof.slice(0, 3).map((p) => `<div><b>${esc(p.value)}</b><span>${esc(p.label)}</span></div>`).join("") : `<div><b>Six disciplines, one team</b><span>Paid media, search, content, web, brand and AI</span></div><div><b>Your hours, your currency</b><span>Quotes and invoices in ${CURS.length} currencies</span></div><div><b>A reply within one working day</b><span>From a specialist, not a ticket queue</span></div>`}</div>
 </div></section>
 ${statement()}
 
 ${reel()}
 
 <section class="sec mist" id="clients"><div class="wrap">
-<div class="shead">${H2("Who we work with")}<p data-reveal>Growth-focused businesses in energy, manufacturing, retail, e-commerce and professional services, from a first serious website to multi-market growth.</p></div>
+<div class="shead">${H2("Who we work with")}<p data-reveal>${esc(PG.clients_intro || "Growth-focused businesses in energy, manufacturing, retail, e-commerce and professional services, from a first serious website to multi-market growth.")}</p></div>
 ${logoWall()}
 <ul class="industries" data-reveal aria-label="Industries">${industries.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
 ${quoteBlock()}
@@ -269,6 +314,7 @@ ${caseList()}
 <section class="sec" id="why"><div class="wrap">
 <div class="shead">${H2("Why brands choose Dotindot")}<p data-reveal>Senior expertise, AI-first delivery and complete transparency, without the overheads of a traditional agency.</p></div>
 ${whyGrid()}
+${certStrip()}
 <div class="xp-grid">
 <div data-reveal><h3 class="h-mid">Our expertise</h3><p class="muted" style="margin-top:12px;max-width:26em">One team covering every discipline your growth depends on, with the specialists working from the same plan.</p></div>
 <div data-reveal><ul class="xp">${expertise.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
@@ -330,7 +376,7 @@ ${talk(`service-${s.slug}`, { pre: s.slug, title: `Let's talk ${lc(s.name)}` })}
 // clients
 add("/clients/", layout({ path: "/clients/", title: "Clients", fullTitle: `Clients and testimonials — ${C.name}`, og: "clients", desc: `The businesses ${C.name} works with, what they say about us, and the industries we know best.`,
   crumbs: [["Home", "/"], ["Clients", "/clients/"]], ld: [crumbsLd([["Home", "/"], ["Clients", "/clients/"]]), ...reviewLd()],
-  body: `${phero({ h: "Clients", lead: "We work with growth-focused businesses that want marketing they can measure and technology that keeps up with them.", trail: [["Clients"]] })}
+  body: `${phero({ h: "Clients", lead: esc(PG.clients_intro || "We work with growth-focused businesses that want marketing they can measure and technology that keeps up with them."), trail: [["Clients"]] })}
 <section class="sec tight"><div class="wrap">${logoWall()}<ul class="industries" data-reveal aria-label="Industries">${industries.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${quoteBlock()}</div></section>
 ${cases.length ? `<section class="sec mist"><div class="wrap"><div class="shead">${H2("Selected results")}</div>${caseList()}</div></section>` : ""}
 <section class="sec ${cases.length ? "" : "mist"}"><div class="wrap"><div class="shead">${H2("Why clients stay")}<p data-reveal>Month-to-month terms mean we earn every month. These are the reasons clients give us.</p></div>${whyGrid()}</div></section>
@@ -358,22 +404,24 @@ add("/about/", layout({ path: "/about/", title: "About", fullTitle: `About ${C.n
 <div data-reveal>${H2("Who we are")}</div>
 <div class="lead" data-reveal><p>Most growing businesses end up managing four or five agencies: one for ads, one for the website, one for social, a freelancer for SEO. Plans drift apart and nobody owns the result.</p><p style="margin-top:1em">${esc(C.name)} was built to fix that. One team plans and runs paid media, search, content, websites and automation together, and is measured on the numbers that matter to you: qualified leads, sales and cost per customer.</p><p style="margin-top:1em">The name says what we do. Every brand online starts as a dot among millions. Our job is to make yours the one people notice, remember and choose.</p></div>
 </div></section>
-<section class="sec mist"><div class="wrap"><div class="shead">${H2("Why brands choose us")}</div>${whyGrid()}</div></section>
+<section class="sec mist"><div class="wrap"><div class="shead">${H2("Why brands choose us")}</div>${whyGrid()}${certStrip()}</div></section>
 <section class="sec"><div class="wrap"><div class="shead">${H2("AI-first, specialist-led")}<p data-reveal>AI makes us faster and better value. Specialists make sure the work is right. This is how the work is split.</p></div>
 <div class="split" data-reveal><div class="hd"><span></span><span>AI handles</span><span>Specialists decide</span></div>${aiHuman.map(([k, a, h]) => `<div class="row"><b>${esc(k)}</b><p class="ai">${esc(a)}</p><p class="hu">${esc(h)}</p></div>`).join("")}</div></div></section>
 ${team.length ? `<section class="sec mist"><div class="wrap"><div class="shead">${H2("Leadership")}</div>${teamGrid()}</div></section>` : ""}
 <section class="sec"><div class="wrap"><div class="shead">${H2("What we believe")}</div><div class="vals" data-reveal>${values.map(([h, p]) => `<div><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`).join("")}</div></div></section>
 <section class="sec mist"><div class="wrap two">
 <div data-reveal>${H2("Built to work across borders")}</div>
-<ul class="check" data-reveal><li><b>Headquartered in India, working worldwide.</b> Senior people and sensible costs, without the overheads of a city-centre office.</li><li><b>In your time zone.</b> Daily overlap with Europe, the Middle East and Asia-Pacific; early or late calls for the Americas.</li><li><b>In your currency.</b> Quotes and invoices in USD, GBP, EUR, AED, SGD, AUD, CAD or INR.</li><li><b>One client portal.</b> Reports, approvals and invoices in one place, with the same live numbers we see.</li></ul>
+<ul class="check" data-reveal><li><b>Headquartered in India, working worldwide.</b> Senior people and sensible costs, without the overheads of a city-centre office.</li><li><b>In your time zone.</b> Daily overlap with Europe, the Middle East and Asia-Pacific; early or late calls for the Americas.</li><li><b>In your currency.</b> Quotes and invoices in ${curList}.</li><li><b>One client portal.</b> Reports, approvals and invoices in one place, with the same live numbers we see.</li></ul>
 </div></section>
 ${talk("about", { title: "Work with us" })}` }));
 
 // contact
 add("/contact/", layout({ path: "/contact/", title: "Contact", fullTitle: `Contact ${C.name} — a specialist replies within one working day`, og: "contact", desc: "Tell Dotindot about your business. A specialist replies within one working day, by email, WhatsApp or video call, in your time zone and your currency.",
-  crumbs: [["Home", "/"], ["Contact", "/contact/"]], ld: [crumbsLd([["Home", "/"], ["Contact", "/contact/"]]), faqLd(faqs.slice(1, 5)), { "@context": "https://schema.org", "@type": "ContactPage", url: abs("/contact/"), about: { "@id": abs("/#org") } }],
+  crumbs: [["Home", "/"], ["Contact", "/contact/"]], ld: [crumbsLd([["Home", "/"], ["Contact", "/contact/"]]), faqLd(faqs.slice(1, 5)), { "@context": "https://schema.org", "@type": "ContactPage", url: abs("/contact/"), about: { "@id": abs("/#org") } },
+    ...locations.map((l) => ({ "@context": "https://schema.org", "@type": "ProfessionalService", name: `${C.name}, ${l.name}`, parentOrganization: { "@id": abs("/#org") }, url: abs("/contact/"), image: abs("/assets/og.png"), address: postal(l), ...(l.phone ? { telephone: l.phone } : {}), ...(l.email ? { email: l.email } : {}) }))],
   body: `${phero({ h: "Contact", lead: "Tell us about your business and what you want to achieve. A specialist replies within one working day.", trail: [["Contact"]] })}
 ${talk("contact", { title: "Start a conversation", text: "Share a little about your goals, or reach us directly by email, WhatsApp or phone.", cls: "tight" }).replace('class="sec rule tight"', 'class="sec tight"')}
+${officesBlock()}
 <section class="sec mist"><div class="wrap"><div class="shead">${H2("Working across time zones")}<p data-reveal>Our day overlaps with Europe, the Middle East and Asia-Pacific, and we hold early or late calls for the Americas.</p></div>${clocks()}</div></section>
 ${faqSec("Before you write", faqs.slice(1, 7))}` }));
 
@@ -396,16 +444,12 @@ add("/insights/", layout({ path: "/insights/", title: "Insights", fullTitle: `In
 <section class="sec tight"><div class="wrap">${postCards(insights, "rows")}</div></section>
 ${talk("insights", { title: "Want this done for you?" })}` }));
 insights.forEach((a) => {
-  const body = a.body.map((b) => {
-    if (b.startsWith("## ")) return `<h2>${esc(b.slice(3))}</h2>`;
-    if (/^\d\. /.test(b)) return `<ol>${b.split("\n").map((l) => `<li>${md(l.replace(/^\d\.\s*/, ""))}</li>`).join("")}</ol>`;
-    if (b.includes("\n")) return `<ul>${b.split("\n").map((l) => `<li>${md(l)}</li>`).join("")}</ul>`;
-    return `<p>${md(b)}</p>`;
-  }).join("\n");
+  const body = mdHtml(a.body);
   const trail = [["Home", "/"], ["Insights", "/insights/"], [a.title, `/insights/${a.slug}/`]];
   const more = insights.filter((x) => x.slug !== a.slug).slice(0, 3);
-  add(`/insights/${a.slug}/`, layout({ path: `/insights/${a.slug}/`, title: a.title, desc: a.summary, type: "article", og: `insights-${a.slug}`, crumbs: trail,
-    ld: [crumbsLd(trail), { "@context": "https://schema.org", "@type": "BlogPosting", headline: a.title, description: a.summary, datePublished: a.date, dateModified: a.date, author: { "@type": "Organization", name: C.name, url: abs("/") }, publisher: { "@id": abs("/#org") }, mainEntityOfPage: abs(`/insights/${a.slug}/`), image: abs("/assets/og.png") }],
+  const shareImg = a.image ? `/${a.image.replace(/^\//, "")}` : existsSync(join(ROOT, `assets/og/insights-${a.slug}.jpg`)) ? `/assets/og/insights-${a.slug}.jpg` : "/assets/og.png";
+  add(`/insights/${a.slug}/`, layout({ path: `/insights/${a.slug}/`, title: a.title, fullTitle: a.seo_title || undefined, desc: a.seo_description || a.summary, type: "article", og: `insights-${a.slug}`, ogImage: a.image || "", crumbs: trail,
+    ld: [crumbsLd(trail), { "@context": "https://schema.org", "@type": "BlogPosting", headline: a.title, description: a.summary, datePublished: a.date, dateModified: a.updated || a.date, author: { "@type": "Organization", name: C.name, url: abs("/") }, publisher: { "@id": abs("/#org") }, mainEntityOfPage: abs(`/insights/${a.slug}/`), image: abs(shareImg) }],
     body: `<article><section class="phero"><div class="wrap">${crumbs([["Insights", "/insights/"], [`${a.minutes} min read`]])}${H1(a.title)}<p class="meta">By the ${esc(C.name)} team, <time datetime="${a.date}">${fmtDate(a.date, true)}</time></p></div></section>
 <section class="sec tight"><div class="wrap"><div class="prose">${body}</div></div></section></article>
 <section class="sec mist"><div class="wrap"><div class="shead">${H2("More insights")}</div>${postCards(more)}</div></section>
@@ -433,8 +477,8 @@ add("/growth-score/", layout({ path: "/growth-score/", title: "Marketing health 
 ${talk("growth-score", { title: "Want a full plan?" })}` }));
 
 // markets
-add("/markets/", layout({ path: "/markets/", title: "Markets", fullTitle: `International growth agency for the UK, US, UAE, Singapore, Australia and India — ${C.name}`, og: "markets",
-  desc: "Dotindot works with brands in the UK, US, UAE, Singapore, Australia and India, in your time zone, your currency and your market's rules.",
+add("/markets/", layout({ path: "/markets/", title: "Markets", fullTitle: `International growth agency for the UK, Europe, North America, the Middle East and Asia-Pacific — ${C.name}`, og: "markets",
+  desc: `Dotindot works with brands in ${markets.map((m) => m.country).slice(0, -1).join(", ")} and ${markets[markets.length - 1].country}, in your time zone, your currency and your market's rules.`,
   crumbs: [["Home", "/"], ["Markets", "/markets/"]], ld: [crumbsLd([["Home", "/"], ["Markets", "/markets/"]])],
   body: `${phero({ h: "Markets", lead: "One team, working in your hours, quoting in your currency and following your market's rules.", trail: [["Markets"]] })}
 <section class="sec tight"><div class="wrap"><div class="mk-grid" data-reveal>${markets.map((m) => `<a href="/markets/${m.slug}/" data-tz="${m.tz}"><b>${esc(m.country)}</b><span>${esc(m.city)} <strong class="tm">--:--</strong>, invoiced in ${m.cur}</span></a>`).join("")}</div></div></section>
@@ -469,20 +513,13 @@ add("/thanks/", layout({ path: "/thanks/", title: "Thank you", desc: "We've rece
   body: `<section class="phero center"><div class="wrap">${H1("Thank you")}<p class="lead">We've received your message. Here's what happens next.</p>
 <ol class="timeline" style="margin-top:36px;max-width:640px"><li><b>Today</b><span>A specialist reads your note.</span></li><li><b>Within one working day</b><span>We reply by email or WhatsApp with a few questions or a time for a call.</span></li><li><b>Before the call</b><span>We review your website, search and social presence so the conversation is useful from the first minute.</span></li></ol>
 <div class="btns" style="margin-top:40px"><a class="btn" href="/">Back to home</a><a class="btn ghost" href="/insights/">Read our insights</a></div></div></section>` }));
-add("/privacy/", layout({ path: "/privacy/", title: "Privacy policy", fullTitle: `Privacy policy — ${C.name}`, desc: "What Dotindot collects through this website, why, and how to ask us to change or delete it.",
-  body: `${phero({ h: "Privacy policy" })}<section class="sec tight"><div class="wrap prose">
-<p class="meta" style="margin-top:0">Last updated ${today}</p>
-<p>${esc(C.name)} (“we”) runs ${esc(C.domain.replace(/^https?:\/\//, ""))}. This page explains what we collect through this site and why. We follow India's Digital Personal Data Protection Act 2023 and, for visitors in the UK and EU, the GDPR.</p>
-<h2>What we collect</h2><p>What you type into our forms (name, company, email, phone, budget range and message), the page you sent it from, your browser's time zone and, if present, the campaign tags in the link you arrived from. If analytics is switched on, anonymised usage data.</p>
-<h2>Why</h2><p>To reply to you, prepare anything you asked for (such as an audit) and understand which pages are useful. Form submissions go straight into our own CRM. We never sell personal data.</p>
-<h2>What stays in your browser</h2><p>We remember how you first arrived (in your browser's local storage) so an enquiry carries its source. No advertising cookies are set by this site.</p>
-<h2>Your choices</h2><p>Email <a href="mailto:${C.email}">${C.email}</a> to see, correct or delete what we hold about you. We'll do it within 30 days.</p></div></section>` }));
-add("/terms/", layout({ path: "/terms/", title: "Terms of use", fullTitle: `Terms of use — ${C.name}`, desc: "Terms of use for the Dotindot website: what the content is for, what we promise and who owns what.",
-  body: `${phero({ h: "Terms of use" })}<section class="sec tight"><div class="wrap prose">
-<p class="meta" style="margin-top:0">Last updated ${today}</p>
-<p>Content on this website is general information. Work with ${esc(C.name)} is governed by the quotation and terms you accept for that engagement, not by this page.</p>
-<p>Timelines and results described here are indicative and depend on your business, market and budget. We don't guarantee rankings, reach, AI citations or revenue.</p>
-<p>The content, design and code on this site belong to ${esc(C.name)} unless stated otherwise. These terms are governed by the laws of India.</p></div></section>` }));
+const LEGAL_VARS = { name: C.name, email: C.email, domain: C.domain.replace(/^https?:\/\//, "") };
+const legal = (key, h, desc, fullTitle) => add(`/${key}/`, layout({ path: `/${key}/`, title: h, fullTitle, desc,
+  body: `${phero({ h })}<section class="sec tight"><div class="wrap prose">
+<p class="meta" style="margin-top:0">Last updated ${fmtDate(PG[`${key}_updated`] || "2026-11-09", true)}</p>
+${mdHtml(PG[key] || PAGES0[key], LEGAL_VARS)}</div></section>` }));
+legal("privacy", "Privacy policy", "What Dotindot collects through this website and the chat assistant, why, and how to ask us to change or delete it.", `Privacy policy — ${C.name}`);
+legal("terms", "Terms of use", "Terms of use for the Dotindot website: what the content is for, what we promise and who owns what.", `Terms of use — ${C.name}`);
 add("/404.html", layout({ path: "/404.html", title: "Page not found", desc: "That page doesn't exist.", noindex: true,
   body: `<section class="phero center"><div class="wrap">${H1("Page not found")}<p class="lead">The page you're looking for has moved or no longer exists.</p><div class="btns"><a class="btn" href="/">Back to home</a><a class="btn ghost" href="/services/">Our services</a><a class="btn ghost" href="/contact/">Contact us</a></div></div></section>` }));
 
@@ -520,12 +557,29 @@ writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\
   const ai = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"];
   writeFileSync(join(OUT, "robots.txt"), `User-agent: *\n${rules}\n# AI assistants are welcome. Start at /llms.txt\n${ai.map((b) => `User-agent: ${b}\n`).join("")}${rules}\nSitemap: ${abs("/sitemap.xml")}\n`);
 }
-writeFileSync(join(OUT, "llms.txt"), `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first growth agency headquartered in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in USD, GBP, EUR, AED, SGD, AUD, CAD or INR. Contact: ${C.email}.\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [Clients](${abs("/clients/")}): who we work with${clients.length ? " (" + clients.map((c) => c.name).join(", ") + ")" : ""}\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Markets\n${markets.map((m) => `- [${m.country}](${abs(`/markets/${m.slug}/`)}): marketing for brands in ${m.name}, invoiced in ${m.cur}`).join("\n")}\n\n## Free tools\n- [Website speed test](${abs("/speed-test/")}): Google PageSpeed score and Core Web Vitals in about 30 seconds\n- [Marketing health check](${abs("/growth-score/")}): a 60-second marketing assessment\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`);
+const LLMS = `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first growth agency headquartered in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in ${curList}. Contact: ${C.email}.${locations.length ? ` Offices: ${locations.map((l) => [l.name, l.city].filter((v, i, a) => v && a.indexOf(v) === i).join(", ")).join("; ")}.` : ""}\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [Clients](${abs("/clients/")}): who we work with${clients.length ? " (" + clients.map((c) => c.name).join(", ") + ")" : ""}\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Markets\n${markets.map((m) => `- [${m.country}](${abs(`/markets/${m.slug}/`)}): marketing for brands in ${m.name}, invoiced in ${m.cur}`).join("\n")}\n\n## Free tools\n- [Website speed test](${abs("/speed-test/")}): Google PageSpeed score and Core Web Vitals in about 30 seconds\n- [Marketing health check](${abs("/growth-score/")}): a 60-second marketing assessment\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`;
+writeFileSync(join(OUT, "llms.txt"), (PG.llms || "").trim() ? PG.llms.trim() + "\n" : LLMS);
 const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>|<svg[\s\S]*?<\/svg>|<template[\s\S]*?<\/template>|<span aria-hidden="true">[\s\S]*?<\/span><\/h[12]>/g, (m) => (m.startsWith("<span aria-hidden") ? "" : "")).replace(/<div class="mnav"[\s\S]*?<\/nav>/g, "").replace(/<h([1-3])[^>]*>/g, (m, n) => `\n${"#".repeat(+n)} `).replace(/<li[^>]*>/g, "\n- ").replace(/<\/p>|<\/h[1-3]>|<br\s*\/?>|<\/summary>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/[ \t]+/g, " ").replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
 writeFileSync(join(OUT, "llms-full.txt"), `# ${C.name} — full site text\n` + pages.filter(([p]) => live.includes(p)).map(([p, h]) => `\n\n---\nURL: ${abs(p)}\n\n${strip(h)}`).join(""));
 writeFileSync(join(OUT, "humans.txt"), `/* TEAM */\nAgency: ${C.name}${team.length ? "\n" + team.map((p) => `${p.role}: ${p.name}`).join("\n") : ""}\nContact: ${C.email}\nFrom: India, working worldwide\n\n/* SITE */\nLast update: ${today}\nStandards: HTML, CSS, a little JavaScript\nFonts: Schibsted Grotesk\n`);
 mkdirSync(join(OUT, ".well-known"), { recursive: true });
 writeFileSync(join(OUT, ".well-known/security.txt"), `Contact: mailto:${C.email}\nExpires: ${new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10)}T00:00:00.000Z\nPreferred-Languages: en\nCanonical: ${abs("/.well-known/security.txt")}\n`);
+// for the app: the page list (Website → SEO), the generated llms.txt (Website → Pages) and what the chat assistant may say
+if (!PREVIEW) writeFileSync(join(ROOT, "site-index.json"), JSON.stringify({
+  built_at: new Date().toISOString(), pages: INDEX, llms_generated: LLMS,
+  knowledge: {
+    name: C.name, domain: C.domain, tagline: "Marketing that performs. Technology that scales.",
+    about: "AI-first growth agency headquartered in India, working with brands worldwide. One team plans and runs paid media, search, content, websites and automation together, measured on qualified leads, sales and cost per customer.",
+    services: services.map((x) => ({ name: x.name, tagline: x.tagline, short: x.short, highlights: x.highlights, url: abs(`/services/${x.slug}/`) })),
+    how_we_work: steps.map((x) => `${x.title} (${x.when}): ${x.text}`), why_us: whyUs.map(([h, t]) => `${h}: ${t}`), faqs,
+    markets: markets.map((m) => ({ country: m.country, city: m.city, currency: m.cur, url: abs(`/markets/${m.slug}/`) })), currencies: CURS,
+    industries, clients: clients.map((c) => [c.name, c.industry].filter(Boolean).join(" — ")),
+    offices: locations.map((l) => ({ name: l.name, address: [l.address.replace(/\n/g, ", "), l.city, l.country].filter(Boolean).join(", "), phone: l.phone || "", email: l.email || "", hours: l.hours || "" })),
+    contact: { email: C.email, phone: C.phoneDisplay || C.phone, whatsapp: C.whatsapp ? `https://wa.me/${C.whatsapp}` : "" },
+    links: { audit: abs("/free-audit/"), contact: abs("/contact/"), speed_test: abs("/speed-test/"), health_check: abs("/growth-score/"), insights: abs("/insights/") },
+    insights: insights.map((x) => ({ title: x.title, url: abs(`/insights/${x.slug}/`), summary: x.summary })),
+  },
+}, null, 1));
 writeFileSync(join(OUT, "manifest.webmanifest"), JSON.stringify({ name: C.name, short_name: C.shortName, start_url: "/", display: "browser", background_color: "#ffffff", theme_color: "#ffffff", icons: [{ src: "/assets/icon-512.png", sizes: "512x512", type: "image/png" }, { src: "/assets/app-icon.svg", sizes: "any", type: "image/svg+xml" }] }));
 writeFileSync(join(OUT, ".htaccess"), `# dotindot.in — Apache (Hostinger)
 Options -Indexes

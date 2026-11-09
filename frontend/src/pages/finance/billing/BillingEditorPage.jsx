@@ -146,11 +146,39 @@ export default function BillingEditorPage() {
       </div>
 
       {/* lines */}
-      <Card className="border-gray-200/80 shadow-sm"><CardHeader className="pb-2 flex-row items-center justify-between space-y-0"><CardTitle className="text-sm font-semibold">Line items</CardTitle>
+      <Card className="border-gray-200/80 shadow-sm"><CardHeader className="pb-2 flex-row flex-wrap items-center justify-between gap-2 space-y-0"><CardTitle className="text-sm font-semibold">Line items</CardTitle>
         <Button size="sm" variant="outline" onClick={() => set("items", [...f.items, blankLine(meta.company.defaults.sac)])} data-testid="billing-add-line"><Plus className="h-3.5 w-3.5 mr-1" /> Add line</Button></CardHeader>
         <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm min-w-[820px]" data-testid="billing-lines">
-            <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="w-8" /><th className="text-left font-semibold py-2 px-2">Description</th>{isGst && <th className="text-left font-semibold py-2 px-2 w-28">SAC</th>}
+          {/* phones: one card per line, every field full size */}
+          <div className="md:hidden divide-y divide-gray-100 border-t border-gray-100" data-testid="billing-lines-mobile">{f.items.map((it, i) => {
+            const ln = totals.lines[i];
+            return (
+              <div key={it.key} className="p-4 space-y-2.5" data-testid={`billing-mline-${i}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-gray-500">Line {i + 1}</span>
+                  <div className="flex items-center">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={i === 0} onClick={() => moveLine(it.key, -1)} aria-label="Move up"><ChevronUp className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={i === f.items.length - 1} onClick={() => moveLine(it.key, 1)} aria-label="Move down"><ChevronDown className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-red-600" disabled={f.items.length === 1} onClick={() => set("items", f.items.filter((x) => x.key !== it.key))} aria-label="Remove line"><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+                <Input value={it.description} onChange={(e) => updLine("description", it.key, e.target.value)} placeholder="What you're delivering" />
+                <Input value={it.details} onChange={(e) => updLine("details", it.key, e.target.value)} placeholder="Details shown under the line (optional)" className="text-xs border-dashed" />
+                {isGst && <Field label="SAC"><Select value={it.sac || "none"} onValueChange={(v) => updLine("sac", it.key, v === "none" ? "" : v)}><SelectTrigger className="text-xs font-mono"><SelectValue /></SelectTrigger>
+                  <SelectContent className="max-h-72"><SelectItem value="none">—</SelectItem>{meta.sac.map(([c, l]) => <SelectItem key={c} value={c}><span className="font-mono">{c}</span> <span className="text-gray-500 text-xs">{l}</span></SelectItem>)}</SelectContent></Select></Field>}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Field label="Qty"><Input inputMode="decimal" value={it.qty} onChange={(e) => updLine("qty", it.key, e.target.value)} className="text-right font-mono" /></Field>
+                  <Field label="Unit"><Select value={it.unit || "service"} onValueChange={(v) => updLine("unit", it.key, v)}><SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{meta.units.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></Field>
+                  <Field label="Rate"><Input inputMode="decimal" value={it.unit_price} onChange={(e) => updLine("unit_price", it.key, e.target.value)} className="text-right font-mono" placeholder="0.00" /></Field>
+                  <Field label="Disc %"><Input inputMode="decimal" value={it.discount_pct} onChange={(e) => updLine("discount_pct", it.key, e.target.value)} className="text-right font-mono" placeholder="0" /></Field>
+                  {isGst && <Field label="Tax %"><Input inputMode="decimal" value={it.tax_rate} onChange={(e) => updLine("tax_rate", it.key, e.target.value)} className="text-right font-mono" placeholder={String(meta.company.defaults.tax_rate)} /></Field>}
+                  <div className={`flex flex-col justify-end ${isGst ? "" : "col-span-2"}`}><div className="text-xs text-gray-500">Amount</div><div className="font-mono font-semibold text-right py-2">{money(ln?.net || 0, f.currency)}</div></div>
+                </div>
+              </div>);
+          })}</div>
+          <table className="hidden md:table w-full text-sm min-w-[820px]" data-testid="billing-lines">
+            <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="w-8" /><th className="text-left font-semibold py-2 px-2 min-w-[200px]">Description</th>{isGst && <th className="text-left font-semibold py-2 px-2 w-28">SAC</th>}
               <th className="text-right font-semibold py-2 px-2 w-20">Qty</th><th className="text-left font-semibold py-2 px-2 w-24">Unit</th><th className="text-right font-semibold py-2 px-2 w-32">Rate</th>
               <th className="text-right font-semibold py-2 px-2 w-20">Disc %</th>{isGst && <th className="text-right font-semibold py-2 px-2 w-20">Tax %</th>}<th className="text-right font-semibold py-2 px-2 w-32">Amount</th><th className="w-20" /></tr></thead>
             <tbody>{f.items.map((it, i) => {
@@ -161,7 +189,7 @@ export default function BillingEditorPage() {
                   <td className="py-2 px-2"><Input value={it.description} onChange={(e) => updLine("description", it.key, e.target.value)} placeholder="What you're delivering" className="h-8" data-testid={`billing-line-desc-${i}`} />
                     <Input value={it.details} onChange={(e) => updLine("details", it.key, e.target.value)} placeholder="Details shown under the line (optional)" className="h-7 mt-1 text-xs border-dashed" /></td>
                   {isGst && <td className="py-2 px-2">
-                    <Select value={it.sac || "none"} onValueChange={(v) => updLine("sac", it.key, v === "none" ? "" : v)}><SelectTrigger className="h-8 text-xs font-mono"><SelectValue /></SelectTrigger>
+                    <Select value={it.sac || "none"} onValueChange={(v) => updLine("sac", it.key, v === "none" ? "" : v)}><SelectTrigger className="h-8 w-28 text-xs font-mono"><SelectValue /></SelectTrigger>
                       <SelectContent className="max-h-72"><SelectItem value="none">—</SelectItem>{meta.sac.map(([c, l]) => <SelectItem key={c} value={c}><span className="font-mono">{c}</span> <span className="text-gray-500 text-xs">{l}</span></SelectItem>)}</SelectContent></Select></td>}
                   <td className="py-2 px-2"><Input inputMode="decimal" value={it.qty} onChange={(e) => updLine("qty", it.key, e.target.value)} className="h-8 text-right font-mono" data-testid={`billing-line-qty-${i}`} /></td>
                   <td className="py-2 px-2"><Select value={it.unit || "service"} onValueChange={(v) => updLine("unit", it.key, v)}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -202,8 +230,8 @@ export default function BillingEditorPage() {
 
       {/* terms + notes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="border-gray-200/80 shadow-sm lg:col-span-2"><CardHeader className="pb-2 flex-row items-center justify-between space-y-0"><CardTitle className="text-sm font-semibold">Terms & conditions <span className="text-gray-400 font-normal">({chosenTerms.length + f.custom_terms.filter(Boolean).length})</span></CardTitle>
-          <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => setTermsOpen(true)} data-testid="billing-pick-terms"><ListChecks className="h-3.5 w-3.5 mr-1" /> Choose from library</Button>
+        <Card className="border-gray-200/80 shadow-sm lg:col-span-2"><CardHeader className="pb-2 flex-row flex-wrap items-center justify-between gap-2 space-y-0"><CardTitle className="text-sm font-semibold">Terms & conditions <span className="text-gray-400 font-normal">({chosenTerms.length + f.custom_terms.filter(Boolean).length})</span></CardTitle>
+          <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => setTermsOpen(true)} data-testid="billing-pick-terms"><ListChecks className="h-3.5 w-3.5 mr-1" /> Choose from library</Button>
             <Button size="sm" variant="ghost" onClick={() => set("custom_terms", [...f.custom_terms, ""])}><Plus className="h-3.5 w-3.5 mr-1" /> Custom clause</Button></div></CardHeader>
           <CardContent className="space-y-2">
             {chosenTerms.length === 0 && f.custom_terms.length === 0 && <p className="text-sm text-gray-400">No terms yet — pick the ones that fit this job.</p>}

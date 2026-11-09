@@ -48,7 +48,9 @@ CURRENCIES = {"INR": {"symbol": "₹", "name": "Indian rupee", "minor": "paise",
               "GBP": {"symbol": "£", "name": "Pound sterling", "minor": "pence", "major": "pounds"},
               "SGD": {"symbol": "S$", "name": "Singapore dollar", "minor": "cents", "major": "dollars"},
               "AUD": {"symbol": "A$", "name": "Australian dollar", "minor": "cents", "major": "dollars"},
-              "CAD": {"symbol": "C$", "name": "Canadian dollar", "minor": "cents", "major": "dollars"}}
+              "CAD": {"symbol": "C$", "name": "Canadian dollar", "minor": "cents", "major": "dollars"},
+              "THB": {"symbol": "฿", "name": "Thai baht", "minor": "satang", "major": "baht"},
+              "JPY": {"symbol": "¥", "name": "Japanese yen", "minor": "sen", "major": "yen"}}
 TAX_MODES = {"gst_intra": {"label": "GST — same state (CGST + SGST)", "india": True},
              "gst_inter": {"label": "GST — other state (IGST)", "india": True},
              "zero_rated": {"label": "Zero-rated export / SEZ (under LUT)", "india": False},

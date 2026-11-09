@@ -127,13 +127,13 @@ function InvestorSheet({ id, meta, canManage, onClose, onChanged, onEdit }) {
                 {canManage && <div className="flex gap-2"><Button size="sm" onClick={() => setMoney("investment")} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="add-investment"><Plus className="h-3.5 w-3.5 mr-1" /> Investment</Button>
                   <Button size="sm" variant="outline" onClick={() => setMoney("return")} data-testid="add-return"><HandCoins className="h-3.5 w-3.5 mr-1" /> Payout</Button></div>}
                 <div><div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Investments</div>
-                  <table className="w-full text-sm"><tbody>{inv.investments.map((x) => (
+                  <div className="overflow-x-auto"><table className="w-full text-sm min-w-[440px]"><tbody>{inv.investments.map((x) => (
                     <tr key={x.id} className="border-b border-gray-50"><td className="py-2">{fmtDate(x.date)}</td><td className="py-2">{x.instrument_label}<span className="block text-xs text-gray-400">{x.terms}</span></td>
                       <td className="py-2 text-right font-mono">{inr(x.amount)}</td><td className="py-2 text-right text-gray-600">{x.stake_percent ? `${x.stake_percent}%` : x.interest_rate ? `${x.interest_rate}%` : ""}</td>
-                      <td className="py-2 text-right font-mono font-semibold">{inr(x.current_value)}</td></tr>))}</tbody></table></div>
+                      <td className="py-2 text-right font-mono font-semibold">{inr(x.current_value)}</td></tr>))}</tbody></table></div></div>
                 <div><div className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Payouts</div>
-                  {inv.returns.length === 0 ? <p className="text-xs text-gray-400">None yet.</p> : <table className="w-full text-sm"><tbody>{inv.returns.map((r) => (
-                    <tr key={r.id} className="border-b border-gray-50"><td className="py-1.5">{fmtDate(r.date)}</td><td className="py-1.5">{r.kind_label}</td><td className="py-1.5 text-xs text-gray-400">{r.note}</td><td className="py-1.5 text-right font-mono">{inr(r.amount)}</td></tr>))}</tbody></table>}</div>
+                  {inv.returns.length === 0 ? <p className="text-xs text-gray-400">None yet.</p> : <div className="overflow-x-auto"><table className="w-full text-sm min-w-[380px]"><tbody>{inv.returns.map((r) => (
+                    <tr key={r.id} className="border-b border-gray-50"><td className="py-1.5">{fmtDate(r.date)}</td><td className="py-1.5">{r.kind_label}</td><td className="py-1.5 text-xs text-gray-400">{r.note}</td><td className="py-1.5 text-right font-mono">{inr(r.amount)}</td></tr>))}</tbody></table></div>}</div>
                 {inv.notes && <p className="text-sm text-gray-600 rounded-lg bg-gray-50 px-3 py-2">{inv.notes}</p>}
               </>)}
               {tab === "logins" && (<>

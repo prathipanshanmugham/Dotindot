@@ -19,7 +19,7 @@ const dots = [];
 for (let i = 0; i < map.p.length; i += 2) dots.push(`<circle cx="${(OX + map.p[i] * K).toFixed(1)}" cy="${(OY + map.p[i + 1] * K).toFixed(1)}" r="2.1"/>`);
 const P = (n) => [OX + map.pins[n][0] * K, OY + map.pins[n][1] * K];
 const hub = P("Chennai");
-const arcs = ["London", "New York", "Dubai", "Singapore", "Sydney"].map((n) => {
+const arcs = ["London", "Amsterdam", "Berlin", "New York", "Toronto", "Dubai", "Singapore", "Bangkok", "Tokyo", "Sydney"].map((n) => {
   const b = P(n), mx = (hub[0] + b[0]) / 2, d = Math.hypot(b[0] - hub[0], b[1] - hub[1]);
   return `<path d="M${hub[0]} ${hub[1]} Q${mx} ${(hub[1] + b[1]) / 2 - d * .32} ${b[0]} ${b[1]}" fill="none" stroke="#ff7a1a" stroke-width="2.2" stroke-opacity=".8"/><circle cx="${b[0]}" cy="${b[1]}" r="6" fill="#ff7a1a"/>`;
 }).join("");
@@ -30,7 +30,7 @@ const cards = [
   ["services", "Services", "Performance marketing, SEO & AI search, websites, brand, AI automation"],
   ...services.map((s) => [`services-${s.slug}`, s.name, s.tagline]),
   ["clients", "Clients", "Who we work with"],
-  ["markets", "Markets", "UK, US, UAE, Singapore, Australia and India"],
+  ["markets", "Markets", "UK, Europe, North America, the Middle East and Asia-Pacific"],
   ...markets.map((m) => [`markets-${m.slug}`, `Marketing for brands in ${m.name}`, `Your hours, invoiced in ${m.cur}`]),
   ["insights", "Insights", "Practical thinking on marketing, search and AI"],
   ...insights.map((a) => [`insights-${a.slug}`, a.title, `${a.minutes} min read`]),

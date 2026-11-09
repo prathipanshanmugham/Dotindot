@@ -55,7 +55,8 @@ export default function SocialPage() {
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [posts, setPosts] = useState([]);
   const [summary, setSummary] = useState(null);
-  const [view, setView] = useState("calendar");
+  // phones start on the list: a month grid of seven columns is too small to read at 360px
+  const [view, setView] = useState(() => (typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches ? "list" : "calendar"));
   const [filters, setFilters] = useState({ client_id: "all", platform: "all", status: "all" });
   const [clients, setClients] = useState([]);
   const [team, setTeam] = useState([]);

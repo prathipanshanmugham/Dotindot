@@ -80,6 +80,10 @@ COLLECTIONS = {
     "site_testimonials": {"label": "Website: Testimonials", "search": ["name", "company", "quote"]},
     "site_team": {"label": "Website: Team", "search": ["name", "role"]},
     "site_cases": {"label": "Website: Case studies", "search": ["client", "title"]},
+    "site_locations": {"label": "Website: Offices", "search": ["name", "city", "address"]},
+    "site_certs": {"label": "Website: Certifications", "search": ["name"]},
+    "site_insights": {"label": "Website: Articles", "search": ["title", "slug", "summary"]},
+    "chat_sessions": {"label": "Website: Chat conversations", "search": ["page", "lead.name", "lead.email"]},
 }
 
 # Collections that hold platform internals — never listed or wiped.

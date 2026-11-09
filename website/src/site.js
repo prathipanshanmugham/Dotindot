@@ -121,6 +121,8 @@
     if (/Dubai|Muscat/.test(tz)) return "AED";
     if (/Singapore/.test(tz)) return "SGD";
     if (/^Australia\//.test(tz)) return "AUD";
+    if (/Bangkok/.test(tz)) return "THB";
+    if (/Tokyo/.test(tz)) return "JPY";
     if (/Toronto|Vancouver|Edmonton|Winnipeg|Halifax|Regina|St_Johns|Montreal/.test(tz)) return "CAD";
     if (/^Europe\//.test(tz)) return "EUR";
     return "USD";
@@ -134,6 +136,8 @@
     AUD: ["Under A$2,300", "A$2,300 – 7,500", "A$7,500 – 23,000", "A$23,000+"],
     CAD: ["Under C$2,000", "C$2,000 – 7,000", "C$7,000 – 20,000", "C$20,000+"],
     INR: ["Under ₹1 lakh", "₹1 – 4 lakh", "₹4 – 12 lakh", "₹12 lakh+"],
+    THB: ["Under ฿50,000", "฿50,000 – 170,000", "฿170,000 – 500,000", "฿500,000+"],
+    JPY: ["Under ¥230,000", "¥230,000 – 750,000", "¥750,000 – 2,300,000", "¥2,300,000+"],
   };
   $$("select[data-budget]").forEach(function (sel) {
     var b = BUDGETS[CUR] || BUDGETS.USD, keep = sel.options[0];
@@ -161,7 +165,10 @@
   var mapBox = $(".hero-map");
   if (mapBox && window.fetch) {
     var cv = $("canvas", mapBox), cx = cv.getContext("2d"), M = null, W = 0, H = 0, K = 1, OX = 0, OY = 0, t0 = 0, visible = true, running = false, base = null, dprS = 1;
-    var HUB = "Chennai", MARKETS = ["London", "New York", "Dubai", "Singapore", "Sydney"], LABEL = { London: "London", "New York": "New York", Dubai: "Dubai", Singapore: "Singapore", Sydney: "Sydney", Chennai: "India (HQ)" };
+    var HUB = "Chennai", MARKETS = ["London", "Amsterdam", "Berlin", "New York", "Toronto", "Dubai", "Singapore", "Bangkok", "Tokyo", "Sydney"];
+    // label: [text, side (-1 left / 1 right), vertical offset]; Amsterdam sits between London and Berlin, so it has no label
+    var LABEL = { London: ["London", -1, -6], Berlin: ["Berlin", 1, -8], "New York": ["New York", -1, 14], Toronto: ["Toronto", -1, -6], Dubai: ["Dubai", 1, -8],
+      Singapore: ["Singapore", 1, 14], Bangkok: ["Bangkok", 1, 4], Tokyo: ["Tokyo", 1, 4], Sydney: ["Sydney", 1, 4], Chennai: ["India (HQ)", -1, 16] };
     var font = getComputedStyle(document.body).fontFamily;
     function size() {
       var r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
@@ -184,7 +191,7 @@
       } else dotsTo(cx, reveal);
       var hub = P(HUB);
       MARKETS.forEach(function (m, k) {
-        var c = arc(hub, P(m)), st = 1.1 + k * .22, prog = clamp((t - st) / 1.2, 0, 1); if (prog <= 0) return;
+        var c = arc(hub, P(m)), st = 1.1 + k * .14, prog = clamp((t - st) / 1.2, 0, 1); if (prog <= 0) return;
         prog = ease(prog);
         cx.strokeStyle = "rgba(255,122,26,.75)"; cx.lineWidth = 1.4; cx.beginPath(); cx.moveTo(c[0][0], c[0][1]);
         for (var j = 1; j <= 40; j++) { var pt = q(c, prog * j / 40); cx.lineTo(pt[0], pt[1]); }
@@ -195,11 +202,12 @@
         }
       });
       [HUB].concat(MARKETS).forEach(function (m, k) {
-        var p = P(m), on = clamp((t - (m === HUB ? .9 : 2 + k * .22)) / .5, 0, 1); if (on <= 0) return;
+        var p = P(m), on = clamp((t - (m === HUB ? .9 : 2 + k * .14)) / .5, 0, 1); if (on <= 0) return;
         if (!reduce) { var pulse = ((t * .6 + k * .3) % 1); cx.strokeStyle = "rgba(255,122,26," + ((1 - pulse) * .35 * on).toFixed(2) + ")"; cx.lineWidth = 1; cx.beginPath(); cx.arc(p[0], p[1], 4 + pulse * 14, 0, 6.283); cx.stroke(); }
         cx.globalAlpha = on; cx.fillStyle = m === HUB ? "#0e1b33" : "#ff7a1a"; cx.beginPath(); cx.arc(p[0], p[1], m === HUB ? 4.6 : 4, 0, 6.283); cx.fill();
         cx.fillStyle = "#fff"; cx.beginPath(); cx.arc(p[0], p[1], 1.5, 0, 6.283); cx.fill();
-        if (W > 420) { cx.font = "600 12px " + font; cx.fillStyle = "#26324a"; var right = m === "London" || m === "New York" ? -1 : 1; cx.textAlign = right < 0 ? "right" : "left"; cx.fillText(LABEL[m], p[0] + right * 10, p[1] + (m === "Dubai" ? -8 : m === "Singapore" ? 14 : 4)); }
+        var L = LABEL[m];
+        if (W > 420 && L) { cx.font = "600 12px " + font; cx.fillStyle = "#26324a"; cx.textAlign = L[1] < 0 ? "right" : "left"; cx.fillText(L[0], p[0] + L[1] * 10, p[1] + L[2]); }
         cx.globalAlpha = 1;
       });
     }
@@ -326,6 +334,9 @@
       return out;
     }
     var ready = false;
+    function footNote() { // once we can reach them, no need to ask for a number again
+      var cc = panel && $(".cc", panel); if (st.lead && cc) cc.parentNode.innerHTML = 'A specialist will reply within one working day · <a href="' + CH.privacy + '">Privacy</a>';
+    }
     function build() {
       if (ready) return; ready = true;
       var raw = {}; kinds.forEach(function (k) { if (!raw[k]) { raw[k] = sample(k); N = Math.max(N, raw[k].length); } });
@@ -500,6 +511,151 @@
       });
     });
   });
+
+  /* ---------------- chat assistant: answers questions and passes the visitor to a specialist ----------------
+     The dot in the corner opens a chat that talks to /api/chat (the app: AI when connected, a short guided
+     conversation otherwise). If the app can't be reached it carries on as a guided form and sends the lead the
+     same way the contact forms do. The conversation survives page changes for the rest of the visit. */
+  var CH = CFG.chat;
+  if (CH && window.fetch) {
+    var CK = "dd_chat", st = { sid: "", msgs: [], chips: [], card: false, local: false, at: 0, lead: false, slots: {} };
+    try { var saved = JSON.parse(sessionStorage.getItem(CK) || "null"); if (saved) st = Object.assign(st, saved); } catch (e) {}
+    var keep = function () { st.at = Date.now(); try { sessionStorage.setItem(CK, JSON.stringify(Object.assign({}, st, { msgs: st.msgs.slice(-40) }))); } catch (e) {} };
+    var bot = CH.name || "Dot";
+    var greet = CH.greeting || "Hi, I'm " + bot + " from Dotindot. Ask me anything about marketing, websites or AI automation, or tell me what you're working on.";
+    var CHIPS0 = ["Get more leads", "A new website", "SEO & AI search", "AI chat & automation", "Pricing"];
+    var fab, hint, panel, log, chipBox, ta, sendBtn, busy = false;
+    var escH = function (t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
+    var fmtMsg = function (t) {
+      return escH(t).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, function (u) {
+        var own = u.indexOf(location.host) > -1 || /dotindot\.in/.test(u);
+        return '<a href="' + u + '"' + (own ? "" : ' target="_blank" rel="noopener"') + ">" + u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "") + "</a>";
+      }).replace(/\n/g, "<br>");
+    };
+    function addMsg(role, text, opts) {
+      var el = document.createElement("div"); el.className = "msg " + role; el.innerHTML = role === "me" ? escH(text).replace(/\n/g, "<br>") : fmtMsg(text);
+      if (opts && opts.instant) el.style.animation = "none";
+      log.appendChild(el); log.scrollTop = log.scrollHeight; return el;
+    }
+    function setChips(list) {
+      chipBox.innerHTML = ""; st.chips = list || [];
+      (list || []).forEach(function (c, k) {
+        var b = document.createElement("button"); b.type = "button"; b.textContent = c; b.style.animationDelay = (k * 60) + "ms";
+        b.addEventListener("click", function () { send(c); }); chipBox.appendChild(b);
+      });
+    }
+    function typing(on) {
+      var t = $(".typing", log); if (t) t.remove();
+      if (on) { t = document.createElement("div"); t.className = "typing"; t.setAttribute("aria-label", bot + " is typing"); t.innerHTML = "<i></i><i></i><i></i>"; log.appendChild(t); log.scrollTop = log.scrollHeight; }
+    }
+    function card() {
+      if ($(".chat-card", log)) return;
+      var f = document.createElement("form"); f.className = "chat-card"; f.noValidate = true;
+      f.innerHTML = '<p>Leave your details and a specialist will reply within one working day.</p><label class="sr" for="cc-n">Your name</label><input id="cc-n" name="n" autocomplete="name" placeholder="Your name"><label class="sr" for="cc-v">Email or WhatsApp number</label><input id="cc-v" name="v" autocomplete="email" placeholder="Email or WhatsApp number"><span class="err" role="alert"></span><div class="row"><button class="btn sm" type="submit">Send</button><button class="btn sm ghost" type="button">Not now</button></div>';
+      log.appendChild(f); log.scrollTop = log.scrollHeight; st.card = true; keep();
+      $(".ghost", f).addEventListener("click", function () { f.remove(); });
+      f.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var n = f.n.value.trim(), v = f.v.value.trim(), er = $(".err", f);
+        if (!/@/.test(v) && v.replace(/\D/g, "").length < 8) { er.textContent = "Add an email address, or a phone number with the country code."; f.v.focus(); return; }
+        f.remove(); send(null, { name: n, value: v });
+      });
+      setTimeout(function () { f.n.focus(); }, 50);
+    }
+    // the app can't be reached: a short guided conversation, sent like the contact forms
+    function local(text, contact) {
+      var sl = st.slots, reply;
+      if (contact) { sl.name = sl.name || contact.name; sl.contact = contact.value; }
+      else if (!sl.interest) sl.interest = text;
+      else if (!sl.name) sl.name = text.slice(0, 60);
+      else if (!sl.contact) { if (/@/.test(text) || text.replace(/\D/g, "").length >= 8) sl.contact = text; }
+      else sl.extra = ((sl.extra || "") + " " + text).trim();
+      if (!sl.name) reply = "Thanks! Who am I speaking with?";
+      else if (!sl.contact) reply = "And the best email or WhatsApp number for a specialist to reach you?";
+      else if (!st.lead) {
+        st.lead = true; reply = "Perfect — a specialist will reply within one working day.";
+        var c = sl.contact, d = { name: sl.name || "Chat visitor", email: /@/.test(c) ? c : "", phone: /@/.test(c) ? "" : c, source: "website", campaign: "chat",
+          message: "Chat on the website (" + location.pathname + ")\nInterested in: " + (sl.interest || "") + "\n\n" + st.msgs.map(function (m) { return (m.r === "me" ? "Visitor: " : bot + ": ") + m.t; }).join("\n") };
+        if (!CFG.preview && CFG.intake) fetch(CFG.intake, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).catch(function () {});
+        try { if (window.gtag) window.gtag("event", "generate_lead", { form: "chat" }); } catch (e) {}
+        return { reply: reply, saved: true };
+      } else reply = "Noted — I've added that for the team.";
+      return { reply: reply };
+    }
+    function done(reply, chips, saved, ask) {
+      typing(false); addMsg("bot", reply); st.msgs.push({ r: "bot", t: reply });
+      if (saved) { var ok = "Your details are with the team. A specialist will reply within one working day."; var el = addMsg("ok", ok); el.className = "msg ok"; st.msgs.push({ r: "ok", t: ok }); st.lead = true; }
+      setChips(chips); keep(); busy = false; sendBtn.disabled = false; footNote();
+      if (ask && !st.lead) setTimeout(card, 500);
+    }
+    function send(text, contact) {
+      if (busy) return;
+      text = text && text.trim(); if (!text && !contact) return;
+      busy = true; sendBtn.disabled = true; setChips([]);
+      var shown = contact ? (contact.name ? contact.name + " — " : "") + contact.value : text;
+      addMsg("me", shown); st.msgs.push({ r: "me", t: shown }); keep();
+      setTimeout(function () { typing(true); }, 250);
+      var t0 = Date.now(), finish = function (a, b, c, d) { setTimeout(function () { done(a, b, c, d); }, Math.max(0, 650 - (Date.now() - t0))); };
+      if (st.local || CFG.preview) { var l = local(text, contact); finish(l.reply, [], l.saved); return; }
+      fetch(CH.api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: st.sid, message: text || "", contact: contact || null, page: location.pathname, tz: tz }) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
+        .then(function (x) {
+          if (x.status === 429 || x.status === 400) { finish((x.j && x.j.detail) || "Sorry, could you try that again?", st.chips); return; }
+          if (!x.ok) throw new Error(x.status);
+          st.sid = x.j.session_id || st.sid;
+          try { if (x.j.lead_saved && window.gtag) window.gtag("event", "generate_lead", { form: "chat" }); } catch (e) {}
+          finish(x.j.reply, x.j.chips, x.j.lead_saved, x.j.ask_contact);
+        })
+        .catch(function () { st.local = true; var l = local(text, contact); finish(l.reply, [], l.saved); });
+    }
+    function build() {
+      panel = document.createElement("div"); panel.className = "chat"; panel.id = "chat"; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Chat with " + bot);
+      panel.innerHTML = '<div class="chat-top"><span class="av" aria-hidden="true"></span><div><b>' + escH(bot) + '</b><small>Dotindot assistant · replies in seconds</small></div><button class="chat-x" type="button" aria-label="Close chat">×</button></div>' +
+        '<div class="chat-log" aria-live="polite" data-lenis-prevent></div><div class="chips"></div>' +
+        '<form class="chat-form" novalidate><label class="sr" for="chat-in">Message</label><textarea id="chat-in" rows="1" maxlength="1000" placeholder="Type your message…"></textarea><button class="chat-send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>' +
+        '<p class="chat-foot"><button type="button" class="cc">Leave your number</button> for a call back · <a href="' + CH.privacy + '">Privacy</a></p>';
+      document.body.appendChild(panel);
+      log = $(".chat-log", panel); chipBox = $(".chips", panel); ta = $("textarea", panel); sendBtn = $(".chat-send", panel);
+      $(".chat-x", panel).addEventListener("click", closeChat);
+      $(".cc", panel).addEventListener("click", card);
+      $(".chat-form", panel).addEventListener("submit", function (e) { e.preventDefault(); var v = ta.value; ta.value = ""; ta.style.height = ""; send(v); });
+      ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $(".chat-form", panel).requestSubmit ? $(".chat-form", panel).requestSubmit() : sendBtn.click(); } });
+      ta.addEventListener("input", function () { ta.style.height = "auto"; ta.style.height = Math.min(120, ta.scrollHeight) + "px"; });
+      panel.addEventListener("keydown", function (e) { if (e.key === "Escape") closeChat(); });
+      if (!st.msgs.length) { st.msgs.push({ r: "bot", t: greet }); st.chips = CHIPS0; keep(); }
+      st.msgs.forEach(function (m) { var el = addMsg(m.r === "me" ? "me" : "bot", m.t, { instant: true }); if (m.r === "ok") el.className = "msg ok"; });
+      setChips(st.chips); footNote();
+    }
+    function openChat() {
+      if (!panel) build();
+      if (hint) hint.classList.remove("in");
+      try { sessionStorage.setItem("dd_chat_hint", "1"); } catch (e) {}
+      fab.classList.add("open"); fab.setAttribute("aria-expanded", "true"); panel.classList.add("open"); st.open = true; keep();
+      log.scrollTop = log.scrollHeight;
+      if (fine) setTimeout(function () { ta.focus({ preventScroll: true }); }, 350);
+      try { if (window.gtag) window.gtag("event", "chat_open"); } catch (e) {}
+    }
+    function closeChat() { panel.classList.remove("open"); fab.classList.remove("open"); fab.setAttribute("aria-expanded", "false"); st.open = false; keep(); fab.focus({ preventScroll: true }); }
+    function mountChat() {
+      fab = document.createElement("button"); fab.type = "button"; fab.className = "chat-fab"; fab.setAttribute("aria-expanded", "false"); fab.setAttribute("aria-controls", "chat");
+      fab.setAttribute("aria-label", "Chat with " + bot); fab.innerHTML = '<span class="orb" aria-hidden="true"></span><span class="lbl">Ask ' + escH(bot) + "</span>";
+      document.body.appendChild(fab); fab.addEventListener("click", function () { panel && panel.classList.contains("open") ? closeChat() : openChat(); });
+      requestAnimationFrame(function () { requestAnimationFrame(function () { fab.classList.add("in"); }); });
+      if (st.open && Date.now() - st.at < 6e5) { openChat(); return; }
+      var seen = false; try { seen = !!sessionStorage.getItem("dd_chat_hint"); } catch (e) {}
+      if (!seen && !/\/(contact|free-audit|thanks)\//.test(location.pathname)) setTimeout(function () {
+        if (panel && panel.classList.contains("open")) return;
+        hint = document.createElement("div"); hint.className = "chat-hint"; hint.setAttribute("role", "status");
+        hint.innerHTML = "Planning your next campaign? Ask me anything, or get a free growth audit.<button type=\"button\" aria-label=\"Dismiss\">×</button>";
+        document.body.appendChild(hint); requestAnimationFrame(function () { hint.classList.add("in"); });
+        hint.addEventListener("click", function (e) { if (e.target.tagName === "BUTTON") { hint.classList.remove("in"); } else openChat(); try { sessionStorage.setItem("dd_chat_hint", "1"); } catch (er) {} });
+        setTimeout(function () { hint.classList.remove("in"); }, 14000);
+      }, 9000);
+    }
+    // after the page has loaded, so it never competes with the first paint
+    var startChat = function () { setTimeout(mountChat, 900); };
+    if (document.readyState === "complete") startChat(); else addEventListener("load", startChat);
+  }
 
   /* ---------------- UTM memory (first touch wins) ---------------- */
   var src = {};

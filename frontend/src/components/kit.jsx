@@ -74,11 +74,11 @@ export const Stat = ({ icon: Icon, label, value, sub, tone = "orange", testid, c
     blue: "bg-blue-50 text-blue-600", amber: "bg-amber-50 text-amber-600", gray: "bg-gray-100 text-gray-600", violet: "bg-violet-50 text-violet-600" };
   return (
     <Card className={`border-gray-200/80 shadow-sm ${className}`} data-testid={testid}>
-      <CardContent className="p-4 flex items-center gap-3">
-        {Icon && <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${tones[tone]}`}><Icon style={{ height: 18, width: 18 }} /></div>}
-        <div className="min-w-0">
-          <div className="text-lg font-bold text-gray-900 font-mono truncate">{value}</div>
-          <div className="text-xs text-gray-500 truncate">{label}{sub && <span className="text-gray-400"> · {sub}</span>}</div>
+      <CardContent className="p-3.5 sm:p-4 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+        {Icon && <div className={`h-8 w-8 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 ${tones[tone]}`}><Icon style={{ height: 18, width: 18 }} /></div>}
+        <div className="min-w-0 w-full sm:w-auto">
+          <div className="text-base sm:text-lg font-bold text-gray-900 font-mono leading-snug [overflow-wrap:anywhere] sm:truncate">{value}</div>
+          <div className="text-xs text-gray-500 line-clamp-2 sm:line-clamp-none sm:truncate">{label}{sub && <span className="text-gray-400"> · {sub}</span>}</div>
         </div>
       </CardContent>
     </Card>
@@ -98,7 +98,7 @@ export const PageHead = ({ kicker, title, sub, actions }) => (
   <div className="flex flex-wrap items-end justify-between gap-3">
     <div className="min-w-0">
       {kicker && <div className="text-[10px] font-bold uppercase tracking-widest text-[#F26B21]">{kicker}</div>}
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">{title}</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 [overflow-wrap:anywhere]">{title}</h1>
       {sub && <p className="text-sm text-gray-500 mt-0.5">{sub}</p>}
     </div>
     {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -107,10 +107,10 @@ export const PageHead = ({ kicker, title, sub, actions }) => (
 
 /** Rounded pill tabs (state-driven). tabs: [[key, label, count?]] */
 export const PillTabs = ({ tabs, value, onChange, testid = "tabs" }) => (
-  <div className="flex flex-wrap gap-1.5" data-testid={testid}>
+  <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5 sm:flex-wrap sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid={testid}>
     {tabs.map(([k, label, count]) => (
       <button key={k} type="button" onClick={() => onChange(k)} data-testid={`${testid}-${k}`}
-        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${value === k ? "bg-[#F26B21] text-white" : "bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-[#F26B21]"}`}>
+        className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${value === k ? "bg-[#F26B21] text-white" : "bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-[#F26B21]"}`}>
         {label}{count != null && <span className={`ml-1.5 ${value === k ? "text-white/80" : "text-gray-400"}`}>{count}</span>}
       </button>
     ))}

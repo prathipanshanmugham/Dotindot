@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 // All copy for dotindot.in. Plain, confident, specific.
-// Nothing here claims a client, a number or an office we can't back up. Clients, testimonials, team and numbers live in site.config.json.
+// Nothing here claims a client, a number or an office we can't back up. Clients, testimonials, team, offices, certifications and numbers
+// are entered in the app (Website editor), starting from site.config.json.
 
 export const services = [
   {
@@ -127,90 +129,18 @@ export const faqs = [
   ["What does Dotindot do?", "We're an AI-first growth agency. We run ads, make content, do SEO and AI-search optimisation, build websites and apps, create brands and video, and automate the repetitive parts of marketing with AI agents — for brands anywhere in the world."],
   ["Where are you based?", "Our team is headquartered in India and works with clients around the world over video calls, WhatsApp and a shared client portal. We travel when a project needs it."],
   ["Which time zones do you cover?", "Our day overlaps comfortably with Europe, the Gulf and Asia-Pacific. For the Americas we hold calls early or late, and the work keeps moving while you sleep."],
-  ["Which currencies do you invoice in?", "USD, GBP, EUR, AED, SGD, AUD, CAD or INR — whatever's simplest for your accounts team. Quotations come in the same currency."],
+  ["Which currencies do you invoice in?", "USD, GBP, EUR, CAD, AED, SGD, THB, JPY, AUD or INR — whatever's simplest for your accounts team. Quotations come in the same currency."],
   ["How much does it cost?", "Every engagement gets a fixed quotation after the free audit. Retainers are monthly; one-off projects like websites and brand identities are priced per scope. We never take a percentage of your ad spend."],
   ["How do we know it's working?", "Every client gets a live dashboard — leads by source, cost per lead, follower growth, views, rankings — and a monthly review where we go through it together."],
   ["Do we have to sign a long contract?", "No. Retainers are month to month with 30 days' notice. Projects have a fixed scope and timeline."],
   ["What does “AI-first” mean in practice?", "AI does the drafting, monitoring and number-crunching so it happens faster and at lower cost. Specialists make every decision a customer sees."],
 ];
 
-export const insights = [
-  {
-    slug: "geo-vs-seo", title: "GEO vs SEO: what changes when AI answers first", date: "2026-11-02", minutes: 6,
-    summary: "Generative engine optimisation isn't a replacement for SEO. It's what SEO becomes when the first answer is written by an AI. Here's what actually changes.",
-    body: [
-      "For twenty years the goal was simple: rank on page one. Now a growing share of searches end before anyone sees page one. Google's AI Overviews, ChatGPT, Perplexity and Gemini read the web, then write an answer that cites a handful of sources. Generative engine optimisation — GEO — is the work of being one of those sources.",
-      "## What stays the same",
-      "Almost all of SEO still matters. Assistants find pages through search indexes, so crawlable, fast, well-structured pages are still the price of entry. Links and mentions still signal authority. Content that genuinely answers the question still wins.",
-      "## What changes",
-      "**Answers beat pages.** Assistants quote passages, not whole pages. A clear two-sentence answer near the top of a page is more quotable than a long introduction.\n**Entities beat keywords.** Assistants need to be sure who you are. Your name, category, location and offer should be stated the same way everywhere — your site, your Google Business Profile, LinkedIn, directories and reviews.\n**Evidence beats adjectives.** Specific numbers, dates, prices and named methods are cited far more than claims like “industry-leading”.\n**Structure is a signal.** FAQ, Organization and Service schema, clean headings and an `llms.txt` file make your pages easier for machines to read.",
-      "## How to measure it",
-      "Keep a list of the 20 questions your customers ask before they buy. Once a month, ask them in ChatGPT, Gemini, Perplexity and Google, and record who gets named and linked. It's manual, it's imperfect, and it's still the clearest view of whether you're winning the new first page.",
-    ],
-  },
-  {
-    slug: "answer-every-lead-in-60-seconds", title: "Answer every lead in 60 seconds: AI agents on WhatsApp", date: "2026-10-28", minutes: 5,
-    summary: "Most enquiries go cold because nobody replies fast enough. A well-built AI agent replies instantly, qualifies politely and hands the good ones to a human.",
-    body: [
-      "Speed-to-lead research has said the same thing for years: the first business to reply usually wins, and the odds of reaching a lead fall sharply after the first few minutes. Yet most businesses still answer new enquiries hours later — after lunch, after the meeting, after the weekend.",
-      "## What a good agent does",
-      "It replies in seconds, on the channel the customer chose — usually WhatsApp. It answers the common questions (price ranges, availability, delivery, timings) only from information you've approved. It asks two or three qualifying questions. Then it books a call or passes the conversation to a person, with a summary, the moment a human is needed.",
-      "## What it must never do",
-      "**Make things up.** It should only answer from your approved knowledge and say “let me get a colleague” for anything else.\n**Pretend to be human.** Customers are fine talking to an assistant; they're not fine being misled.\n**Trap people.** “Talk to a person” should always work, instantly.",
-      "## Where to start",
-      "Pick the ten questions your team answers most, write the ideal answer to each, and decide what makes a lead worth a call. That document is 80% of a good agent. The technology is the easy part.",
-    ],
-  },
-  {
-    slug: "creative-testing-system", title: "The creative testing system behind ads that keep working", date: "2026-10-20", minutes: 5,
-    summary: "Ads don't stop working because the algorithm hates you. They stop because the audience is tired of them. A simple monthly testing rhythm fixes that.",
-    body: [
-      "On Meta and TikTok especially, creative is now the main targeting lever. The platforms find the audience; your ad decides who stops scrolling. Which means the most important thing in your ad account isn't the bid strategy — it's how often you ship new creative.",
-      "## The rhythm",
-      "1. Every month, brief new concepts — different hooks, not just different colours.\n2. Make two or three variations of each: a new first three seconds, a new headline, a new format.\n3. Launch them against your best current ad with a fixed test budget.\n4. After a week or so, keep the winners, retire the losers, and write down why you think each worked.\n5. Turn the winning idea into next month's brief.",
-      "## What to measure",
-      "Not likes. Measure cost per qualified lead or cost per purchase, plus two early signals: how many people watch past the first three seconds, and how many click. A great hook with no clicks is entertainment; a dull hook with great clicks is a brief for better creative.",
-      "## Where AI helps",
-      "AI makes the production part cheap: scripts, variations, resizes, voice-overs and subtitles in minutes. The part it can't do is judgement — knowing which idea is actually true to your brand and worth the money. That's still a human job.",
-    ],
-  },
-  {
-    slug: "get-cited-by-ai-assistants", title: "How to get your business cited by ChatGPT, Gemini and Perplexity", date: "2026-10-14", minutes: 6,
-    summary: "AI assistants now answer “who's the best at…” questions directly. Here's what actually gets a business quoted in those answers.",
-    body: [
-      "When someone asks ChatGPT for the best accounting software for a small agency, or asks Google's AI Overview which clinic to trust in their city, the answer comes from a handful of sources the model found clear, consistent and trustworthy. Being one of them is the new first page.",
-      "## What the assistants look for",
-      "Three things, in practice. **Entity clarity**: your name, what you do, where you operate and who you serve, stated the same way on your site, your Google Business Profile, LinkedIn and directories. **Citable pages**: a page that answers one question completely, in plain language, with a date and an author, is far more likely to be quoted than a brochure page. **Structure**: FAQ, service and organisation schema, a clean sitemap, and an `llms.txt` file that tells assistants what you'd like them to read.",
-      "## A 30-day checklist",
-      "1. Make your business name, description and contact details identical everywhere they appear.\n2. Write five answer pages for the five questions your sales team hears most.\n3. Add Organization, Service and FAQ schema to the pages that matter.\n4. Publish an `llms.txt` at the root of your site.\n5. Ask happy customers for reviews that mention the service and the place.\n6. Every month, ask ChatGPT, Gemini and Perplexity your own “best … for …” questions and note who gets cited.",
-      "None of this replaces good SEO; it builds on it. If your site is slow or thin, start there.",
-    ],
-  },
-  {
-    slug: "what-should-a-lead-cost", title: "What should a lead cost? A way to set a target you can defend", date: "2026-09-22", minutes: 5,
-    summary: "A simple way to set a cost-per-lead target for any business in any country, and the four reasons campaigns blow past it.",
-    body: [
-      "Every founder asks the same thing in the first meeting: what should a lead cost? It depends on your margin, your close rate and your market — but there's a way to set a target you can defend in a board meeting.",
-      "## Work backwards from the sale",
-      "Take the profit on one sale and multiply it by the share of leads that become customers. That's the most you can pay for a lead and still make money. A service earning 400 on a first booking that converts one enquiry in five can pay up to 80 a lead; a company selling 50,000 contracts with a 2% close rate can pay far more. Set your target at half that number, so there's room for a bad month.",
-      "## Why campaigns overshoot",
-      "**Tracking that counts the wrong thing.** Optimising for page views instead of submitted forms, or for calls that never connected.\n**One creative for months.** Small audiences tire of an ad in two or three weeks. Plan new variations every month.\n**Sending traffic to the homepage.** A landing page with one offer and one form routinely halves the cost per lead.\n**Nobody feeding quality back.** If sales never flags junk leads, the algorithm happily buys more of them.",
-      "Fix those four and most accounts we audit see cost per lead fall noticeably without touching the budget.",
-    ],
-  },
-  {
-    slug: "website-speed-is-a-sales-problem", title: "Your website speed is a sales problem, not an IT problem", date: "2026-08-30", minutes: 4,
-    summary: "Every extra second of load time costs enquiries. What “fast” means in 2026, and how to get there without a rebuild.",
-    body: [
-      "Plenty of business websites take four to eight seconds to load on a mid-range phone. Google's own research found that the chance of a visitor bouncing rises sharply as load time climbs past a few seconds. That's not a technical footnote; it's customers walking out of the door.",
-      "## What fast means now",
-      "Largest Contentful Paint under 2.5 seconds, no layout shift, and a response to taps within 200 milliseconds — the Core Web Vitals Google uses as a ranking signal. On a decent build these are very achievable: the page you're reading paints its first screen in well under a second.",
-      "## Three fixes that don't need a rebuild",
-      "**Images.** Resize them to the size they're shown at, convert to WebP or AVIF, and lazy-load everything below the first screen. This alone fixes most sites.\n**Scripts.** Chat widgets, five analytics tags, sliders — each one costs time. Keep what you use; defer the rest.\n**Hosting.** Cheap shared hosting with no caching will never be fast. Add a CDN and server caching, or move.",
-      "Want to know where your site stands? The free audit includes a full speed report with the exact fixes.",
-    ],
-  },
-];
+// Articles live in insights.json (body in simple Markdown: ## headings, - lists, 1. lists, **bold**, [links](url)).
+// Once the app's Website editor is used, articles are managed there and this file is only the starting point.
+const _ins = JSON.parse(readFileSync(new URL("./insights.json", import.meta.url), "utf8"));
+const _words = (t) => String(t).split(/\s+/).filter(Boolean).length;
+export const insights = _ins.map((a) => ({ minutes: Math.max(1, Math.round(_words(a.body) / 220)), ...a }));
 
 export const careers = [
   { title: "Performance marketer", place: "Remote, full-time", text: "You've run Meta and Google campaigns to a cost per customer and can explain, calmly, why it moved." },
@@ -241,6 +171,22 @@ export const markets = [
     faq: [["Do you invoice in pounds?", "Yes. Quotations and invoices in GBP, paid by bank transfer or card — no currency maths for your finance team."],
       ["How do calls work across time zones?", "We schedule in UK working hours. Most clients get a weekly call in their morning and daily updates on WhatsApp or Slack."],
       ["Will our ads and content sound British?", "Yes. We write in British English for UK brands and localise offers, spelling, prices and references for the market."]] },
+  { slug: "germany", name: "Germany", country: "Germany", code: "DE", city: "Berlin", tz: "Europe/Berlin", cur: "EUR",
+    overlap: "India is 3½–4½ hours ahead of Germany. We start before you do, so drafts and reports are ready when your day begins, and we share your whole morning and lunch.",
+    platforms: "Google and Meta for demand, LinkedIn for B2B pipeline, YouTube and TikTok for reach, and Amazon when your buyers shop there.",
+    rules: "GDPR, consent-first cookies under the TDDDG, an Impressum on every website and tracking built on first-party data.",
+    search: "Google leads German search, buyers compare carefully and trust detail. Clear, factual pages with proper structure are what both Google and AI assistants quote.",
+    faq: [["Do you invoice in euros?", "Yes. Quotations and invoices in EUR, paid by bank transfer or card."],
+      ["Can you run campaigns in German?", "Yes. We localise campaigns into German, and every line is checked by a native speaker before it goes live."],
+      ["Is your tracking GDPR-compliant?", "Yes. Consent mode, server-side tracking and cookie banners set up to German standards, so measurement doesn't cost you compliance."]] },
+  { slug: "netherlands", name: "the Netherlands", country: "Netherlands", code: "NL", city: "Amsterdam", tz: "Europe/Amsterdam", cur: "EUR",
+    overlap: "India is 3½–4½ hours ahead of Amsterdam: we overlap from your first coffee to mid-afternoon, every working day.",
+    platforms: "Google, Meta, LinkedIn (one of Europe's most active B2B audiences), TikTok and YouTube, plus bol.com for retail brands.",
+    rules: "GDPR and Dutch cookie rules: consent before tracking, honest banners and audiences built on first-party data.",
+    search: "Dutch buyers search in Dutch and English and use AI assistants early in their research. We build pages that rank and get cited in both languages.",
+    faq: [["Do you invoice in euros?", "Yes. Quotations and invoices in EUR."],
+      ["Dutch or English campaigns?", "Both. We test Dutch and English creative side by side, and Dutch copy is checked by a native speaker before it goes live."],
+      ["Can you support an Amsterdam team in person?", "Most of the work runs on video calls, a shared dashboard and Slack or WhatsApp. For launches and workshops we can plan a visit."]] },
   { slug: "united-states", name: "the US", country: "United States", code: "US", city: "New York", tz: "America/New_York", cur: "USD",
     overlap: "We're 9½–10½ hours ahead of the East Coast and 12½–13½ ahead of the West. We take calls in your morning or evening, and the work runs while you sleep — you wake up to progress.",
     platforms: "Google, Meta, YouTube, LinkedIn and TikTok, plus Reddit and Amazon when your buyers live there.",
@@ -249,6 +195,14 @@ export const markets = [
     faq: [["Do you invoice in dollars?", "Yes. USD quotations and invoices, paid by bank transfer or card."],
       ["Can you work US hours?", "We overlap with your early morning and late evening every day, and we'll schedule calls inside your working hours. Urgent changes get picked up the same day."],
       ["Why work with a studio in India?", "Senior people, AI-first workflows and sensible costs — with the same tools, standards and reporting you'd expect from an agency down the street."]] },
+  { slug: "canada", name: "Canada", country: "Canada", code: "CA", city: "Toronto", tz: "America/Toronto", cur: "CAD",
+    overlap: "We're 9½–10½ hours ahead of Toronto and 12½–13½ ahead of Vancouver. Calls happen in your morning or late afternoon, and the work runs overnight — you start the day with progress.",
+    platforms: "Google, Meta, YouTube, LinkedIn and TikTok, with French-language campaigns for Quebec.",
+    rules: "CASL for email and SMS consent, PIPEDA for personal data and Quebec's Law 25, with French where the Charter of the French Language requires it.",
+    search: "English and French search, and fast-growing use of AI assistants for comparisons. Bilingual, well-structured pages win both.",
+    faq: [["Do you invoice in Canadian dollars?", "Yes. CAD quotations and invoices, paid by bank transfer or card."],
+      ["Can you run campaigns in French for Quebec?", "Yes. French creative and landing pages, checked by a native speaker, with Quebec's language and privacy rules built in."],
+      ["Is your email marketing CASL-compliant?", "Yes. Express consent, clear sender identity and a working unsubscribe on every message."]] },
   { slug: "uae", name: "the UAE", country: "United Arab Emirates", code: "AE", city: "Dubai", tz: "Asia/Dubai", cur: "AED",
     overlap: "We're just 1½ hours ahead of Dubai — practically the same working day, Monday to Friday.",
     platforms: "Instagram, Snapchat, TikTok, Google and YouTube — and WhatsApp, because that's where your customers actually reply.",
@@ -265,6 +219,22 @@ export const markets = [
     faq: [["Do you invoice in SGD?", "Yes, in Singapore dollars."],
       ["Can you run regional campaigns across Southeast Asia?", "Yes. We plan and report by country, so you can see what Malaysia, Indonesia or the Philippines return separately."],
       ["Do you work with B2B tech companies?", "Yes — LinkedIn, content, SEO and AI-search work is a natural fit for B2B and SaaS brands."]] },
+  { slug: "thailand", name: "Thailand", country: "Thailand", code: "TH", city: "Bangkok", tz: "Asia/Bangkok", cur: "THB",
+    overlap: "Bangkok is just 1½ hours ahead of us, so we share almost your entire working day.",
+    platforms: "LINE Official Accounts and LINE Ads, Facebook, Instagram, TikTok and YouTube, plus Shopee and Lazada for e-commerce brands.",
+    rules: "Thailand's Personal Data Protection Act (PDPA): consent before marketing messages and careful handling of customer data.",
+    search: "Google dominates Thai search, much of it in Thai and on mobile. Pages need to be fast, local and clear in Thai as well as English.",
+    faq: [["Do you invoice in baht?", "Yes. Quotations and invoices in THB."],
+      ["Can you create content in Thai?", "Yes. We localise campaigns into Thai, and every line is checked by a native speaker before it goes live."],
+      ["Do you work with LINE?", "Yes. LINE Official Account setup, broadcasts, chat automation and LINE Ads, connected to your CRM."]] },
+  { slug: "japan", name: "Japan", country: "Japan", code: "JP", city: "Tokyo", tz: "Asia/Tokyo", cur: "JPY",
+    overlap: "Tokyo is 3½ hours ahead of us: we overlap from your late morning to the end of your day.",
+    platforms: "Google and Yahoo! JAPAN search ads, LINE, X, Instagram, YouTube and TikTok — X matters more in Japan than almost anywhere else.",
+    rules: "The APPI for personal data, and Japan's rules on stealth marketing: every sponsored post and influencer collaboration clearly labelled.",
+    search: "Google and Yahoo! JAPAN lead search. Japanese buyers research thoroughly, so detailed, trustworthy pages in natural Japanese are what rank and get cited.",
+    faq: [["Do you invoice in yen?", "Yes. Quotations and invoices in JPY."],
+      ["Can you create content in Japanese?", "Yes. Japanese copy is localised for the market, not machine-translated, and checked by a native speaker before it goes live."],
+      ["Do you run influencer campaigns in Japan?", "Yes, with every collaboration disclosed as advertising, as Japanese law requires."]] },
   { slug: "australia", name: "Australia", country: "Australia", code: "AU", city: "Sydney", tz: "Australia/Sydney", cur: "AUD",
     overlap: "Sydney is 4½–5½ hours ahead of India: we overlap from your lunch to your close, and our evening covers your next morning's prep.",
     platforms: "Google, Meta, TikTok, LinkedIn and YouTube, with strong local SEO for service businesses.",

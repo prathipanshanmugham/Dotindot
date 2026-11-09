@@ -467,11 +467,11 @@ function CalcDialog({ plan, open, onClose, onDone }) {
             <Field key={p.id} label={`${p.name} — achieved (₹)`}><Input type="number" value={f.manual?.[p.id] || ""} onChange={(e) => setF((x) => ({ ...x, manual: { ...x.manual, [p.id]: e.target.value } }))} /></Field>))}
           {res && (
             <div className="rounded-xl border border-gray-200 overflow-hidden" data-testid="calc-results">
-              <table className="w-full text-sm"><thead><tr className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400"><th className="text-left py-2 px-3">Person</th><th className="text-right py-2 px-2">Actual</th><th className="text-right py-2 px-2">Target</th><th className="text-right py-2 px-3">Payout</th></tr></thead>
+              <div className="overflow-x-auto"><table className="w-full text-sm min-w-[420px]"><thead><tr className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-400"><th className="text-left py-2 px-3">Person</th><th className="text-right py-2 px-2">Actual</th><th className="text-right py-2 px-2">Target</th><th className="text-right py-2 px-3">Payout</th></tr></thead>
                 <tbody>{res.results.map((r) => (
                   <tr key={r.user_id} className="border-t border-gray-100"><td className="py-2 px-3">{r.name}</td><td className="py-2 px-2 text-right font-mono">{inr(r.metric_value)}</td>
                     <td className="py-2 px-2 text-right font-mono text-gray-500">{r.target ? inr(r.target) : "—"}</td>
-                    <td className="py-2 px-3 text-right font-mono font-semibold">{r.already_approved ? <span className="text-xs text-gray-400">already approved</span> : r.amount ? inr(r.amount) : <span className="text-xs text-gray-400">{r.met ? "0" : "target missed"}</span>}</td></tr>))}</tbody></table>
+                    <td className="py-2 px-3 text-right font-mono font-semibold">{r.already_approved ? <span className="text-xs text-gray-400">already approved</span> : r.amount ? inr(r.amount) : <span className="text-xs text-gray-400">{r.met ? "0" : "target missed"}</span>}</td></tr>))}</tbody></table></div>
               <div className="px-3 py-2 text-xs text-gray-500 bg-gray-50">{res.proposed} item{res.proposed === 1 ? "" : "s"} proposed for approval{plan.kind === "increment" ? " — approving applies the raise to the salary structure" : ""}.</div>
             </div>
           )}

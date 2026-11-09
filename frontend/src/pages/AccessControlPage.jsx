@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import api, { apiError } from "@/lib/api";
@@ -20,6 +20,7 @@ export default function AccessControlPage() {
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const editorRef = useRef(null);
   const [draft, setDraft] = useState(new Set());
   const [draftBranches, setDraftBranches] = useState({});
   const [busy, setBusy] = useState(false);
@@ -35,6 +36,7 @@ export default function AccessControlPage() {
 
   const pickUser = (u) => {
     setSelectedId(u.id);
+    if (window.matchMedia("(max-width: 1023px)").matches) setTimeout(() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
     setDraft(new Set(u.effective_permissions || []));
     const assigns = (u.branch_assignments || []).length
       ? u.branch_assignments
@@ -170,6 +172,7 @@ export default function AccessControlPage() {
         </Card>
 
         {/* Editor */}
+        <div ref={editorRef} className="scroll-mt-20 min-w-0">
         {!selected ? (
           <Card className="border-gray-200/80 shadow-sm">
             <CardContent className="h-64 flex items-center justify-center text-sm text-gray-400">
@@ -275,6 +278,7 @@ export default function AccessControlPage() {
             </Card>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

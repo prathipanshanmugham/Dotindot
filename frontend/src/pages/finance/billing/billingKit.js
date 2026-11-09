@@ -1,5 +1,5 @@
 // v3.2 Billing — shared helpers
-export const SYMBOL = { INR: "₹", USD: "$", EUR: "€", AED: "AED ", GBP: "£", SGD: "S$", AUD: "A$", CAD: "C$" };
+export const SYMBOL = { INR: "₹", USD: "$", EUR: "€", AED: "AED ", GBP: "£", SGD: "S$", AUD: "A$", CAD: "C$", THB: "฿", JPY: "¥" };
 
 export const money = (v, cur = "INR", dec = 2) => {
   const n = Number(v) || 0;

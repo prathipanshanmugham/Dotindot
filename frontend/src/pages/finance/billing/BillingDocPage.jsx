@@ -83,7 +83,13 @@ export default function BillingDocPage() {
             <div className="text-xs space-y-1.5"><Fact l="Date" v={fmtDate(d.date)} />{d.valid_until && <Fact l="Valid until" v={fmtDate(d.valid_until)} />}{d.due_date && <Fact l="Due" v={fmtDate(d.due_date)} />}{d.po_number && <Fact l="PO / ref" v={d.po_number} />}</div>
             <div className="text-xs space-y-1.5"><Fact l="Currency" v={`${cur}${cur !== "INR" ? ` · 1 ${cur} = ₹${d.fx_rate}` : ""}`} /><Fact l="Tax" v={meta.tax_modes[d.tax_mode]?.label} />{isGst && <Fact l="Place of supply" v={`${meta.states[d.place_of_supply] || ""} (${d.place_of_supply})`} />}</div>
           </div>
-          <table className="w-full text-sm" data-testid="billing-doc-lines">
+          <div className="sm:hidden divide-y divide-gray-100 border-y border-gray-100" data-testid="billing-doc-lines-mobile">{d.items.map((it) => (
+            <div key={it.id} className="px-4 py-3 text-sm">
+              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="font-medium text-gray-900 [overflow-wrap:anywhere]">{it.description}</div>{it.details && <div className="text-xs text-gray-500">{it.details}</div>}</div>
+                <div className="font-mono font-semibold whitespace-nowrap">{money(it.net, cur)}</div></div>
+              <div className="mt-1 text-xs text-gray-500 font-mono">{it.qty} {it.unit} × {money(it.unit_price, cur)}{isGst ? ` · ${it.tax_rate}% tax` : ""}{it.discount_pct > 0 ? ` · ${it.discount_pct}% off` : ""}{isGst && it.sac ? ` · SAC ${it.sac}` : ""}</div>
+            </div>))}</div>
+          <table className="hidden sm:table w-full text-sm" data-testid="billing-doc-lines">
             <thead><tr className="text-[11px] text-gray-500 border-b border-gray-100"><th className="text-left font-semibold py-2 px-5">Description</th>{isGst && <th className="text-left font-semibold py-2 px-2">SAC</th>}<th className="text-right font-semibold py-2 px-2">Qty</th><th className="text-right font-semibold py-2 px-2">Rate</th>{isGst && <th className="text-right font-semibold py-2 px-2">Tax</th>}<th className="text-right font-semibold py-2 px-5">Amount</th></tr></thead>
             <tbody>{d.items.map((it) => (
               <tr key={it.id} className="border-b border-gray-50 align-top"><td className="py-2.5 px-5"><div className="font-medium text-gray-900">{it.description}</div>{it.details && <div className="text-xs text-gray-500">{it.details}</div>}{it.discount_pct > 0 && <div className="text-[11px] text-emerald-700">{it.discount_pct}% off</div>}</td>

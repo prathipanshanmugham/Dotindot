@@ -44,6 +44,7 @@ DELETE_KEYS = {
     "billing_docs": "billing.delete", "billing_terms": "billing.manage",
     # v3.3
     "site_clients": "website.delete", "site_testimonials": "website.delete", "site_team": "website.delete", "site_cases": "website.delete",
+    "site_locations": "website.delete", "site_certs": "website.delete", "site_insights": "website.delete",
 }
 
 # Line items stored inside a parent record that can be removed one by one: collection -> {array field: module delete key}

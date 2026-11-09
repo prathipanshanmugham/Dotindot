@@ -69,7 +69,8 @@ MODULES: Dict[str, dict] = {
     "growth": {"label": "Digital growth (followers, views, reach by month)", "colls": ["growth_accounts", "growth_months"],
                "search": ["handle", "owner_name", "platform", "month"], "hide": {"sync.token_enc", "sync.token_hint"},
                "write": {"create": ["account_id", "month", "values", "note"], "update": []}},
-    "website": {"label": "Website content (clients, testimonials, team, case studies)", "colls": ["site_clients", "site_testimonials", "site_team", "site_cases"],
+    "website": {"label": "Website content (clients, testimonials, team, case studies, offices, certifications, articles)",
+                "colls": ["site_clients", "site_testimonials", "site_team", "site_cases", "site_locations", "site_certs", "site_insights"],
                 "search": ["name", "company", "title", "quote", "client"]},
     "support": {"label": "Support tickets", "coll": "tickets", "search": ["number", "subject", "client_name"],
                 "write": {"create": ["subject", "body", "category", "priority"], "update": ["status", "priority", "reply"]}},
@@ -288,6 +289,75 @@ async def test_provider(provider: str, user: dict = Depends(get_current_user)):
     result = {"ok": ok, "message": msg, "at": _now()}
     await db.settings.update_one({"id": "ai"}, {"$set": {f"providers.{provider}.last_test": result}})
     return result
+
+
+# ------------------------------------------------------------------ text generation (used by the website chat assistant)
+class AIUnavailable(Exception):
+    """No usable provider/key/model, or the provider failed — callers fall back to something that doesn't need AI."""
+
+
+async def pick_provider(preferred: str = "") -> Optional[str]:
+    d = await db.settings.find_one({"id": "ai"}, {"_id": 0}) or {}
+    provs = d.get("providers") or {}
+    for k in [preferred, d.get("default_provider") or "", "anthropic", "openai", "google", "openrouter", "custom"]:
+        if k and k in PROVIDERS and (provs.get(k) or {}).get("key_enc"):
+            return k
+    return None
+
+
+async def llm_complete(system: str, messages: List[dict], max_tokens: int = 400, provider: str = "", model: str = "",
+                       json_mode: bool = False, timeout: float = 25) -> str:
+    """One reply from the configured provider. messages: [{"role": "user"|"assistant", "content": str}]."""
+    import httpx
+    prov = await pick_provider(provider)
+    if not prov:
+        raise AIUnavailable("No AI provider is connected (Settings → AI)")
+    d = await db.settings.find_one({"id": "ai"}, {"_id": 0}) or {}
+    p = (d.get("providers") or {}).get(prov) or {}
+    key = decrypt_secret(p["key_enc"])
+    mdl = (model or p.get("model") or PROVIDERS[prov]["default_model"] or "").strip()
+    base = (p.get("base_url") or PROVIDERS[prov]["base_url"]).rstrip("/")
+    if not mdl:
+        raise AIUnavailable(f"Choose a model for {PROVIDERS[prov]['label']} in Settings → AI")
+    msgs = [m for m in messages if m.get("content")]
+    while msgs and msgs[0]["role"] != "user":
+        msgs.pop(0)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as cx:
+            if prov == "anthropic":
+                r = await cx.post(f"{base}/v1/messages", headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                                  json={"model": mdl, "max_tokens": max_tokens, "messages": msgs,
+                                        "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]})
+                r.raise_for_status()
+                return "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text")
+            if prov == "google":
+                body = {"systemInstruction": {"parts": [{"text": system}]}, "generationConfig": {"maxOutputTokens": max_tokens},
+                        "contents": [{"role": "model" if m["role"] == "assistant" else "user", "parts": [{"text": m["content"]}]} for m in msgs]}
+                if json_mode:
+                    body["generationConfig"]["responseMimeType"] = "application/json"
+                r = await cx.post(f"{base}/v1beta/models/{mdl}:generateContent", params={"key": key}, json=body)
+                r.raise_for_status()
+                parts = ((r.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+                return "".join(x.get("text", "") for x in parts)
+            if not base:
+                raise AIUnavailable("Set the base URL for the custom provider in Settings → AI")
+            body = {"model": mdl, "messages": [{"role": "system", "content": system}] + msgs}
+            body["max_completion_tokens" if prov == "openai" else "max_tokens"] = max_tokens  # newer OpenAI models only take the former
+            if json_mode and prov == "openai":
+                body["response_format"] = {"type": "json_object"}
+            r = await cx.post(f"{base}/chat/completions", headers={"Authorization": f"Bearer {key}"}, json=body)
+            r.raise_for_status()
+            return ((r.json().get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+    except AIUnavailable:
+        raise
+    except Exception as e:  # network, quota, bad key or model: the caller falls back
+        detail = ""
+        if hasattr(e, "response") and getattr(e, "response", None) is not None:
+            try:
+                detail = f" ({e.response.status_code})"
+            except Exception:
+                pass
+        raise AIUnavailable(f"{PROVIDERS[prov]['label']} didn't answer{detail}")
 
 
 # ------------------------------------------------------------------ tokens

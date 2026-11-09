@@ -4,8 +4,10 @@ The public website (website/, served at /) is a static build. Its clients, testi
 key numbers and contact details live here so the team can change them without code. Every change is saved,
 exported to website/content.json, and the site is rebuilt next to the live one and swapped in (about a second).
 
-Collections: site_clients, site_testimonials, site_team, site_cases (one row per item, with `visible` and `order`)
-and site_settings (id "website": numbers, contact details, social links, the last publish).
+Collections: site_clients, site_testimonials, site_team, site_cases, site_locations (offices), site_certs (certification
+and partner logos), site_insights (articles) — one row per item, with `visible` and `order` — and site_settings (id "website":
+numbers, contact details, social links, SEO, legal pages, llms.txt, the chat assistant and the last publish).
+Chat conversations from the website assistant are in chat_sessions (see routes_chat.py).
 Permissions: `website` opens the editor, `website.manage` changes content, `website.delete` deletes (24h recycle bin).
 Images: PNG, JPEG or WebP up to 5 MB, re-encoded (metadata stripped, at most 1600 px) into website/media/ and served at /media/.
 A testimonial appears on the site only when it is marked visible AND the client has agreed to be quoted.
@@ -44,16 +46,26 @@ KINDS = {
     "testimonials": {"coll": "site_testimonials", "label": "testimonial"},
     "team": {"coll": "site_team", "label": "team member"},
     "cases": {"coll": "site_cases", "label": "case study"},
+    "locations": {"coll": "site_locations", "label": "office"},
+    "certifications": {"coll": "site_certs", "label": "certification"},
+    "insights": {"coll": "site_insights", "label": "article"},
 }
 # per kind: field -> (max length, required)
 FIELDS = {
-    "clients": {"name": (80, True), "industry": (60, False), "url": (300, False), "logo": (80, False)},
+    "clients": {"name": (80, True), "industry": (60, False), "url": (300, False), "logo": (80, False), "description": (240, False)},
+    "locations": {"name": (80, True), "address": (300, True), "city": (60, False), "country": (60, False), "phone": (30, False),
+                  "email": (120, False), "hours": (100, False), "map_url": (500, False)},
+    "certifications": {"name": (100, True), "logo": (80, False), "url": (300, False)},
+    "insights": {"title": (140, True), "slug": (80, False), "summary": (300, True), "body": (30000, True), "date": (10, False),
+                 "image": (80, False), "seo_title": (70, False), "seo_description": (170, False)},
     "testimonials": {"quote": (600, True), "name": (80, True), "role": (80, False), "company": (80, False), "photo": (80, False)},
     "team": {"name": (80, True), "role": (80, True), "bio": (400, False), "photo": (80, False), "linkedin": (300, False)},
     "cases": {"client": (80, True), "title": (140, True), "result": (60, False), "summary": (500, False)},
 }
-URL_FIELDS = {"url", "linkedin"}
-IMAGE_FIELDS = {"logo", "photo"}
+URL_FIELDS = {"url", "linkedin", "map_url"}
+IMAGE_FIELDS = {"logo", "photo", "image"}
+MULTILINE = {"quote", "bio", "summary", "address", "body"}
+BOOLS = {"visible": None, "consent": "testimonials", "hq": "locations"}
 SOCIALS = ("linkedin", "instagram", "youtube", "x", "facebook")
 
 
@@ -79,7 +91,7 @@ def _clean(kind: str, data: dict, partial: bool) -> dict:
             if required and not partial:
                 raise HTTPException(status_code=400, detail=f"{f.capitalize()} is required")
             continue
-        v = re.sub(r"\s+", " ", str(data[f])).strip() if f not in ("quote", "bio", "summary") else str(data[f]).strip()
+        v = re.sub(r"\s+", " ", str(data[f])).strip() if f not in MULTILINE else re.sub(r"\r\n?", "\n", str(data[f])).strip()
         if required and not v:
             raise HTTPException(status_code=400, detail=f"{f.capitalize()} is required")
         if len(v) > mx:
@@ -92,16 +104,57 @@ def _clean(kind: str, data: dict, partial: bool) -> dict:
         if v and f in IMAGE_FIELDS:
             if not MEDIA_RE.match(v) or not (MEDIA_DIR / v.split("/", 1)[1]).is_file():
                 raise HTTPException(status_code=400, detail="Upload the image again")
+        if v and f == "email" and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise HTTPException(status_code=400, detail="Check the email address")
+        if f == "slug":
+            v = _slug(v)
+        if v and f == "date":
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Date must look like 2026-11-09")
         out[f] = v
-    for b in ("visible", "consent"):
-        if b in data and data[b] is not None:
-            if b == "consent" and kind != "testimonials":
-                continue
+    for b, only in BOOLS.items():
+        if b in data and data[b] is not None and (only is None or only == kind):
             out[b] = bool(data[b])
     return out
 
 
+def _slug(v: str) -> str:
+    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", (v or "").lower())).strip("-")[:80].strip("-")
+
+
+async def _check_article(data: dict, item_id: Optional[str] = None) -> dict:
+    """Articles: a unique web address (slug) from the title, and a date."""
+    if "title" in data and not data.get("slug") and not item_id:
+        data["slug"] = _slug(data["title"])
+    if "slug" in data:
+        if not data["slug"]:
+            raise HTTPException(status_code=400, detail="The web address needs at least one letter or number")
+        clash = await db.site_insights.find_one({"slug": data["slug"], **({"id": {"$ne": item_id}} if item_id else {})}, {"_id": 0, "title": 1})
+        if clash:
+            raise HTTPException(status_code=400, detail=f"Another article already uses /insights/{data['slug']}/ — change the web address")
+    if not item_id and not data.get("date"):
+        data["date"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return data
+
+
 class Item(BaseModel):
+    description: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    hours: Optional[str] = None
+    map_url: Optional[str] = None
+    slug: Optional[str] = None
+    body: Optional[str] = None
+    date: Optional[str] = None
+    image: Optional[str] = None
+    seo_title: Optional[str] = None
+    seo_description: Optional[str] = None
+    hq: Optional[bool] = None
     name: Optional[str] = None
     industry: Optional[str] = None
     url: Optional[str] = None
@@ -129,7 +182,34 @@ class Number(BaseModel):
     label: str
 
 
+class SeoIn(BaseModel):
+    google: Optional[str] = None
+    bing: Optional[str] = None
+    ga4: Optional[str] = None
+    pages: Optional[Dict[str, Dict[str, str]]] = None
+
+
+class PagesIn(BaseModel):
+    privacy: Optional[str] = None
+    terms: Optional[str] = None
+    llms: Optional[str] = None
+    clients_intro: Optional[str] = None
+
+
+class ChatIn(BaseModel):
+    enabled: Optional[bool] = None
+    name: Optional[str] = None
+    greeting: Optional[str] = None
+    instructions: Optional[str] = None
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    daily_limit: Optional[int] = None
+
+
 class SettingsIn(BaseModel):
+    seo: Optional[SeoIn] = None
+    pages: Optional[PagesIn] = None
+    chat: Optional[ChatIn] = None
     numbers: Optional[List[Number]] = None
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -146,9 +226,30 @@ def _config() -> dict:
         return {}
 
 
+DEFAULT_CHAT = {"enabled": True, "name": "Dot", "greeting": "", "instructions": "", "provider": "", "model": "", "daily_limit": 400}
+
+
+async def _seed_articles(now: str):
+    """The site's articles (website/src/insights.json) become editable rows the first time the editor opens."""
+    try:
+        rows = json.loads((WEBSITE / "src" / "insights.json").read_text())
+    except Exception:
+        rows = []
+    if not await db.site_insights.count_documents({}):
+        for i, a in enumerate(rows):
+            if a.get("slug") and a.get("title"):
+                await db.site_insights.insert_one({"id": str(uuid.uuid4()), "slug": a["slug"], "title": a["title"], "summary": a.get("summary", ""),
+                                                   "body": a.get("body", ""), "date": a.get("date", now[:10]), "image": "", "seo_title": "", "seo_description": "",
+                                                   "visible": True, "order": i, "created_at": now, "updated_at": now, "created_by": "website"})
+    await db.site_settings.update_one({"id": "website"}, {"$set": {"seeded_articles": True}})
+
+
 async def _settings() -> dict:
     doc = await db.site_settings.find_one({"id": "website"}, {"_id": 0})
     if doc:
+        if not doc.get("seeded_articles"):
+            await _seed_articles(_now())
+            doc["seeded_articles"] = True
         return doc
     c = _config()
     now = _now()
@@ -163,12 +264,30 @@ async def _settings() -> dict:
     for kind, rows in seed.items():
         for i, r in enumerate(rows):
             await db[KINDS[kind]["coll"]].insert_one({"id": str(uuid.uuid4()), **r, "visible": True, "order": i, "created_at": now, "updated_at": now, "created_by": "website config"})
+    doc.update({"seo": {}, "pages": {}, "chat": dict(DEFAULT_CHAT)})
     await db.site_settings.update_one({"id": "website"}, {"$setOnInsert": doc}, upsert=True)
+    await _seed_articles(now)
     return await db.site_settings.find_one({"id": "website"}, {"_id": 0})
 
 
 async def _rows(kind: str) -> list:
-    return await db[KINDS[kind]["coll"]].find({}, {"_id": 0}).sort([("order", 1), ("created_at", 1)]).to_list(500)
+    sort = [("date", -1), ("created_at", -1)] if kind == "insights" else [("order", 1), ("created_at", 1)]
+    return await db[KINDS[kind]["coll"]].find({}, {"_id": 0}).sort(sort).to_list(500)
+
+
+def site_index() -> dict:
+    """What the last build knew: the page list (for SEO), the generated llms.txt and the chat assistant's facts."""
+    try:
+        return json.loads((WEBSITE / "site-index.json").read_text())
+    except Exception:
+        return {}
+
+
+def default_pages() -> dict:
+    try:
+        return json.loads((WEBSITE / "src" / "pages.json").read_text())
+    except Exception:
+        return {}
 
 
 # ---------------------------------------------------------------- publish: export → build next to live → swap
@@ -179,7 +298,14 @@ async def export_content() -> dict:
     s = await _settings()
     pick = lambda r, keys: {k: r.get(k, "") for k in keys}  # noqa: E731
     data = {
-        "clients": [pick(r, ("name", "industry", "url", "logo")) for r in await _rows("clients") if r.get("visible", True)],
+        "clients": [pick(r, ("name", "industry", "url", "logo", "description")) for r in await _rows("clients") if r.get("visible", True)],
+        "locations": [{**pick(r, ("name", "address", "city", "country", "phone", "email", "hours", "map_url")), "hq": bool(r.get("hq"))}
+                      for r in await _rows("locations") if r.get("visible", True)],
+        "certifications": [pick(r, ("name", "logo", "url")) for r in await _rows("certifications") if r.get("visible", True)],
+        "insights": [{**pick(r, ("slug", "title", "summary", "body", "date", "image", "seo_title", "seo_description")), "updated": (r.get("updated_at") or "")[:10]}
+                     for r in await _rows("insights") if r.get("visible", True)],
+        "seo": s.get("seo") or {}, "pages": s.get("pages") or {},
+        "chat": {k: (s.get("chat") or DEFAULT_CHAT).get(k, DEFAULT_CHAT[k]) for k in ("enabled", "name", "greeting")},
         "testimonials": [pick(r, ("quote", "name", "role", "company", "photo")) for r in await _rows("testimonials") if r.get("visible", True) and r.get("consent")],
         "team": [pick(r, ("name", "role", "bio", "photo", "linkedin")) for r in await _rows("team") if r.get("visible", True)],
         "caseStudies": [pick(r, ("client", "title", "result", "summary")) for r in await _rows("cases") if r.get("visible", True)],
@@ -234,9 +360,35 @@ async def publish(user: Optional[dict] = None) -> dict:
 async def get_website(user: dict = Depends(get_current_user)):
     _need(user, "website", "view")
     s = await _settings()
-    return {"clients": await _rows("clients"), "testimonials": await _rows("testimonials"), "team": await _rows("team"),
-            "cases": await _rows("cases"), "settings": {k: v for k, v in s.items() if k != "publish"}, "publish": s.get("publish"),
+    idx = site_index()
+    from routes_ai import pick_provider, PROVIDERS as AI_PROVIDERS
+    chat = {**DEFAULT_CHAT, **(s.get("chat") or {})}
+    prov = await pick_provider(chat.get("provider") or "")
+    return {**{k: await _rows(k) for k in KINDS}, "settings": {k: v for k, v in s.items() if k != "publish"}, "publish": s.get("publish"),
+            "pages_index": [p for p in idx.get("pages", []) if p.get("kind") != "article"], "llms_generated": idx.get("llms_generated", ""),
+            "default_pages": default_pages(), "chat": chat,
+            "chat_status": {"provider": prov, "provider_label": AI_PROVIDERS[prov]["label"] if prov else "", "providers": {k: v["label"] for k, v in AI_PROVIDERS.items()},
+                            "conversations": await db.chat_sessions.count_documents({}), "leads": await db.chat_sessions.count_documents({"lead_id": {"$ne": None}})},
             "can_manage": has_permission(user, "website.manage"), "can_delete": has_permission(user, "website.delete")}
+
+
+@router.get("/website/chats")
+async def list_chats(limit: int = 60, leads_only: bool = False, user: dict = Depends(get_current_user)):
+    _need(user, "website.manage", "see the chat conversations on")
+    q = {"lead_id": {"$ne": None}} if leads_only else {}
+    rows = await db.chat_sessions.find(q, {"_id": 0, "ip_hash": 0}).sort("updated_at", -1).to_list(max(1, min(limit, 200)))
+    return [{"id": r["id"], "created_at": r.get("created_at"), "updated_at": r.get("updated_at"), "page": r.get("page", ""), "mode": r.get("mode", ""),
+             "visitor_messages": sum(1 for m in r.get("messages", []) if m.get("role") == "user"), "lead": r.get("lead") or {}, "lead_id": r.get("lead_id"),
+             "preview": next((m.get("text", "")[:140] for m in r.get("messages", []) if m.get("role") == "user"), "")} for r in rows]
+
+
+@router.get("/website/chats/{chat_id}")
+async def get_chat(chat_id: str, user: dict = Depends(get_current_user)):
+    _need(user, "website.manage", "see the chat conversations on")
+    r = await db.chat_sessions.find_one({"id": chat_id}, {"_id": 0, "ip_hash": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="That conversation no longer exists")
+    return r
 
 
 # ---------------------------------------------------------------- media
@@ -272,12 +424,14 @@ async def create_item(kind: str, body: Item, user: dict = Depends(get_current_us
     _need(user, "website.manage", "change")
     await _settings()
     data = _clean(kind, body.model_dump(), partial=False)
+    if kind == "insights":
+        data = await _check_article(data)
     last = await db[spec["coll"]].find({}, {"_id": 0, "order": 1}).sort("order", -1).to_list(1)
     now = _now()
     doc = {"id": str(uuid.uuid4()), "visible": True, **({"consent": False} if kind == "testimonials" else {}), **data,
            "order": (last[0].get("order", 0) + 1) if last else 0, "created_at": now, "updated_at": now, "created_by": user.get("id")}
     await db[spec["coll"]].insert_one(dict(doc))
-    await log_activity(user, "website_item_created", spec["coll"], doc["id"], doc.get("name") or doc.get("title"))
+    await log_activity(user, "website_item_created", spec["coll"], doc["id"], doc.get("name") or doc.get("title") or doc.get("client"))
     return {"item": {k: v for k, v in doc.items() if k != "_id"}, "publish": await publish(user)}
 
 
@@ -289,6 +443,8 @@ async def update_item(kind: str, item_id: str, body: Item, user: dict = Depends(
     if not existing:
         raise HTTPException(status_code=404, detail=f"That {spec['label']} no longer exists")
     data = _clean(kind, body.model_dump(exclude_unset=True), partial=True)
+    if kind == "insights":
+        data = await _check_article(data, item_id)
     data["updated_at"] = _now()
     await db[spec["coll"]].update_one({"id": item_id}, {"$set": data})
     await log_activity(user, "website_item_updated", spec["coll"], item_id, existing.get("name") or existing.get("title"))
@@ -316,6 +472,41 @@ async def delete_item(kind: str, item_id: str, user: dict = Depends(get_current_
 
 
 # ---------------------------------------------------------------- settings + publish
+def _meta_token(v: str) -> str:
+    """Search Console / Bing give a whole <meta> tag; keep just the code."""
+    v = (v or "").strip()
+    m = re.search(r'content\s*=\s*["\']([^"\']+)["\']', v)
+    v = (m.group(1) if m else v).strip()
+    if v and not re.match(r"^[A-Za-z0-9_\-]{8,120}$", v):
+        raise HTTPException(status_code=400, detail="Paste the verification code (or the whole meta tag) from Search Console or Bing")
+    return v
+
+
+def _clean_seo(seo: dict) -> dict:
+    out = {}
+    for k in ("google", "bing"):
+        if seo.get(k) is not None:
+            out[k] = _meta_token(seo[k])
+    if seo.get("ga4") is not None:
+        g = seo["ga4"].strip().upper()
+        if g and not re.match(r"^G-[A-Z0-9]{4,20}$", g):
+            raise HTTPException(status_code=400, detail="The Google Analytics ID looks like G-XXXXXXXXXX")
+        out["ga4"] = g
+    if seo.get("pages") is not None:
+        pages = {}
+        for path, v in seo["pages"].items():
+            if not re.match(r"^/[a-z0-9/._-]*$", path or ""):
+                continue
+            t, dsc = re.sub(r"\s+", " ", str((v or {}).get("title") or "")).strip(), re.sub(r"\s+", " ", str((v or {}).get("description") or "")).strip()
+            if len(t) > 90 or len(dsc) > 220:
+                raise HTTPException(status_code=400, detail=f"{path}: keep titles under 90 and descriptions under 220 characters")
+            if t or dsc:
+                pages[path] = {"title": t, "description": dsc}
+        out["pages"] = pages
+    return out
+
+
+
 @router.put("/website-settings")
 async def update_settings(body: SettingsIn, user: dict = Depends(get_current_user)):
     _need(user, "website.manage", "change")
@@ -348,9 +539,41 @@ async def update_settings(body: SettingsIn, user: dict = Depends(get_current_use
                 raise HTTPException(status_code=400, detail=f"{k.capitalize()} link must start with https://")
             soc[k] = v
         upd["social"] = soc
+    if d.get("seo") is not None:
+        upd.update({f"seo.{k}": v for k, v in _clean_seo(d["seo"]).items()})
+    if d.get("pages") is not None:
+        cur = (await _settings()).get("pages") or {}
+        for k, mx in (("privacy", 30000), ("terms", 30000), ("llms", 50000), ("clients_intro", 300)):
+            if d["pages"].get(k) is not None:
+                v = re.sub(r"\r\n?", "\n", d["pages"][k]).strip()
+                if len(v) > mx:
+                    raise HTTPException(status_code=400, detail=f"That text is too long (max {mx:,} characters)")
+                if k == "clients_intro":
+                    v = re.sub(r"\s+", " ", v)
+                upd[f"pages.{k}"] = v
+                if k in ("privacy", "terms") and v != (cur.get(k) or ""):
+                    upd[f"pages.{k}_updated"] = _now()[:10]
+    if d.get("chat") is not None:
+        c = d["chat"]
+        from routes_ai import PROVIDERS as AI_PROVIDERS
+        for k, mx in (("name", 30), ("greeting", 300), ("instructions", 4000), ("model", 100)):
+            if c.get(k) is not None:
+                v = str(c[k]).strip()
+                if len(v) > mx:
+                    raise HTTPException(status_code=400, detail=f"The assistant's {k} is too long (max {mx} characters)")
+                upd[f"chat.{k}"] = v
+        if c.get("enabled") is not None:
+            upd["chat.enabled"] = bool(c["enabled"])
+        if c.get("provider") is not None:
+            if c["provider"] and c["provider"] not in AI_PROVIDERS:
+                raise HTTPException(status_code=400, detail="Unknown AI provider")
+            upd["chat.provider"] = c["provider"]
+        if c.get("daily_limit") is not None:
+            upd["chat.daily_limit"] = max(0, min(5000, int(c["daily_limit"])))
     upd["updated_at"] = _now()
     await db.site_settings.update_one({"id": "website"}, {"$set": upd})
-    await log_activity(user, "website_settings_updated", "website", "website", "Numbers & contact details")
+    await log_activity(user, "website_settings_updated", "website", "website",
+                       ", ".join(sorted({k.split(".")[0] for k in upd if k != "updated_at"})) or "settings")
     s = await _settings()
     return {"settings": {k: v for k, v in s.items() if k != "publish"}, "publish": await publish(user)}
 
