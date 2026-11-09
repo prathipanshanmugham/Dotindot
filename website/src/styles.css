@@ -111,6 +111,8 @@ a:hover>.go svg,.go:hover svg{transform:translateX(4px)}
 .hero{position:relative;padding:clamp(56px,8vw,112px) 0 clamp(48px,6vw,80px);overflow:hidden}
 .hero h1 .ln{display:block;overflow:hidden;padding-bottom:.05em;margin-bottom:-.05em}
 .hero h1 .ln>span{display:block}
+.nw,.st-text .w{white-space:nowrap}
+.h-hero .dot{display:inline-block;width:.18em;height:.18em;margin-left:.05em;border-radius:50%;background:var(--orange);vertical-align:baseline}
 .hero-row{display:grid;gap:8px;margin-top:clamp(28px,3.4vw,44px)}
 .hero .lead{max-width:34em}
 .hero .btns{margin-top:clamp(28px,3vw,36px)}
@@ -124,12 +126,14 @@ a:hover>.go svg,.go:hover svg{transform:translateX(4px)}
 @media (min-width:1024px){.hero-row{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px;align-items:center}.hero-map{height:clamp(300px,30vw,430px);margin:0 calc(var(--gut)*-1) 0 0}}
 @media (prefers-reduced-motion:no-preference){
   html.js .hero h1 .ln>span{transform:translateY(105%);animation:rise 1.05s var(--ease) forwards;animation-delay:calc(.08s + var(--i)*.09s)}
+  html.js .h-hero .dot{transform:scale(0);animation:pop .8s cubic-bezier(.34,1.56,.64,1) forwards;animation-delay:calc(.62s + var(--i)*.12s)}
   html.js .hero .lead,html.js .hero .btns,html.js .hero .facts{opacity:0;animation:fade .9s var(--ease) forwards}
   html.js .hero .lead{animation-delay:.45s}html.js .hero .btns{animation-delay:.58s}html.js .hero .facts{animation-delay:.72s}
   html.js .phero .h-page,html.js .phero .lead,html.js .phero .btns,html.js .phero .crumbs{opacity:0;animation:fade .9s var(--ease) forwards}
   html.js .phero .h-page{animation-delay:.05s}html.js .phero .lead{animation-delay:.18s}html.js .phero .btns{animation-delay:.28s}
 }
 @keyframes rise{to{transform:none}}
+@keyframes pop{to{transform:none}}
 @keyframes fade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 
 /* trusted by */
@@ -157,6 +161,74 @@ a:hover>.go svg,.go:hover svg{transform:translateX(4px)}
 @media (min-width:760px){.svc-grid{grid-template-columns:1fr 1fr;border-left:1px solid var(--line)}.svc{padding:36px 32px 40px;border-right:1px solid var(--line)}}
 @media (min-width:1100px){.svc-grid{grid-template-columns:repeat(3,1fr)}.svc{padding:40px 36px 44px}}
 
+/* ---------- the scroll story (home): full stop → orange statement → dot in dot → services reel ---------- */
+.fs-veil{position:fixed;inset:0;z-index:30;background:var(--orange);pointer-events:none;visibility:hidden;clip-path:circle(0 at 50% 50%)}
+.statement{position:relative;z-index:31;background:var(--orange);color:var(--ink)}
+.st-stage{position:relative;display:flex;align-items:center;min-height:100vh;min-height:100svh;padding:calc(var(--hdr) + 32px) 0 56px;overflow:hidden}
+.st-text{max-width:17em;font-weight:750;font-size:clamp(2rem,4.7vw,4.5rem);line-height:1.06;letter-spacing:-.04em;text-wrap:pretty}
+.st-end{display:inline-block;width:.18em;height:.18em;margin-left:.05em;border-radius:50%;background:var(--paper);vertical-align:baseline}
+.st-white{position:absolute;inset:0;background:var(--paper);pointer-events:none;visibility:hidden;clip-path:circle(0 at 50% 50%)}
+html.js .statement.on{height:270vh}
+html.js .statement.on .st-stage{position:sticky;top:0;height:100vh;height:100svh;min-height:0}
+html.js .statement.on.armed .w{opacity:.16;transition:opacity .5s var(--ease)}
+html.js .statement.on.armed .w.lit{opacity:1}
+
+.reel{position:relative;padding:var(--sec) 0}
+.reel-top{display:grid;gap:20px 64px;margin-bottom:clamp(40px,6vw,72px)}
+.reel-top p{color:var(--ink-2);font-size:clamp(1.0625rem,1.3vw,1.1875rem);max-width:36em}
+@media (min-width:900px){.reel-top{grid-template-columns:minmax(0,5fr) minmax(0,7fr);align-items:end}}
+.reel-list{display:grid;border-top:1px solid var(--line)}
+.reel-item{position:relative;display:flex;flex-direction:column;gap:14px;padding:32px 0 36px;border-bottom:1px solid var(--line)}
+.reel-item h3{font-size:clamp(1.375rem,1.9vw,1.625rem);font-weight:700;letter-spacing:-.025em;line-height:1.15}
+.reel-item .tag{font-weight:600}
+.reel-item ul{display:grid;gap:8px}
+.reel-item li{position:relative;padding-left:18px;color:var(--slate);font-size:.9375rem;line-height:1.5}
+.reel-item li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--orange)}
+.reel-item .go{margin-top:auto;padding-top:6px}.reel-item .go:hover svg{transform:translateX(4px)}
+.reel-art,.reel-index{display:none}
+@media (min-width:760px){.reel-list{grid-template-columns:1fr 1fr;border-left:1px solid var(--line)}.reel-item{padding:36px 32px 40px;border-right:1px solid var(--line)}}
+@media (min-width:1100px){.reel-list{grid-template-columns:repeat(3,1fr)}}
+html.js .reel.on{padding:0;height:calc(100vh + var(--n)*80vh)}
+html.js .reel.on .reel-stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
+.reel.on .reel-wrap{height:100%;display:flex;flex-direction:column;padding-top:calc(var(--hdr) + clamp(8px,3vh,36px));padding-bottom:clamp(18px,4vh,44px)}
+.reel.on .reel-top{margin-bottom:clamp(8px,2vh,24px)}
+.reel.on .reel-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,72px);align-items:center}
+.reel.on .reel-list{display:grid;grid-template-columns:1fr;border:0}
+.reel.on .reel-item{grid-area:1/1;align-self:center;padding:0;border:0;gap:18px;opacity:0;visibility:hidden;transform:translateY(28px);transition:opacity .45s var(--ease),transform .7s var(--ease),visibility 0s .45s}
+.reel.on .reel-item.cur{opacity:1;visibility:visible;transform:none;transition:opacity .6s var(--ease) .1s,transform .9s var(--ease) .1s,visibility 0s}
+.reel.on .reel-item h3{font-size:clamp(2.25rem,4.4vw,4.25rem);font-weight:750;line-height:1;letter-spacing:-.045em}
+.reel.on .reel-item .tag{font-size:clamp(1.125rem,1.55vw,1.375rem);font-weight:500;color:var(--ink-2);max-width:24em}
+.reel.on .reel-item ul{margin-top:4px}
+.reel.on .reel-item li{font-size:1rem;color:var(--ink-2)}
+.reel.on .reel-art{display:block;position:relative;justify-self:center;width:min(100%,calc(100svh - 300px));aspect-ratio:1}
+.reel-art canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y}
+.reel.on .reel-index{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:clamp(8px,1.4vw,20px);margin-top:clamp(12px,2.5vh,28px)}
+.reel-index button{display:grid;gap:10px;padding:8px 0 0;border:0;background:none;font:inherit;font-size:.875rem;font-weight:500;line-height:1.3;text-align:left;color:var(--slate);cursor:pointer;transition:color .3s}
+.reel-index button:hover,.reel-index button.cur{color:var(--ink)}
+.reel-index i{display:block;height:2px;background:var(--line);overflow:hidden}
+.reel-index b{display:block;height:100%;background:var(--orange);transform:scaleX(var(--f,0));transform-origin:left}
+@media (max-width:899px){
+  .reel.on .reel-top p,.reel.on .reel-item ul,.reel-index span{display:none}
+  .reel.on .reel-body{grid-template-columns:1fr;grid-template-rows:auto auto;align-content:center;gap:clamp(16px,3vh,32px)}
+  .reel.on .reel-art{grid-row:1;width:min(100%,40svh)}
+  .reel.on .reel-item{align-self:start;gap:12px}
+  .reel.on .reel-item h3{font-size:clamp(1.875rem,8vw,2.75rem)}
+}
+
+/* ---------- a dot that follows the pointer (mouse only) ---------- */
+.cursor{position:fixed;left:0;top:0;z-index:90;width:10px;height:10px;margin:-5px 0 0 -5px;border:1.5px solid transparent;border-radius:50%;background:var(--orange);pointer-events:none;opacity:0;transition:opacity .3s,width .4s var(--ease),height .4s var(--ease),margin .4s var(--ease),background-color .3s,border-color .3s}
+.cursor.on{opacity:1}
+.cursor.big{width:44px;height:44px;margin:-22px 0 0 -22px;background-color:transparent;border-color:var(--orange)}
+.cursor.ink{background-color:var(--ink)}.cursor.ink.big{background-color:transparent;border-color:var(--ink)}
+
+/* ---------- page to page: the next page opens out of the point you clicked ---------- */
+@view-transition{navigation:auto}
+::view-transition-old(root),::view-transition-new(root){mix-blend-mode:normal}
+::view-transition-old(root){animation:none}
+::view-transition-new(root){animation:vt-in .7s cubic-bezier(.65,0,.15,1) both}
+@keyframes vt-in{from{clip-path:circle(0 at var(--vx,50%) var(--vy,50%))}to{clip-path:circle(150vmax at var(--vx,50%) var(--vy,50%))}}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+
 /* ---------- clients ---------- */
 .logos{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}
 .logos li{display:flex;flex-direction:column;justify-content:center;gap:6px;min-height:132px;padding:24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}
@@ -178,6 +250,7 @@ a:hover>.go svg,.go:hover svg{transform:translateX(4px)}
 .quote figcaption{display:flex;align-items:center;gap:16px}
 .quote figcaption b{display:block;font-weight:650}.quote figcaption span{display:block;color:var(--slate);font-size:.9375rem}
 .mono{flex:none;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:var(--mist-2);font-weight:700;color:var(--ink-2)}
+img.mono{object-fit:cover}
 .quotes[data-n] .quote{display:none}.quotes[data-n] .quote.on{display:grid;animation:fade .7s var(--ease)}
 .q-nav{display:flex;gap:10px;margin-top:32px}
 .q-nav button{width:48px;height:48px;border:1px solid var(--line-2);border-radius:50%;background:#fff;cursor:pointer;display:grid;place-items:center;transition:border-color .2s}

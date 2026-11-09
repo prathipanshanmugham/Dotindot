@@ -13,13 +13,13 @@
   window.__ddReady = true;
 
   /* ---------------- smooth scroll ---------------- */
-  var lenis = null;
+  var lenis = null, story = []; // story: functions run on every scroll frame (the home page scroll story)
   if (!reduce && window.Lenis) {
     lenis = new window.Lenis({ lerp: .1, wheelMultiplier: 1, smoothWheel: true });
     (function raf(t) { lenis.raf(t); requestAnimationFrame(raf); })(performance.now());
   }
   function scrollToEl(el) {
-    var y = el.getBoundingClientRect().top + window.scrollY - (parseInt(getComputedStyle(root).getPropertyValue("--hdr")) || 76) - 8;
+    var y = el.getBoundingClientRect().top + window.scrollY - (el.classList.contains("on") ? 0 : (parseInt(getComputedStyle(root).getPropertyValue("--hdr")) || 76) + 8);
     if (lenis) lenis.scrollTo(y, { duration: 1.1 }); else window.scrollTo({ top: y, behavior: reduce ? "auto" : "smooth" });
   }
   document.addEventListener("click", function (e) {
@@ -41,6 +41,7 @@
     }
     lastY = y;
     steps();
+    for (var k = 0; k < story.length; k++) story[k](y);
   }
   addEventListener("scroll", onScroll, { passive: true });
 
@@ -226,6 +227,207 @@
     document.addEventListener("visibilitychange", function () { if (!document.hidden) start(); });
     size();
   }
+
+  /* ================= the scroll story (home) =================
+     1. the hero's last full stop swells until the screen is orange,
+     2. the statement lights up word by word, then its own full stop grows into white: a dot in a dot,
+     3. the services reel: one field of dots reshapes itself into a picture of each service as you scroll. */
+  var fine = matchMedia("(hover: hover) and (pointer: fine)").matches, VH = innerHeight, onOrange = false;
+  var fsDot = $(".h-hero [data-fs]"), stmt = $("[data-statement]");
+  if (fsDot && stmt && !reduce) {
+    var veil = document.createElement("div"); veil.className = "fs-veil"; veil.setAttribute("aria-hidden", "true"); document.body.appendChild(veil);
+    stmt.classList.add("on");
+    var words = $$(".w", stmt), endDot = $("[data-st-end]", stmt), white = $(".st-white", stmt), stage = $(".st-stage", stmt), lit = -1;
+    var circle = function (el, r, x, y) { el.style.clipPath = "circle(" + r.toFixed(1) + "px at " + x.toFixed(1) + "px " + y.toFixed(1) + "px)"; };
+    story.push(function (y) {
+      var st = stmt.getBoundingClientRect(), stTop = st.top + y;
+      // 1. the full stop: fills the screen within ~60% of a screen of scrolling; the statement then rises over it
+      var p = clamp(y / Math.max(1, Math.min(stTop, VH * .6)), 0, 1);
+      if (p <= 0 || st.top <= 0) { if (veil.style.visibility !== "hidden") veil.style.visibility = "hidden"; onOrange = st.top <= 0 && st.bottom > VH * .5; }
+      else {
+        var d = fsDot.getBoundingClientRect(), cx = d.left + d.width / 2, cy = d.top + d.height / 2, r0 = d.width / 2;
+        var R = Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, VH - cy)) + 4;
+        veil.style.visibility = "visible"; circle(veil, r0 + (R - r0) * Math.pow(p, 1.7), cx, cy); onOrange = p > .5;
+      }
+      // 2. word by word, then the white dot
+      var total = st.height - VH; if (total <= 0) return;
+      if (st.top < VH * 1.05 && !stmt.classList.contains("armed")) stmt.classList.add("armed"); // dim the words just before they're seen
+      var q = clamp(-st.top / total, 0, 1), n = Math.round(clamp(q / .6, 0, 1) * words.length);
+      if (n !== lit) { lit = n; for (var k = 0; k < words.length; k++) words[k].classList.toggle("lit", k < n); }
+      var g = clamp((q - .68) / .3, 0, 1);
+      if (g <= 0) { if (white.style.visibility !== "hidden") white.style.visibility = "hidden"; return; }
+      var e = endDot.getBoundingClientRect(), s0 = stage.getBoundingClientRect(), ex = e.left + e.width / 2 - s0.left, ey = e.top + e.height / 2 - s0.top, w0 = e.width / 2;
+      var RW = Math.hypot(Math.max(ex, s0.width - ex), Math.max(ey, s0.height - ey)) + 4;
+      white.style.visibility = "visible"; circle(white, w0 + (RW - w0) * g * g, ex, ey);
+      if (g > .5) onOrange = false;
+    });
+  }
+
+  var reelEl = $("[data-reel]"), rc = reelEl && $(".reel-art canvas", reelEl);
+  if (reelEl && rc && rc.getContext && !reduce) {
+    reelEl.classList.add("on");
+    var items = $$(".reel-item", reelEl), idx = $$(".reel-index button", reelEl), art = $(".reel-art", reelEl), rx = rc.getContext("2d");
+    var kinds = items.map(function (it) { return it.getAttribute("data-art"); });
+    var INK = "#0e1b33", OR = "#ff7a1a", LT = "#c9cfd9", COL = [LT, INK, OR], GRID = 30;
+    var SH = {}, N = 0, DL, SW, scatter, AW = 0, gridC = null, curI = -1, inView = false, rafOn = false;
+    var ptr = { x: 0, y: 0, tx: 0, ty: 0, s: 0, on: false };
+    var seed = 7; var rnd = function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    var rrect = function (g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    var disc = function (g, x, y, r) { g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fill(); };
+    // each service as a simple picture on a 300 × 300 canvas; it is read back as a 30 × 30 grid of dots
+    var PICT = {
+      perf: function (g) { // results climbing
+        g.fillStyle = INK; [56, 88, 118, 150, 186, 222].forEach(function (h, k) { g.fillRect(30 + k * 42, 266 - h, 28, h); });
+        g.strokeStyle = OR; g.lineWidth = 20; g.lineCap = g.lineJoin = "round"; g.beginPath(); g.moveTo(34, 168); g.lineTo(104, 116); g.lineTo(156, 138); g.lineTo(242, 56); g.stroke();
+        g.fillStyle = OR; g.beginPath(); g.moveTo(276, 22); g.lineTo(206, 40); g.lineTo(258, 92); g.closePath(); g.fill();
+      },
+      social: function (g) { // a conversation
+        g.fillStyle = INK; rrect(g, 24, 46, 252, 176, 52); g.fill();
+        g.beginPath(); g.moveTo(66, 200); g.lineTo(44, 276); g.lineTo(132, 214); g.closePath(); g.fill();
+        g.fillStyle = OR; disc(g, 96, 134, 21); disc(g, 150, 134, 21); disc(g, 204, 134, 21);
+      },
+      seo: function (g) { // search, with AI inside
+        g.strokeStyle = INK; g.lineWidth = 28; g.beginPath(); g.arc(126, 126, 84, 0, 6.2832); g.stroke();
+        g.lineCap = "round"; g.lineWidth = 38; g.beginPath(); g.moveTo(192, 192); g.lineTo(262, 262); g.stroke();
+        g.fillStyle = OR; g.beginPath(); g.moveTo(126, 72); g.quadraticCurveTo(132, 120, 180, 126); g.quadraticCurveTo(132, 132, 126, 180); g.quadraticCurveTo(120, 132, 72, 126); g.quadraticCurveTo(120, 120, 126, 72); g.fill();
+      },
+      web: function (g) { // a site in a browser
+        g.strokeStyle = INK; g.lineWidth = 18; rrect(g, 24, 44, 252, 216, 20); g.stroke();
+        g.fillStyle = INK; g.fillRect(24, 44, 252, 46);
+        g.fillStyle = OR; disc(g, 56, 67, 11); disc(g, 88, 67, 11); disc(g, 120, 67, 11);
+        g.fillStyle = LT; g.fillRect(56, 116, 188, 54); g.fillRect(56, 192, 84, 40); g.fillRect(160, 192, 84, 40);
+      },
+      brand: function (g) { // brand and film
+        g.strokeStyle = INK; g.lineWidth = 28; g.beginPath(); g.arc(150, 150, 118, 0, 6.2832); g.stroke();
+        g.fillStyle = OR; g.beginPath(); g.moveTo(116, 86); g.lineTo(116, 214); g.lineTo(222, 150); g.closePath(); g.fill();
+      },
+      ai: function (g) { // agents, connected
+        var nodes = []; for (var k = 0; k < 6; k++) { var a = -Math.PI / 2 + k * Math.PI / 3; nodes.push([150 + Math.cos(a) * 110, 150 + Math.sin(a) * 110]); }
+        g.lineWidth = 10; g.strokeStyle = LT; g.beginPath(); nodes.forEach(function (p, k) { var q2 = nodes[(k + 1) % 6]; g.moveTo(p[0], p[1]); g.lineTo(q2[0], q2[1]); }); g.stroke();
+        g.strokeStyle = INK; g.beginPath(); nodes.forEach(function (p) { g.moveTo(150, 150); g.lineTo(p[0], p[1]); }); g.stroke();
+        g.fillStyle = INK; nodes.forEach(function (p) { disc(g, p[0], p[1], 25); });
+        g.fillStyle = OR; disc(g, 150, 150, 38);
+      }
+    };
+    var byAngle = function (a, b) { return Math.atan2(a[1] - .5, a[0] - .5) - Math.atan2(b[1] - .5, b[0] - .5); };
+    function sample(kind) {
+      var c = document.createElement("canvas"); c.width = c.height = 300; var g = c.getContext("2d"); (PICT[kind] || PICT.perf)(g);
+      var d = g.getImageData(0, 0, 300, 300).data, pts = [], step = 300 / GRID;
+      for (var yy = 0; yy < GRID; yy++) for (var xx = 0; xx < GRID; xx++) {
+        var o = (Math.floor((yy + .5) * step) * 300 + Math.floor((xx + .5) * step)) * 4; if (d[o + 3] < 140) continue;
+        var cl = d[o] > 200 && d[o + 1] < 175 && d[o + 2] < 110 ? 2 : d[o] > 150 ? 0 : 1;
+        pts.push([(xx + .5) / GRID, (yy + .5) / GRID, cl]);
+      }
+      return pts.sort(byAngle);
+    }
+    function pack(pts) { // spread over N slots in angle order; smaller pictures repeat dots, which split apart as they move
+      var out = new Float32Array(N * 3), m = pts.length;
+      for (var j = 0; j < N; j++) { var p = pts[Math.floor(j * m / N)]; out[j * 3] = p[0]; out[j * 3 + 1] = p[1]; out[j * 3 + 2] = p[2]; }
+      return out;
+    }
+    var ready = false;
+    function build() {
+      if (ready) return; ready = true;
+      var raw = {}; kinds.forEach(function (k) { if (!raw[k]) { raw[k] = sample(k); N = Math.max(N, raw[k].length); } });
+      Object.keys(raw).forEach(function (k) { SH[k] = pack(raw[k]); });
+      var cloud = []; for (var j0 = 0; j0 < N; j0++) { var a0 = rnd() * 6.2832, d0 = Math.sqrt(rnd()) * .47; cloud.push([.5 + Math.cos(a0) * d0, .5 + Math.sin(a0) * d0, 0]); }
+      scatter = pack(cloud.sort(byAngle));
+      DL = new Float32Array(N); SW = new Float32Array(N);
+      for (var j1 = 0; j1 < N; j1++) { DL[j1] = rnd() * .35; SW[j1] = (rnd() - .5) * .5; }
+      rsize();
+    }
+
+    function rsize() {
+      var r = art.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); AW = r.width; if (!AW) return;
+      rc.width = rc.height = Math.round(AW * dpr); rx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      gridC = document.createElement("canvas"); gridC.width = gridC.height = rc.width; var gx = gridC.getContext("2d"); gx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      gx.fillStyle = "#e3e6ec"; var cell = AW / GRID;
+      for (var a = 0; a < GRID; a++) for (var b = 0; b < GRID; b++) { gx.beginPath(); gx.arc((a + .5) * cell, (b + .5) * cell, Math.max(.7, cell * .06), 0, 6.2832); gx.fill(); }
+    }
+    function setCur(i) {
+      curI = i;
+      items.forEach(function (it, k) { it.classList.toggle("cur", k === i); });
+      idx.forEach(function (b, k) { b.classList.toggle("cur", k === i); });
+    }
+    function draw(A, B, mt, now) {
+      rx.clearRect(0, 0, AW, AW); if (gridC) rx.drawImage(gridC, 0, 0, AW, AW);
+      var cell = AW / GRID, rad = cell * .36, ts = now / 1000, PR = cell * 4.5, PR2 = PR * PR;
+      ptr.s += ((ptr.on ? 1 : 0) - ptr.s) * .1; ptr.x += (ptr.tx - ptr.x) * .25; ptr.y += (ptr.ty - ptr.y) * .25;
+      for (var c = 0; c < 3; c++) {
+        rx.fillStyle = COL[c]; rx.beginPath();
+        for (var j = 0; j < N; j++) {
+          var t = clamp((mt - DL[j]) / .65, 0, 1); t = t * t * (3 - 2 * t);
+          if ((t < .5 ? A[j * 3 + 2] : B[j * 3 + 2]) !== c) continue;
+          var ax = A[j * 3], ay = A[j * 3 + 1], dx = B[j * 3] - ax, dy = B[j * 3 + 1] - ay, sw = Math.sin(t * Math.PI) * SW[j];
+          var x = (ax + dx * t - dy * sw) * AW, y = (ay + dy * t + dx * sw) * AW;
+          if (ptr.s > .01) { var px = x - ptr.x, py = y - ptr.y, d2 = px * px + py * py; if (d2 < PR2) { var dd = Math.sqrt(d2) || 1, f = 1 - dd / PR; f = f * f * ptr.s * cell * 1.8; x += px / dd * f; y += py / dd * f; } }
+          var rr = rad * (.84 + .16 * Math.sin(ts * 1.7 + j * .73));
+          rx.moveTo(x + rr, y); rx.arc(x, y, rr, 0, 6.2832);
+        }
+        rx.fill();
+      }
+    }
+    function frame(now) {
+      if (!inView || document.hidden) { rafOn = false; return; }
+      var r = reelEl.getBoundingClientRect(), total = r.height - VH, n = items.length;
+      var p = clamp(-r.top / Math.max(1, total), 0, 1), seg = Math.min(p * n, n - 1e-4), i = Math.floor(seg), local = seg - i, A, B, mt;
+      if (i !== curI) setCur(i);
+      if (i === 0) { A = scatter; B = SH[kinds[0]]; mt = ease(clamp(((VH - r.top) / VH - .2) / .8, 0, 1)); }
+      else { A = SH[kinds[i - 1]]; B = SH[kinds[i]]; mt = clamp(local / .45, 0, 1); }
+      for (var k = 0; k < idx.length; k++) idx[k].style.setProperty("--f", k < i ? 1 : k > i ? 0 : local.toFixed(3));
+      draw(A, B, mt, now);
+      requestAnimationFrame(frame);
+    }
+    function kick() { if (!rafOn && inView) { build(); rafOn = true; requestAnimationFrame(frame); } }
+    function jump(i) { // to the point where service i is fully formed
+      var top = reelEl.getBoundingClientRect().top + scrollY, total = reelEl.offsetHeight - VH, y = top + (i + .5) / items.length * total;
+      if (lenis) lenis.scrollTo(y, { duration: 1.2 }); else scrollTo({ top: y });
+    }
+    idx.forEach(function (b, k) { b.addEventListener("click", function () { jump(k); }); });
+    items.forEach(function (it, k) { it.addEventListener("focusin", function () { if (curI !== k) jump(k); }); });
+    if (fine) {
+      art.addEventListener("pointermove", function (e) { var r = art.getBoundingClientRect(); ptr.tx = e.clientX - r.left; ptr.ty = e.clientY - r.top; if (!ptr.on) { ptr.x = ptr.tx; ptr.y = ptr.ty; } ptr.on = true; });
+      art.addEventListener("pointerleave", function () { ptr.on = false; });
+    }
+    setCur(0);
+    if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { inView = es[0].isIntersecting; kick(); }, { rootMargin: "60% 0px" }).observe(reelEl);
+    else { inView = true; kick(); }
+    document.addEventListener("visibilitychange", kick);
+    addEventListener("resize", function () { if (ready) rsize(); });
+  }
+  addEventListener("resize", function () { VH = innerHeight; onScroll(); });
+  if (story.length) onScroll();
+
+  /* ---------------- a dot that follows the mouse ---------------- */
+  if (fine && !reduce) {
+    var dot = document.createElement("div"); dot.className = "cursor"; dot.setAttribute("aria-hidden", "true"); document.body.appendChild(dot);
+    var mx = 0, my = 0, fx = 0, fy = 0, following = false;
+    var follow = function () {
+      fx += (mx - fx) * .2; fy += (my - fy) * .2;
+      dot.style.transform = "translate3d(" + fx.toFixed(1) + "px," + fy.toFixed(1) + "px,0)";
+      if (Math.abs(mx - fx) + Math.abs(my - fy) > .4) requestAnimationFrame(follow); else following = false;
+    };
+    addEventListener("pointermove", function (e) {
+      if (e.pointerType !== "mouse") return;
+      mx = e.clientX; my = e.clientY;
+      if (!dot.classList.contains("on")) { fx = mx; fy = my; dot.classList.add("on"); }
+      var t = e.target.closest ? e.target : null;
+      dot.classList.toggle("big", !!(t && t.closest("a,button,summary,label,select,input,textarea")) && !(t && t.closest(".reel-art")));
+      dot.classList.toggle("ink", onOrange || !!(t && t.closest(".statement")));
+      if (!following) { following = true; requestAnimationFrame(follow); }
+    }, { passive: true });
+    root.addEventListener("mouseleave", function () { dot.classList.remove("on"); });
+    addEventListener("scroll", function () { dot.classList.toggle("ink", onOrange); }, { passive: true });
+  }
+
+  /* ---------------- page to page: remember where the click was, so the next page opens out of it ---------------- */
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[href]");
+    if (!a || a.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey || a.origin !== location.origin || a.hash && a.pathname === location.pathname) return;
+    var x = e.clientX, y = e.clientY;
+    if (!e.detail) { var r = a.getBoundingClientRect(); x = r.left + r.width / 2; y = r.top + r.height / 2; }
+    try { sessionStorage.setItem("dd_vt", JSON.stringify([Math.round(x), Math.round(y)])); } catch (er) {}
+  }, true);
 
   /* ---------------- marketing health check ---------------- */
   $$(".quiz").forEach(function (qz) {

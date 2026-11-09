@@ -76,6 +76,10 @@ COLLECTIONS = {
     # v3.2
     "billing_docs": {"label": "Quotations & Invoices", "search": ["number", "client_name", "title"]},
     "billing_terms": {"label": "Billing Terms Library", "search": ["title", "category"]},
+    "site_clients": {"label": "Website: Clients", "search": ["name", "industry"]},
+    "site_testimonials": {"label": "Website: Testimonials", "search": ["name", "company", "quote"]},
+    "site_team": {"label": "Website: Team", "search": ["name", "role"]},
+    "site_cases": {"label": "Website: Case studies", "search": ["client", "title"]},
 }
 
 # Collections that hold platform internals — never listed or wiped.
@@ -244,6 +248,9 @@ async def restore_snapshot(snap_id: str, user: dict = Depends(require_super_admi
             await db[op["coll"]].update_many({"id": {"$in": op["ids"]}}, {"$addToSet": {op["field"]: op["value"]}})
     await db.deleted_records.delete_one({"id": snap_id})
     await log_activity(user, "workspace_restored", snap["coll"], snap["record_id"], snap["label"])
+    if snap["coll"].startswith("site_"):  # website content: put it back on the live site too
+        from routes_website import publish
+        await publish(user)
     return {"ok": True, "restored": snap["label"]}
 
 

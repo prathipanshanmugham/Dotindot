@@ -38,6 +38,7 @@ import LocationsPage from "@/pages/LocationsPage";
 import ReportsPage from "@/pages/ReportsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import AccessControlPage from "@/pages/AccessControlPage";
+import WebsitePage from "@/pages/website/WebsitePage";
 import AssetsPage from "@/pages/AssetsPage";
 import AdsPage from "@/pages/ads/AdsPage";
 import AdCampaignDetailPage from "@/pages/ads/AdCampaignDetailPage";
@@ -165,6 +166,7 @@ function App() {
           <Route path="/finance/billing/:id/edit" element={<Protected perm="billing.manage"><BillingEditorPage /></Protected>} />
           <Route path="/settings/company" element={<Protected perm="billing"><CompanyPage /></Protected>} />
           <Route path="/investors" element={<Protected perm="investors"><InvestorsPage /></Protected>} />
+          <Route path="/website" element={<Protected perm="website"><WebsitePage /></Protected>} />
           <Route path="/my-expenses" element={<Protected><MyExpensesPage /></Protected>} />
           <Route path="/sales" element={<Protected perm={SALES_ANY}><SalesOverview /></Protected>} />
           <Route path="/sales/pipeline" element={<Protected perm="sales.pipeline"><PipelinePage /></Protected>} />

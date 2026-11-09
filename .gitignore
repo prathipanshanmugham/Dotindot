@@ -105,3 +105,8 @@ website/.tools/
 frontend/build/
 frontend/build.*/
 website/dist.*/
+
+# website editor: exported content and uploaded images live on the server, not in git
+website/content.json
+website/content.json.tmp
+website/media/

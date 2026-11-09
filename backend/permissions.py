@@ -27,6 +27,7 @@ PERMISSION_GROUPS = {
     "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete",
                    "ai_agents", "ai_agents.manage", "ai_agents.delete", "org_structure", "org_structure.manage", "org_structure.delete",
                    "daily_reports", "daily_reports.team", "daily_reports.delete", "holidays.manage"],
+    "Website": ["website", "website.manage", "website.delete"],
     "System": ["logs", "logs.delete", "reports", "access_control", "user_management", "password_manager", "password_manager.reveal", "password_manager.delete",
                "ai_settings"],
 }
@@ -94,8 +95,15 @@ V32_NEW_KEYS = {role: (keys & _V32) for role, keys in ROLE_DEFAULTS.items()}
 for _r in (V26_NEW_KEYS, V27_NEW_KEYS, V28_NEW_KEYS, V30_NEW_KEYS, V31_NEW_KEYS):
     for _k in _r:
         _r[_k] = _r[_k] - _V32
+# v3.3: Website editor (clients, testimonials, team, case studies, numbers and contact details on dotindot.in)
+_V33 = {"website", "website.manage", "website.delete"}
+V33_NEW_KEYS = {role: (keys & _V33) for role, keys in ROLE_DEFAULTS.items()}
+for _r in (V26_NEW_KEYS, V27_NEW_KEYS, V28_NEW_KEYS, V30_NEW_KEYS, V31_NEW_KEYS, V32_NEW_KEYS):
+    for _k in _r:
+        _r[_k] = _r[_k] - _V33
 ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS), ("role_defaults_v28", V28_NEW_KEYS),
-                   ("role_defaults_v30", V30_NEW_KEYS), ("role_defaults_v31", V31_NEW_KEYS), ("role_defaults_v32", V32_NEW_KEYS)]
+                   ("role_defaults_v30", V30_NEW_KEYS), ("role_defaults_v31", V31_NEW_KEYS), ("role_defaults_v32", V32_NEW_KEYS),
+                   ("role_defaults_v33", V33_NEW_KEYS)]
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
@@ -247,6 +255,7 @@ PATH_PERMISSIONS = [
     ("/api/assets", ("assets",)),
     ("/api/growth", ("growth",)),
     ("/api/billing", ("billing",)),
+    ("/api/website", ("website",)),
     ("/api/ads", ("ads",)),
     ("/api/social", ("social",)),
     ("/api/influencers", ("influencers",)),

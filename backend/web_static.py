@@ -3,6 +3,7 @@
   /            → website/dist   (static site built by website/build.mjs)
   /app/...     → frontend/build (React app built with homepage "/app"; unknown paths get index.html)
   /api/...     → the FastAPI routers (registered before this catch-all, so they always win)
+  /media/...   → images uploaded in the website editor (website/media)
 
 Old addresses keep working: app pages from before the move (/login, /portal/..., /finance/..., /share/<token>, ...)
 forward into /app, and pages from the previous dotindot.in (/work, /thank-you, /locations) forward to their new homes.
@@ -23,6 +24,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 REPO = Path(__file__).resolve().parent.parent
 SITE_DIR = Path(os.environ.get("WEBSITE_DIR") or REPO / "website" / "dist").resolve()
 APP_DIR = Path(os.environ.get("APP_DIR") or REPO / "frontend" / "build").resolve()
+MEDIA_DIR = Path(os.environ.get("WEBSITE_MEDIA_DIR") or REPO / "website" / "media").resolve()  # images from the website editor
 APP_BASE = "/app"
 
 
@@ -136,6 +138,11 @@ async def web(full_path: str, request: Request):
     path = "/" + full_path
     if path == "/api" or path.startswith("/api/"):
         return JSONResponse({"detail": "Not Found"}, status_code=404)
+    if path.startswith("/media/"):
+        f = _inside(MEDIA_DIR, path[len("/media/"):])
+        if f and f.is_file() and f.suffix == ".webp":
+            return _file(f, YEAR)
+        return _not_found()
     if path == APP_BASE or path.startswith(APP_BASE + "/"):
         return _serve_app(request, path[len(APP_BASE) + 1:])
     if _indexable(request):

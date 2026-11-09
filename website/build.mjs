@@ -8,6 +8,18 @@ import { services, steps, aiHuman, values, faqs, whyUs, expertise, industries, i
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const C = JSON.parse(readFileSync(join(ROOT, "site.config.json"), "utf8"));
 if (process.env.INTAKE_URL) C.leadIntakeUrl = process.env.INTAKE_URL; // for local end-to-end tests
+// What the website editor (employee app → Website) publishes overrides site.config.json: clients, testimonials,
+// team, case studies, key numbers and contact details. The backend writes this file, then rebuilds.
+const CONTENT_FILE = process.env.CONTENT_FILE || join(ROOT, "content.json");
+if (existsSync(CONTENT_FILE)) {
+  try {
+    const X = JSON.parse(readFileSync(CONTENT_FILE, "utf8"));
+    for (const k of ["clients", "testimonials", "team", "caseStudies", "proof"]) if (Array.isArray(X[k])) C[k] = X[k];
+    for (const k of ["email", "phone", "phoneDisplay", "whatsapp"]) if (typeof X[k] === "string") C[k] = X[k];
+    if (X.social && typeof X.social === "object") C.social = X.social;
+  } catch (e) { console.warn("content.json ignored:", e.message); }
+}
+const MEDIA = process.env.WEBSITE_MEDIA_DIR || join(ROOT, "media");
 const OUT = process.env.OUT_DIR ? resolve(process.env.OUT_DIR) : join(ROOT, "dist"); // deploy builds into a temp folder, then swaps
 const PREVIEW = !!process.env.PREVIEW;
 // links into the app (/app/...). A preview build points at the app preview copied to app/ (hash routes).
@@ -26,7 +38,7 @@ const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
 const lc = (s) => s.split(" ").map((w) => (/^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase())).join(" ");
 const abs = (p) => C.domain.replace(/\/$/, "") + p;
-const tel = C.phone.replace(/[^\d+]/g, "");
+const tel = (C.phone || "").replace(/[^\d+]/g, "");
 const wa = (t) => `https://wa.me/${C.whatsapp}?text=${encodeURIComponent(t || "Hello Dotindot, I'd like to talk about growing our business.")}`;
 const today = new Date().toISOString().slice(0, 10);
 const year = new Date().getFullYear();
@@ -35,7 +47,9 @@ const clients = (C.clients || []).filter((c) => c && c.name);
 const testimonials = (C.testimonials || []).filter((t) => t && t.quote && t.name);
 const cases = (C.caseStudies || []).filter((c) => c && c.title);
 const team = (C.team || []).filter((p) => p && p.name);
-const proof = Object.entries(C.proof || {}).filter(([k, v]) => !k.startsWith("_") && v);
+const PROOF_LABELS = { clientsServed: "Clients served", countries: "Countries", adSpendManaged: "Ad spend managed", leadsGenerated: "Leads generated" };
+const proof = (Array.isArray(C.proof) ? C.proof : Object.entries(C.proof || {}).filter(([k, v]) => !k.startsWith("_") && v).map(([k, v]) => ({ value: v, label: PROOF_LABELS[k] || k })))
+  .filter((p) => p && p.value && p.label);
 
 const I = {
   arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
@@ -135,6 +149,7 @@ function layout({ path, title, desc, body, ld = [], noindex = false, type = "web
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(t)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${abs(ogImg)}"><meta property="og:locale" content="en_GB">
 <link rel="preload" href="/assets/fonts/schibsted.woff2" as="font" type="font/woff2" crossorigin>
 <script>document.documentElement.classList.add("js");setTimeout(function(){if(!window.__ddReady)document.documentElement.classList.remove("js")},4000)</script>
+<script>addEventListener("pagereveal",function(e){if(!e.viewTransition)return;try{var p=JSON.parse(sessionStorage.getItem("dd_vt")||"null");sessionStorage.removeItem("dd_vt");if(p){var s=document.documentElement.style;s.setProperty("--vx",p[0]+"px");s.setProperty("--vy",p[1]+"px")}}catch(x){}})</script>
 <style>${CSS}</style>
 ${[ORG, SITE, ...(noindex ? [] : [page]), ...ld].map((o) => `<script type="application/ld+json">${JSON.stringify(o)}</script>`).join("\n")}
 ${ga}
@@ -183,9 +198,9 @@ const logoWall = () => {
 <li class="cta-cell" style="--span:${rest}"><b>Your brand</b><span><a class="link" href="/contact/">Start a project</a></span></li></ul>`;
 };
 const quoteBlock = () => {
-  if (!testimonials.length) return PREVIEW ? `<div class="quotes"><div class="ph"><b>Client testimonials</b>Real quotes appear here once added to site.config.json → testimonials (quote, name, role, company). Nothing is shown until then.</div></div>` : "";
+  if (!testimonials.length) return PREVIEW ? `<div class="quotes"><div class="ph"><b>Client testimonials</b>Real quotes appear here once added in the app → Website → Testimonials, with the client's permission. Nothing is shown until then.</div></div>` : "";
   const many = testimonials.length > 1;
-  return `<div class="quotes"${many ? ` data-n="${testimonials.length}"` : ""} aria-roledescription="carousel" aria-label="Client testimonials">${testimonials.map((t, i) => `<figure class="quote${i ? "" : " on"}"><blockquote>${esc(t.quote)}</blockquote><figcaption><span class="mono" aria-hidden="true">${initials(t.name)}</span><span><b>${esc(t.name)}</b><span>${esc([t.role, t.company].filter(Boolean).join(", "))}</span></span></figcaption></figure>`).join("")}
+  return `<div class="quotes"${many ? ` data-n="${testimonials.length}"` : ""} aria-roledescription="carousel" aria-label="Client testimonials">${testimonials.map((t, i) => `<figure class="quote${i ? "" : " on"}"><blockquote>${esc(t.quote)}</blockquote><figcaption>${t.photo ? `<img class="mono" src="/${esc(t.photo.replace(/^\//, ""))}" alt="" loading="lazy" width="48" height="48">` : `<span class="mono" aria-hidden="true">${initials(t.name)}</span>`}<span><b>${esc(t.name)}</b><span>${esc([t.role, t.company].filter(Boolean).join(", "))}</span></span></figcaption></figure>`).join("")}
 ${many ? `<div class="q-nav"><button class="prev" type="button" aria-label="Previous testimonial">${I.arrow}</button><button class="next" type="button" aria-label="Next testimonial">${I.arrow}</button></div>` : ""}</div>`;
 };
 const caseList = () => (cases.length ? `<div class="cases" data-reveal>${cases.map((c) => `<article class="case"><div><b>${esc(c.client)}</b></div><div class="res">${esc(c.result || "")}</div><div><h3 class="h-mid">${esc(c.title)}</h3><p class="muted">${esc(c.summary || "")}</p></div></article>`).join("")}</div>` : "");
@@ -211,25 +226,37 @@ const speedBlock = () => `<div class="panel" data-speed>
 const pages = [];
 const add = (p, html) => pages.push([p, html]);
 
-// home
+// home: the signature scroll story
+// 1) the hero's last full stop swells into an orange field (site.js), 2) the statement lights word by word and
+// its own full stop grows into white (dot in dot), 3) the services reel: one field of dots reshapes itself for each service.
+const STATEMENT = "Every account is run by senior specialists: strategists, engineers and creatives who plan, build and grow your brand as one team. No hand-offs. No juniors learning on your budget.";
+const statement = () => {
+  const words = STATEMENT.replace(/\.$/, "").split(" ");
+  return `<section class="statement" data-statement aria-label="Who you work with"><div class="st-stage"><div class="wrap"><p class="st-text">${words.map((w, i) => `<span class="w">${esc(w)}${i === words.length - 1 ? '<span class="st-end" data-st-end></span><span class="sr">.</span>' : ""}</span>`).join(" ")}</p></div><div class="st-white" aria-hidden="true"></div></div></section>`;
+};
+const ART = { "performance-ads": "perf", "social-content": "social", "seo-ai-search": "seo", "websites-apps": "web", "brand-video": "brand", "ai-automation": "ai" };
+const reel = () => `<section class="reel" id="services" data-reel style="--n:${services.length}"><div class="reel-stage"><div class="wrap reel-wrap">
+<div class="reel-top">${H2("What we do")}<p>Six disciplines under one roof, planned together and measured on the same numbers: qualified leads, sales and cost per customer.</p></div>
+<div class="reel-body"><ul class="reel-list">${services.map((s, i) => `<li class="reel-item${i ? "" : " cur"}" data-art="${ART[s.slug] || "perf"}"><h3><a href="/services/${s.slug}/">${esc(s.name)}</a></h3><p class="tag">${esc(s.tagline)}</p><ul>${s.highlights.slice(0, 4).map((d) => `<li>${esc(d)}</li>`).join("")}</ul><a class="go" href="/services/${s.slug}/" tabindex="-1" aria-hidden="true">Explore ${esc(lc(s.name))} ${I.arrow}</a></li>`).join("")}</ul>
+<div class="reel-art" aria-hidden="true"><canvas></canvas></div></div>
+<div class="reel-index" aria-hidden="true">${services.map((s, i) => `<button type="button" tabindex="-1" data-i="${i}"><i><b></b></i><span>${esc(s.name)}</span></button>`).join("")}</div>
+</div></div></section>`;
+
 const homeFaq = faqs.slice(0, 6);
 const heroLines = ["Marketing that performs", "Technology that scales"];
 const homeBody = `
 <section class="hero" aria-labelledby="h"><div class="wrap">
-<h1 id="h" class="h-hero"><span class="sr">${heroLines.join(". ")}.</span><span aria-hidden="true">${heroLines.map((l, i) => `<span class="ln"><span style="--i:${i}">${esc(l)}${stop}</span></span>`).join("")}</span></h1>
+<h1 id="h" class="h-hero"><span class="sr">${heroLines.join(". ")}.</span><span aria-hidden="true">${heroLines.map((l, i) => `<span class="ln"><span style="--i:${i}">${esc(l).replace(/(\S+)$/, `<span class="nw">$1<span class="dot"${i === heroLines.length - 1 ? " data-fs" : ""}></span></span>`)}</span></span>`).join("")}</span></h1>
 <div class="hero-row"><div class="hero-copy">
 <p class="lead">${esc(C.name)} is an AI-first growth agency. We run performance marketing, search and content, and build the websites, apps and automation behind them, for brands across the UK, US, Middle East, Asia-Pacific and India.</p>
 <div class="btns"><a class="btn" href="/free-audit/">Get a free growth audit</a><a class="btn ghost" href="#services">Explore our services</a></div>
 </div>
 <div class="hero-map" data-map="/${MAP_JSON}" aria-hidden="true"><canvas></canvas></div></div>
-<div class="facts">${proof.length >= 3 ? proof.slice(0, 3).map(([k, v]) => `<div><b>${esc(v)}</b><span>${esc(({ clientsServed: "Clients served", countries: "Countries", adSpendManaged: "Ad spend managed", leadsGenerated: "Leads generated" })[k] || k)}</span></div>`).join("") : `<div><b>Six disciplines, one team</b><span>Paid media, search, content, web, brand and AI</span></div><div><b>Your hours, your currency</b><span>Quotes and invoices in eight currencies</span></div><div><b>A reply within one working day</b><span>From a specialist, not a ticket queue</span></div>`}</div>
+<div class="facts">${proof.length >= 3 ? proof.slice(0, 3).map((p) => `<div><b>${esc(p.value)}</b><span>${esc(p.label)}</span></div>`).join("") : `<div><b>Six disciplines, one team</b><span>Paid media, search, content, web, brand and AI</span></div><div><b>Your hours, your currency</b><span>Quotes and invoices in eight currencies</span></div><div><b>A reply within one working day</b><span>From a specialist, not a ticket queue</span></div>`}</div>
 </div></section>
-${clients.length ? `<section class="trust" aria-label="Clients"><div class="wrap"><p class="label">Trusted by</p><ul>${clients.map((c) => `<li>${c.logo ? `<img src="/${esc(c.logo.replace(/^\//, ""))}" alt="${esc(c.name)}">` : esc(c.name)}</li>`).join("")}</ul></div></section>` : ""}
+${statement()}
 
-<section class="sec" id="services"><div class="wrap">
-<div class="shead">${H2("What we do")}<p data-reveal>Six disciplines under one roof, planned together and measured on the same numbers: qualified leads, sales and cost per customer. Start with one and add the rest when it makes sense.</p></div>
-${svcGrid()}
-</div></section>
+${reel()}
 
 <section class="sec mist" id="clients"><div class="wrap">
 <div class="shead">${H2("Who we work with")}<p data-reveal>Growth-focused businesses in energy, manufacturing, retail, e-commerce and professional services, from a first serious website to multi-market growth.</p></div>
@@ -466,6 +493,7 @@ for (const f of ["favicon.svg", "app-icon.svg", "icon-512.png", "og.png", "wordm
 cpSync(join(ROOT, "assets/fonts"), join(OUT, "assets/fonts"), { recursive: true });
 if (existsSync(join(ROOT, "assets/og"))) cpSync(join(ROOT, "assets/og"), join(OUT, "assets/og"), { recursive: true });
 for (const d of ["clients", "team"]) if (existsSync(join(ROOT, "assets", d))) cpSync(join(ROOT, "assets", d), join(OUT, "assets", d), { recursive: true });
+if (existsSync(MEDIA)) cpSync(MEDIA, join(OUT, "media"), { recursive: true }); // editor uploads (the app also serves them live at /media/)
 writeFileSync(join(OUT, SITE_JS), JS); writeFileSync(join(OUT, LENIS_JS), LENIS); writeFileSync(join(OUT, MAP_JSON), MAP);
 
 function relativise(html, p) {
@@ -473,7 +501,7 @@ function relativise(html, p) {
   const depth = p.split("/").length - 2;
   const pre = depth > 0 ? "../".repeat(depth) : "./";
   return html.replace(/(href|src|data-map)="\/((?!\/)[^"#?]*)([#?][^"]*)?"/g, (m, attr, path, tail) => {
-    if (/^assets\//.test(path) || /\.(html|xml|txt|webmanifest|json)$/.test(path)) return `${attr}="${pre}${path}${tail || ""}"`;
+    if (/^(assets|media)\//.test(path) || /\.(html|xml|txt|webmanifest|json)$/.test(path)) return `${attr}="${pre}${path}${tail || ""}"`;
     return `${attr}="${pre}${path}${path && !path.endsWith("/") ? "/" : ""}index.html${tail || ""}"`;
   }).replace(/url\(\{\{R\}\}/g, `url(${pre}`).replace(/\{\{R\}\}/g, pre).replace(/data-next="\/([^"]*)"/g, (m, path) => `data-next="${pre}${path}index.html"`);
 }

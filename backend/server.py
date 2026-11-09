@@ -58,6 +58,7 @@ from routes_investors import router as investors_router
 from routes_ai import router as ai_router
 from routes_growth import router as growth_router
 from routes_billing import router as billing_router
+from routes_website import router as website_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -87,7 +88,7 @@ for r in (auth_router, users_router, clients_router, projects_router, misc_route
           access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router,
           passwords_router, dashboard_router, records_router, agents_router, org_router,
           api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router,
-          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router, billing_router):
+          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router, billing_router, website_router):
     app.include_router(r, prefix="/api")
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
