@@ -112,7 +112,7 @@ const faqLd = (qa) => ({ "@context": "https://schema.org", "@type": "FAQPage", m
 const reviewLd = () => (testimonials.length ? [{ "@context": "https://schema.org", "@type": "ItemList", name: "Client testimonials", itemListElement: testimonials.map((t, i) => ({ "@type": "ListItem", position: i + 1, item: { "@type": "Review", reviewBody: t.quote, author: { "@type": "Person", name: t.name }, itemReviewed: { "@id": abs("/#org") } } })) }] : []);
 
 // ---------- layout ----------
-const NAV = [["/", "Home"], ["/services/", "Services"], ["/clients/", "Clients"], ["/about/", "About"], ["/insights/", "Insights"], ["/contact/", "Contact"]];
+const NAV = [["/", "Home"], ["/services/", "Services"], ["/about/", "About"], ["/insights/", "Insights"], ["/contact/", "Contact"]];
 const current = (path, p) => (p === "/" ? path === "/" : path.startsWith(p));
 function header(path) {
   const items = NAV.map(([p, l]) => {
@@ -150,6 +150,7 @@ ${locations.length ? `<p class="ftr-offices"><a href="/contact/#offices">Offices
 <div class="ftr-bot">
 <span>© ${year} ${esc(C.name)}</span>
 <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/llms.txt">llms.txt</a></nav>
+<span class="logins"><a href="${appHref(C.clientLogin)}" rel="nofollow">${I.user} Client login</a></span>
 </div>
 </div></footer>`;
 }
