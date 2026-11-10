@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Receipt, Plus, Wallet, AlertTriangle, FileText, Search, Building2, ChevronDown, Settings2 } from "lucide-react";
+import { CardTable } from "@/components/ui/table";
 
 const TABS = [["all", "All"], ["quotation", "Quotations"], ["proforma", "Proforma"], ["invoice", "Invoices"], ["credit_note", "Credit notes"]];
 
@@ -76,7 +77,7 @@ export default function BillingPage() {
       </div>
       <Card className="border-gray-200/80 shadow-sm"><CardContent className="p-0 overflow-x-auto">
         {!rows ? <Spinner className="h-40" /> : rows.length === 0 ? <Empty icon={Receipt} title="Nothing here yet" sub={canManage ? "Create a quotation to get started." : "Documents will appear here."} /> : (
-          <table className="w-full text-sm min-w-[760px]" data-testid="billing-table">
+          <CardTable><table className="w-full text-sm min-w-[760px]" data-testid="billing-table">
             <thead><tr className="text-xs text-gray-500 bg-gray-50/60 border-b border-gray-100">
               <th className="text-left font-semibold py-2.5 px-4">Number</th><th className="text-left font-semibold py-2.5 px-3">Client</th><th className="text-left font-semibold py-2.5 px-3">Date</th>
               <th className="text-left font-semibold py-2.5 px-3">Due / valid</th><th className="text-right font-semibold py-2.5 px-3">Total</th><th className="text-right font-semibold py-2.5 px-3">Balance</th><th className="text-left font-semibold py-2.5 px-3">Status</th></tr></thead>
@@ -90,7 +91,7 @@ export default function BillingPage() {
                 <td className="py-2.5 px-3 text-right font-mono">{r.balance != null ? money(r.balance, r.currency) : "—"}</td>
                 <td className="py-2.5 px-3"><Pill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status] || r.status}</Pill></td>
               </tr>))}</tbody>
-          </table>
+          </table></CardTable>
         )}
       </CardContent></Card>
     </div>

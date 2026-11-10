@@ -120,7 +120,7 @@ export default function LedgerPage() {
       }
     >
       {/* Totals */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono text-emerald-600" data-testid="ledger-total-income">{formatINR(data.totals.income)}</div><div className="text-xs text-gray-500">Total income</div></CardContent></Card>
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono text-red-500" data-testid="ledger-total-expense">{formatINR(data.totals.expense)}</div><div className="text-xs text-gray-500">Total expenses</div></CardContent></Card>
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className={`text-2xl font-bold font-mono ${data.totals.net >= 0 ? "text-gray-900" : "text-red-600"}`} data-testid="ledger-total-net">{formatINR(data.totals.net)}</div><div className="text-xs text-gray-500">Net</div></CardContent></Card>
@@ -161,7 +161,7 @@ export default function LedgerPage() {
 
       {/* Filters */}
       <Card className="border-gray-200/80">
-        <CardContent className="p-4 flex flex-wrap items-center gap-3">
+        <CardContent className="p-3 sm:p-4 flex flex-wrap items-center gap-3 m-filters">
           <div className="flex gap-1.5">
             {Object.keys(PRESETS).map((p) => (
               <button key={p} onClick={() => applyPreset(p)} data-testid={`ledger-preset-${p}`}

@@ -104,7 +104,7 @@ function PortalBilling() {
   const due = data.docs.filter((d) => d.type === "invoice" && d.balance > 0);
   return (
     <div className="space-y-4" data-testid="portal-billing">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-3 max-sm:[&>*:last-child]:col-span-2">
         <div className="rounded-2xl bg-white border border-gray-200 p-4"><div className="text-xs text-gray-500">Quotations awaiting your go-ahead</div><div className="text-2xl font-bold">{open.length}</div></div>
         <div className="rounded-2xl bg-white border border-gray-200 p-4"><div className="text-xs text-gray-500">Invoices open</div><div className="text-2xl font-bold">{due.length}</div></div>
         <div className="rounded-2xl bg-white border border-gray-200 p-4"><div className="text-xs text-gray-500">Balance due</div><div className="text-2xl font-bold font-mono">{Object.entries(data.outstanding).filter(([, v]) => v > 0).map(([c, v]) => money(v, c, 0)).join(" · ") || "—"}</div></div>
@@ -300,10 +300,10 @@ export function PortalDashboardPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Hi {me?.name?.split(" ")[0] || "there"}</h1>
             <p className="text-sm text-gray-500 mt-1">Here's how your work with dotindot is going.</p>
           </div>
-          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5" data-testid="portal-tabs">
-            {[["overview", "Overview", LayoutDashboard], ["billing", "Quotes & invoices", Receipt], ["support", "Support", LifeBuoy]].map(([k, label, Icon]) => (
-              <button key={k} type="button" onClick={() => setTab(k)} data-testid={`portal-tab-${k}`}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-[#FFF7ED] text-[#F26B21]" : "text-gray-600"}`}><Icon className="h-4 w-4" />{label}</button>
+          <div className="grid grid-cols-3 w-full sm:inline-flex sm:w-auto rounded-lg border border-gray-200 bg-white p-0.5" data-testid="portal-tabs">
+            {[["overview", "Overview", LayoutDashboard], ["billing", "Quotes & invoices", Receipt, "Billing"], ["support", "Support", LifeBuoy]].map(([k, label, Icon, short]) => (
+              <button key={k} type="button" onClick={() => setTab(k)} data-testid={`portal-tab-${k}`} aria-label={label}
+                className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap ${tab === k ? "bg-[#FFF7ED] text-[#F26B21]" : "text-gray-600"}`}><Icon className="h-4 w-4 shrink-0" /><span className={short ? "hidden sm:inline" : ""}>{label}</span>{short && <span className="sm:hidden">{short}</span>}</button>
             ))}
           </div>
         </div>

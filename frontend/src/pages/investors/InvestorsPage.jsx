@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Wallet, TrendingUp, HandCoins, PieChart, Plus, Eye, Download, KeyRound, Megaphone, Settings2, Building, Copy } from "lucide-react";
 import { appUrl } from "@/lib/base";
+import { CardTable } from "@/components/ui/table";
 
 const num = (v) => (v === "" || v == null ? 0 : Number(v));
 const genPassword = () => `Inv-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -199,7 +200,7 @@ export default function InvestorsPage() {
             <Card className="border-gray-200/80 shadow-sm"><CardContent className="p-0 overflow-x-auto">
               {del.dialog}
               {d.investors.length === 0 ? <Empty icon={Building} title="No investors yet" /> : (
-                <table className="w-full text-sm" data-testid="investors-table">
+                <CardTable><table className="w-full text-sm" data-testid="investors-table">
                   <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 bg-gray-50/60"><th className="w-14" />
                     <th className="text-left font-semibold py-2.5 px-2">Investor</th><th className="text-right font-semibold py-2.5 px-2">Invested</th><th className="text-right font-semibold py-2.5 px-2">Value now</th>
                     <th className="text-right font-semibold py-2.5 px-2">Paid out</th><th className="text-right font-semibold py-2.5 px-2">Return</th><th className="text-left font-semibold py-2.5 px-4">Portal</th></tr></thead>
@@ -211,7 +212,7 @@ export default function InvestorsPage() {
                       <td className="py-2.5 px-2 text-right font-mono text-gray-600">{inr(r.returns_paid + r.principal_back)}</td>
                       <td className="py-2.5 px-2 text-right font-mono">{r.moic ? `${r.moic}×` : "—"}{r.xirr != null && <span className="block text-[11px] text-gray-400">{r.xirr}%/yr</span>}</td>
                       <td className="py-2.5 px-4">{r.logins ? <Pill tone="green">{r.logins} login</Pill> : <Pill>none</Pill>}</td></tr>))}</tbody>
-                </table>
+                </table></CardTable>
               )}
             </CardContent></Card>
           )}

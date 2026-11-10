@@ -208,7 +208,7 @@ export default function AssetsPage() {
       </div>
 
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_260px] gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_260px] gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
           <StatCard icon={Boxes} label="Total assets" value={stats.total} testid="asset-stat-total" />
           <StatCard icon={IndianRupee} label="Asset value" value={formatINR(stats.total_value)} testid="asset-stat-value" />
           <StatCard icon={Laptop} label="In use" value={stats.in_use} testid="asset-stat-inuse" />
@@ -230,7 +230,7 @@ export default function AssetsPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 m-filters">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input className="pl-9 w-56" placeholder="Search name, code, serial..." value={filters.search}

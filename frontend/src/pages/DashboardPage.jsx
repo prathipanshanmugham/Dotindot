@@ -12,12 +12,12 @@ import {
 
 const StatCard = ({ icon: Icon, label, value, sub, testid }) => (
   <Card className="border-gray-200/80 shadow-sm" data-testid={testid}>
-    <CardContent className="p-5 flex items-start gap-4">
-      <div className="h-10 w-10 rounded-xl bg-[#FFF7ED] flex items-center justify-center shrink-0">
+    <CardContent className="p-5 max-sm:p-4 flex max-sm:flex-col items-start gap-4 max-sm:gap-2.5">
+      <div className="h-10 w-10 max-sm:h-9 max-sm:w-9 rounded-xl bg-[#FFF7ED] flex items-center justify-center shrink-0">
         <Icon className="h-5 w-5 text-[#F26B21]" />
       </div>
-      <div>
-        <div className="text-2xl font-bold text-gray-900 tracking-tight">{value}</div>
+      <div className="min-w-0">
+        <div className="text-2xl max-sm:text-xl font-bold text-gray-900 tracking-tight break-words">{value}</div>
         <div className="text-xs text-gray-500 font-medium">{label}</div>
         {sub && <div className="text-[11px] text-gray-400 mt-0.5">{sub}</div>}
       </div>
@@ -61,7 +61,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2">
         {!isEmployee && (
           <StatCard icon={Users} label="Total Clients" value={stats.clients_total} sub={`${stats.clients_active} active`} testid="stat-clients" />
         )}

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { IndianRupee, Users, Landmark, ShieldCheck, Download, FileSpreadsheet, RefreshCw, Lock, Unlock, CheckCircle2, AlertTriangle, Plus, Calculator, Wallet, Trophy, Percent, Pencil, X } from "lucide-react";
+import { CardTable } from "@/components/ui/table";
 
 const RUN_TONE = { draft: "amber", finalised: "blue", paid: "green" };
 const ITEM_TONE = { pending: "amber", approved: "blue", paid: "green", rejected: "gray", applied: "green" };
@@ -137,7 +138,7 @@ function RunView({ runId, meta, onBack, onChanged }) {
       <PillTabs tabs={[["slips", "Payslips"], ["statutory", "PF & ESI"]]} value={tab} onChange={setTab} testid="run-tab" />
       {tab === "slips" ? (
         <Card className="border-gray-200/80 shadow-sm"><CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm" data-testid="payslips-table">
+          <CardTable><table className="w-full text-sm" data-testid="payslips-table">
             <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 bg-gray-50/60">
               <th className="text-left font-semibold py-2.5 px-4">Employee</th><th className="text-right font-semibold py-2.5 px-2">Days</th><th className="text-right font-semibold py-2.5 px-2">Gross</th>
               <th className="text-right font-semibold py-2.5 px-2">PF</th><th className="text-right font-semibold py-2.5 px-2">ESI</th><th className="text-right font-semibold py-2.5 px-2">PT</th>
@@ -150,7 +151,7 @@ function RunView({ runId, meta, onBack, onChanged }) {
                 <td className="py-2.5 px-2 text-right font-mono text-gray-600">{p.ee_esi ? inr(p.ee_esi) : "—"}</td><td className="py-2.5 px-2 text-right font-mono text-gray-600">{inr(p.pt)}</td>
                 <td className="py-2.5 px-2 text-right font-mono text-gray-600">{inr(p.tds)}</td><td className="py-2.5 px-2 text-right font-mono text-gray-600">{inr(p.total_deductions)}</td>
                 <td className="py-2.5 px-4 text-right font-mono font-semibold">{inr(p.net)}</td></tr>))}</tbody>
-          </table>
+          </table></CardTable>
           {!r.payslips.length && <Empty icon={Users} title="No payslips" sub="Add salary structures, then Recalculate." />}
         </CardContent></Card>
       ) : !st ? <Spinner /> : (
@@ -336,7 +337,7 @@ export function PayrollPage() {
           )}
           {tab === "structures" && (!structs ? <Spinner /> : (
             <Card className="border-gray-200/80 shadow-sm"><CardContent className="p-0 overflow-x-auto">
-              <table className="w-full text-sm" data-testid="structures-table">
+              <CardTable><table className="w-full text-sm" data-testid="structures-table">
                 <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 bg-gray-50/60">
                   <th className="text-left font-semibold py-2.5 px-4">Employee</th><th className="text-right font-semibold py-2.5 px-2">Annual CTC</th><th className="text-right font-semibold py-2.5 px-2">Gross / month</th>
                   <th className="text-right font-semibold py-2.5 px-2">Take-home</th><th className="text-left font-semibold py-2.5 px-2">PF / ESI</th><th className="text-left font-semibold py-2.5 px-4">Since</th></tr></thead>
@@ -350,7 +351,7 @@ export function PayrollPage() {
                       <td className="py-2.5 px-4 text-gray-500 whitespace-nowrap">{fmtDate(s.effective_from)}{s.revisions > 1 ? ` · ${s.revisions - 1} revision${s.revisions > 2 ? "s" : ""}` : ""}</td></>
                     ) : <td colSpan={5} className="py-2.5 px-2 text-xs text-amber-700">No salary yet — {meta.can_manage ? "tap to add" : "ask payroll"}</td>}
                   </tr>))}</tbody>
-              </table>
+              </table></CardTable>
             </CardContent></Card>
           ))}
           {tab === "settings" && <SettingsForm meta={meta} onSaved={reloadMeta} />}

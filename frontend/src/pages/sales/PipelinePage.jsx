@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Plus, ChevronRight, AlertCircle } from "lucide-react";
 import { LocationFields } from "@/components/LocationFields";
 import { toast } from "sonner";
+import { TabStrip } from "@/components/kit";
 
 const EMPTY = { name: "", company: "", contact_email: "", contact_phone: "", source: "website", estimated_value: "", service_interest: "", region: "India", state: "", city: "", owner_id: "", follow_up_date: "", notes: "" };
 
@@ -72,6 +73,19 @@ export default function PipelinePage() {
   };
 
   const del = useRecordDelete({ coll: "leads", permKey: "sales.delete", rows: leads, onDeleted: () => load() });
+  const board = useRef(null);
+  const [seen, setSeen] = useState(LEAD_STAGES[0]);
+  const jumpTo = (stage) => {
+    const el = board.current?.querySelector(`[data-testid="kanban-column-${stage}"]`);
+    if (el) board.current.scrollTo({ left: el.offsetLeft - 16, behavior: "smooth" });
+    setSeen(stage);
+  };
+  const onBoardScroll = (e) => {
+    const b = e.currentTarget, cols = [...b.children];
+    if (!cols.length || b.scrollWidth <= b.clientWidth + 1) return;
+    const i = cols.reduce((best, c, k) => (Math.abs(c.offsetLeft - 16 - b.scrollLeft) < Math.abs(cols[best].offsetLeft - 16 - b.scrollLeft) ? k : best), 0);
+    if (LEAD_STAGES[i] && LEAD_STAGES[i] !== seen) setSeen(LEAD_STAGES[i]);
+  };
   return (
     <SalesLayout
       title="Pipeline"
@@ -95,7 +109,7 @@ export default function PipelinePage() {
     >
       {/* Filters */}
       <Card className="border-gray-200/80">
-        <CardContent className="p-4 flex flex-wrap items-center gap-3">
+        <CardContent className="p-3 sm:p-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3 max-sm:[&_button[role=combobox]]:!w-full">
           <Select value={filters.source} onValueChange={(v) => setFilters((p) => ({ ...p, source: v }))}>
             <SelectTrigger className="w-[170px]" data-testid="pipeline-source-filter"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -115,7 +129,16 @@ export default function PipelinePage() {
 
       {/* Kanban — horizontal scroll on mobile, grid on xl */}
       {del.canDelete && leads.length > 0 && <div className="flex justify-end -mb-3">{del.dialog}<BulkDeleteBar kit={del} /></div>}
-      <div className="flex gap-3 overflow-x-auto pb-3 xl:grid xl:grid-cols-6 xl:overflow-visible xl:pb-0" data-testid="pipeline-board">
+      {/* Phones: jump to a stage; the board below swipes one column at a time */}
+      <TabStrip className="sm:hidden" testid="pipeline-stage-jump">
+        {LEAD_STAGES.map((stage) => (
+          <button key={stage} type="button" onClick={() => jumpTo(stage)} data-active={stage === seen}
+            className={`shrink-0 whitespace-nowrap rounded-full px-3 h-9 text-xs font-semibold border transition-colors ${stage === seen ? "bg-[#F26B21] border-[#F26B21] text-white" : "bg-white border-gray-200 text-gray-600"}`}>
+            {labelize(stage)} <span className={stage === seen ? "text-white/80" : "text-gray-400"}>{leads.filter((l) => l.stage === stage).length}</span>
+          </button>
+        ))}
+      </TabStrip>
+      <div ref={board} onScroll={onBoardScroll} className="flex gap-3 overflow-x-auto pb-3 xl:grid xl:grid-cols-6 xl:overflow-visible xl:pb-0 max-sm:-mx-4 max-sm:px-4 m-kanban" data-testid="pipeline-board">
         {LEAD_STAGES.map((stage) => {
           const col = leads.filter((l) => l.stage === stage);
           const value = col.reduce((s, l) => s + (l.estimated_value || 0), 0);
@@ -149,7 +172,7 @@ export default function PipelinePage() {
                           {canWrite && !l.converted_client_id && (
                             <div className="min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
                               <Select value={l.stage} onValueChange={(v) => changeStage(l.id, v)}>
-                                <SelectTrigger className="h-7 text-[11px] px-2" data-testid={`stage-select-${l.id}`}>
+                                <SelectTrigger className="h-7 max-sm:h-9 text-[11px] max-sm:text-xs px-2" data-testid={`stage-select-${l.id}`}>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>

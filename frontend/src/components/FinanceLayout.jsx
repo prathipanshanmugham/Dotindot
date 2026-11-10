@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { TabStrip } from "@/components/kit";
 import { useAuth } from "@/context/AuthContext";
 
 export const EXPENSE_CATEGORIES = ["operational", "marketing", "tools", "salaries", "misc", "ai"];
@@ -34,7 +35,7 @@ export default function FinanceLayout({ title, subtitle, children, actions }) {
         </div>
         {actions}
       </div>
-      <div className="flex flex-wrap gap-1.5 border-b border-gray-200 pb-3">
+      <TabStrip className="border-b border-gray-200 pb-3">
         {tabs.map((t) => (
           <NavLink
             key={t.path}
@@ -42,7 +43,7 @@ export default function FinanceLayout({ title, subtitle, children, actions }) {
             end={t.exact}
             data-testid={`finance-tab-${t.name.toLowerCase().replace(/\s+/g, "-")}`}
             className={({ isActive }) =>
-              `px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              `px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
                 isActive ? "bg-[#F26B21] text-white" : "bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-[#F26B21]"
               }`
             }
@@ -50,7 +51,7 @@ export default function FinanceLayout({ title, subtitle, children, actions }) {
             {t.name}
           </NavLink>
         ))}
-      </div>
+      </TabStrip>
       {children}
     </div>
   );

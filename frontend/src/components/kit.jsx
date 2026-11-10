@@ -1,6 +1,7 @@
 // v3.0 small shared building blocks for the new modules (HR, payroll, loans, investors, support, lead flow, AI).
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError, formatINR } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -105,16 +106,68 @@ export const PageHead = ({ kicker, title, sub, actions }) => (
   </div>
 );
 
+/** A row of tabs: one swipeable line on phones (the current tab scrolled into view), wrapping on wider screens. */
+export const TabStrip = ({ children, className = "", testid, bleed = true }) => {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || el.scrollWidth <= el.clientWidth + 1) return;
+    const a = el.querySelector('[aria-current="page"],[aria-selected="true"],[data-active="true"]');
+    if (a) el.scrollLeft = Math.max(0, a.offsetLeft - (el.clientWidth - a.offsetWidth) / 2);
+  });
+  return (
+    <div ref={ref} data-testid={testid}
+      className={`flex gap-1.5 overflow-x-auto overscroll-x-contain ${bleed ? "-mx-4 px-4" : "-mx-1 px-1"} sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0 ${className}`}>
+      {children}
+    </div>
+  );
+};
+
+/** Search + filters. On phones the filters fold behind a "Filters" button (with a count of the ones in use). */
+export const FilterBar = ({ search, children, active = 0, className = "", testid }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 ${className}`} data-testid={testid}>
+      {(search || children) && (
+        <div className="flex items-center gap-2 sm:contents">
+          {search && <div className="relative flex-1 min-w-0 sm:min-w-[200px]">{search}</div>}
+          {children && (
+            <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+              className={`sm:hidden shrink-0 inline-flex items-center gap-2 h-11 px-3.5 rounded-lg border text-sm font-medium transition-colors ${open || active ? "border-[#F26B21] text-[#F26B21] bg-orange-50/60" : "border-gray-200 text-gray-700 bg-white"} ${search ? "" : "w-full justify-center"}`}>
+              <SlidersHorizontal className="h-4 w-4" /> Filters{active ? <span className="ml-0.5 rounded-full bg-[#F26B21] text-white text-[11px] leading-none px-1.5 py-1">{active}</span> : null}
+            </button>
+          )}
+        </div>
+      )}
+      {children && (
+        <div className={`${open ? "grid" : "hidden"} grid-cols-2 gap-2 sm:contents max-sm:[&>*]:!w-full max-sm:[&>*]:min-w-0 max-sm:[&_button[role=combobox]]:!w-full`}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/** Phones: the main actions of a long form, pinned above the bottom navigation (desktop keeps them in the page header). */
+export const PhoneActionBar = ({ children, testid }) => (
+  <>
+    <div className="md:hidden h-14" aria-hidden="true" />
+    <div data-testid={testid} className="md:hidden fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 bg-white/95 backdrop-blur-md border-t border-gray-200 px-4 py-2.5 flex gap-2 [&>*]:flex-1 [&>*]:h-11">
+      {children}
+    </div>
+  </>
+);
+
 /** Rounded pill tabs (state-driven). tabs: [[key, label, count?]] */
 export const PillTabs = ({ tabs, value, onChange, testid = "tabs" }) => (
-  <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-0.5 sm:flex-wrap sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid={testid}>
+  <TabStrip testid={testid} bleed={false} className="pb-0.5 sm:pb-0">
     {tabs.map(([k, label, count]) => (
-      <button key={k} type="button" onClick={() => onChange(k)} data-testid={`${testid}-${k}`}
+      <button key={k} type="button" onClick={() => onChange(k)} data-testid={`${testid}-${k}`} data-active={value === k}
         className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${value === k ? "bg-[#F26B21] text-white" : "bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-[#F26B21]"}`}>
         {label}{count != null && <span className={`ml-1.5 ${value === k ? "text-white/80" : "text-gray-400"}`}>{count}</span>}
       </button>
     ))}
-  </div>
+  </TabStrip>
 );
 
 /** Section layout with route tabs (like Finance). tabs: [{name, path, exact, perm}] */
@@ -124,14 +177,14 @@ export const ModuleLayout = ({ kicker, title, subtitle, tabs, actions, children,
   return (
     <div className="space-y-5 max-w-7xl" data-testid={testid}>
       <PageHead kicker={kicker} title={title} sub={subtitle} actions={actions} />
-      <div className="flex gap-1.5 border-b border-gray-200 pb-3 overflow-x-auto -mx-1 px-1">
+      <TabStrip className="border-b border-gray-200 pb-3">
         {shown.map((t) => (
           <NavLink key={t.path} to={t.path} end={t.exact} data-testid={`${testid}-tab-${t.name.toLowerCase().replace(/[^a-z]+/g, "-")}`}
             className={({ isActive }) => `px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${isActive ? "bg-[#F26B21] text-white" : "bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-[#F26B21]"}`}>
             {t.name}
           </NavLink>
         ))}
-      </div>
+      </TabStrip>
       {children}
     </div>
   );

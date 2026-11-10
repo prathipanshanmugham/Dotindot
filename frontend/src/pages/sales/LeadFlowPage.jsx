@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { GitBranch, Users2, CheckCircle2, Target, Wallet, Plus, Upload, Link2, Copy, RefreshCw, Search } from "lucide-react";
+import { CardTable } from "@/components/ui/table";
 
 const PERIODS = [["30", "30 days"], ["90", "90 days"], ["180", "6 months"], ["365", "12 months"]];
 const STAGES = [["new", "New"], ["contacted", "Contacted"], ["qualified", "Qualified"], ["converted", "Converted"], ["lost", "Lost"]];
@@ -256,7 +257,7 @@ export default function LeadFlowPage() {
                 <Card className="border-gray-200/80 shadow-sm">
                   <CardHeader className="pb-2"><CardTitle className="text-base font-semibold">By client</CardTitle></CardHeader>
                   <CardContent className="overflow-x-auto">
-                    <table className="w-full text-sm" data-testid="lf-clients-table">
+                    <CardTable><table className="w-full text-sm" data-testid="lf-clients-table">
                       <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                         <th className="text-left font-semibold py-2">Client</th><th className="text-right font-semibold py-2 px-2">Leads</th>
                         <th className="text-right font-semibold py-2 px-2">Converted</th><th className="text-right font-semibold py-2 px-2">Rate</th><th className="text-left font-semibold py-2 pl-3">Top source</th></tr></thead>
@@ -265,7 +266,7 @@ export default function LeadFlowPage() {
                           <td className="py-2 font-medium text-gray-800">{c.client_name}</td><td className="py-2 px-2 text-right font-mono">{c.leads}</td>
                           <td className="py-2 px-2 text-right font-mono">{c.converted}</td><td className="py-2 px-2 text-right font-mono text-gray-600">{c.conversion_rate}%</td>
                           <td className="py-2 pl-3 text-gray-600">{c.top_source}</td></tr>))}</tbody>
-                    </table>
+                    </table></CardTable>
                   </CardContent>
                 </Card>
               )}
@@ -283,7 +284,7 @@ export default function LeadFlowPage() {
                 </div>
                 {!leads ? <Spinner className="h-32" /> : leads.length === 0 ? <p className="text-sm text-gray-400 py-8 text-center">No leads match.</p> : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm" data-testid="client-leads-table">
+                    <CardTable><table className="w-full text-sm" data-testid="client-leads-table">
                       <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                         <th className="w-14" /><th className="text-left font-semibold py-2">Lead</th><th className="text-left font-semibold py-2 px-2">Client</th>
                         <th className="text-left font-semibold py-2 px-2">Source</th><th className="text-left font-semibold py-2 px-2">Stage</th><th className="text-right font-semibold py-2 pl-2">Date</th></tr></thead>
@@ -295,7 +296,7 @@ export default function LeadFlowPage() {
                           <td className="py-2 px-2"><span className="inline-flex items-center gap-1.5 text-gray-700"><span className="h-2 w-2 rounded-sm" style={{ background: SOURCE_COLORS[l.source] || "#9ca3af" }} />{l.source_label}</span></td>
                           <td className="py-2 px-2"><Pill tone={STAGE_TONE[l.stage]}>{STAGES.find((s) => s[0] === l.stage)?.[1]}</Pill></td>
                           <td className="py-2 pl-2 text-right text-gray-500 whitespace-nowrap">{fmtDate(l.date, { day: "numeric", month: "short" })}</td></tr>))}</tbody>
-                    </table>
+                    </table></CardTable>
                     {leads.length > 300 && <p className="text-xs text-gray-400 pt-2">Showing the latest 300 of {leads.length}.</p>}
                   </div>
                 )}

@@ -21,7 +21,7 @@ const QUICK_LINKS = [
 
 const Stat = ({ label, value, tone, testid }) => (
   <Card className="border-gray-200/80 shadow-sm" data-testid={testid}>
-    <CardContent className="p-5">
+    <CardContent className="p-5 max-sm:p-4">
       <div className={`text-2xl font-bold font-mono tracking-tight ${tone || "text-gray-900"}`}>{value}</div>
       <div className="text-xs text-gray-500 font-medium mt-0.5">{label}</div>
     </CardContent>
@@ -42,7 +42,7 @@ export default function FinanceOverview() {
   return (
     <FinanceLayout title="Overview" subtitle="Financial health of dotindot at a glance — all figures in ₹ INR."
       actions={<BranchFilter value={branch} onChange={setBranch} testid="finance-branch-filter" />}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2">
         <Stat label="Net this month" value={formatINR(data.net_this_month)} tone={data.net_this_month >= 0 ? "text-emerald-600" : "text-red-600"} testid="fin-stat-net-month" />
         <Stat label="Income YTD" value={formatINR(data.income_ytd)} testid="fin-stat-income-ytd" />
         <Stat label="Expenses YTD" value={formatINR(data.expense_ytd)} testid="fin-stat-expense-ytd" />

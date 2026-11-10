@@ -150,7 +150,7 @@ export default function ProjectDetailPage() {
       {project.description && <p className="text-sm text-gray-600 max-w-3xl">{project.description}</p>}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
         <Card className="border-gray-200/80"><CardContent className="p-5 flex items-center gap-3">
           <IndianRupee className="h-5 w-5 text-[#F26B21]" />
           <div><div className="text-xl font-bold font-mono" data-testid="project-budget">{formatINR(project.budget)}</div><div className="text-xs text-gray-500">Budget (INR)</div></div>

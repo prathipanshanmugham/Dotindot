@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { TabStrip } from "@/components/kit";
 
 export const LEAD_STAGES = ["new", "contacted", "qualified", "proposal", "won", "lost"];
 export const OPEN_STAGES = ["new", "contacted", "qualified", "proposal"];
@@ -40,7 +41,7 @@ export default function SalesLayout({ title, subtitle, children, actions }) {
         </div>
         {actions}
       </div>
-      <div className="flex flex-wrap gap-1.5 border-b border-gray-200 pb-3">
+      <TabStrip className="border-b border-gray-200 pb-3">
         {TABS.map((t) => (
           <NavLink
             key={t.path}
@@ -48,7 +49,7 @@ export default function SalesLayout({ title, subtitle, children, actions }) {
             end={t.exact}
             data-testid={`sales-tab-${t.name.toLowerCase()}`}
             className={({ isActive }) =>
-              `px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              `px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
                 isActive ? "bg-[#F26B21] text-white" : "bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-[#F26B21]"
               }`
             }
@@ -56,7 +57,7 @@ export default function SalesLayout({ title, subtitle, children, actions }) {
             {t.name}
           </NavLink>
         ))}
-      </div>
+      </TabStrip>
       {children}
     </div>
   );

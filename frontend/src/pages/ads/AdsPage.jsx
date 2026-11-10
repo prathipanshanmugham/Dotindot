@@ -226,7 +226,7 @@ export default function AdsPage() {
       )}
 
       {/* Filters + table */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 m-filters">
         <Select value={filters.platform} onValueChange={(v) => setFilters((f) => ({ ...f, platform: v }))}>
           <SelectTrigger className="w-[160px]" data-testid="ads-platform-filter"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="all">All platforms</SelectItem>{AD_PLATFORMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>

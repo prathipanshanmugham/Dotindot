@@ -27,7 +27,7 @@ const AlertDialogContent = React.forwardRef(({ className, ...props }, ref) => (
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-1.5rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-4 sm:p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-1.5rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-4 sm:p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:bottom-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:rounded-t-[20px] max-sm:border-x-0 max-sm:border-b-0 max-sm:max-h-[92dvh] max-sm:grid-cols-[minmax(0,1fr)] max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pt-5 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))] dlg-sheet",
         className
       )}
       {...props} />
@@ -50,7 +50,7 @@ const AlertDialogFooter = ({
   ...props
 }) => (
   <div
-    className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)}
+    className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 max-sm:gap-2 max-sm:sticky max-sm:bottom-[calc(-1*max(1rem,env(safe-area-inset-bottom)))] max-sm:z-10 max-sm:-mx-4 max-sm:-mb-[max(1rem,env(safe-area-inset-bottom))] max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))] max-sm:bg-background max-sm:border-t max-sm:flex-row max-sm:flex-wrap max-sm:[&>*]:flex-1 max-sm:[&>*]:basis-[calc(50%-0.25rem)] max-sm:[&>*]:min-h-[44px] max-sm:[&>*]:mt-0", className)}
     {...props} />
 )
 AlertDialogFooter.displayName = "AlertDialogFooter"

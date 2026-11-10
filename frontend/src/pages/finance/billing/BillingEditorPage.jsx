@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import api, { apiError } from "@/lib/api";
-import { useLoad, Spinner, PageHead, Field, Pill } from "@/components/kit";
+import { useLoad, Spinner, PageHead, Field, Pill, PhoneActionBar } from "@/components/kit";
 import { money, computeTotals, TYPE_LABEL } from "./billingKit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -87,9 +87,13 @@ export default function BillingEditorPage() {
         sub={editing ? "" : "Fill in the client, lines and terms. Totals, tax and the amount in words are worked out for you."}
         actions={<>
           <Button variant="outline" size="sm" onClick={() => navigate(editing ? `/finance/billing/${id}` : "/finance/billing")}>Cancel</Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => save(false)} data-testid="billing-save">{busy ? "Saving…" : "Save draft"}</Button>
-          <Button size="sm" disabled={busy} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" onClick={() => save(true)} data-testid="billing-save-send">Save & mark sent</Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => save(false)} data-testid="billing-save" className="max-md:hidden">{busy ? "Saving…" : "Save draft"}</Button>
+          <Button size="sm" disabled={busy} className="bg-[#F26B21] hover:bg-[#E05A10] text-white max-md:hidden" onClick={() => save(true)} data-testid="billing-save-send">Save & mark sent</Button>
         </>} />
+      <PhoneActionBar testid="billing-phone-actions">
+        <Button variant="outline" disabled={busy} onClick={() => save(false)} data-testid="billing-save-m">{busy ? "Saving…" : "Save draft"}</Button>
+        <Button disabled={busy} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" onClick={() => save(true)} data-testid="billing-save-send-m">Save & mark sent</Button>
+      </PhoneActionBar>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* who */}
         <Card className="border-gray-200/80 shadow-sm lg:col-span-2"><CardHeader className="pb-2"><CardTitle className="text-sm font-semibold">Bill to</CardTitle></CardHeader>

@@ -76,7 +76,7 @@ export default function SubscriptionsPage() {
         </div>
       }
     >
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono" data-testid="subs-monthly-burn">{formatINR(data.monthly_burn)}</div><div className="text-xs text-gray-500">Monthly burn (normalized)</div></CardContent></Card>
         <Card className={`${data.alerts ? "border-amber-300 bg-amber-50/50" : "border-gray-200/80"}`}><CardContent className="p-5"><div className="text-2xl font-bold font-mono" data-testid="subs-alert-count">{data.alerts}</div><div className="text-xs text-gray-500">Renewing within 30 days</div></CardContent></Card>
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono">{data.subscriptions.filter((s) => s.status === "active").length}</div><div className="text-xs text-gray-500">Active subscriptions</div></CardContent></Card>

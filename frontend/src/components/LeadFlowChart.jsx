@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { Sankey, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Layer, Rectangle } from "recharts";
 import { inr } from "@/components/kit";
+import { CardTable } from "@/components/ui/table";
 
 // Fixed colour per source (colour follows the source, never its rank). Validated categorical steps;
 // low-volume sources share neutral greys. Every node is labelled, so colour never carries meaning alone.
@@ -82,7 +83,7 @@ export function SourceTable({ sources, winLabel = "Won", showSpend = false, test
   if (!sources?.length) return null;
   return (
     <div className="overflow-x-auto" data-testid={testid}>
-      <table className="w-full text-sm">
+      <CardTable><table className="w-full text-sm">
         <thead>
           <tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
             <th className="text-left font-semibold py-2 pr-3">Source</th>
@@ -107,7 +108,7 @@ export function SourceTable({ sources, winLabel = "Won", showSpend = false, test
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></CardTable>
     </div>
   );
 }

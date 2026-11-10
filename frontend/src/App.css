@@ -73,12 +73,6 @@ body {
   overflow-x: hidden;
 }
 
-@media (max-width: 768px) {
-  [role="tablist"] {
-    height: auto;
-    flex-wrap: wrap;
-  }
-}
 
 @media (max-width: 640px) {
   /* Touch targets >= 44px for inputs and standard buttons */
@@ -95,6 +89,13 @@ body {
     height: 18px;
     width: 18px;
   }
+  /* v3.4 small icon buttons (24–32px) keep their look but get a 40px+ invisible touch area */
+  :is(button, a).h-6.w-6:not(.absolute):not(.fixed):not(.sticky), :is(button, a).h-7.w-7:not(.absolute):not(.fixed):not(.sticky), :is(button, a).h-8.w-8:not(.absolute):not(.fixed):not(.sticky) { position: relative; }
+  :is(button, a).h-6.w-6::after { content: ""; position: absolute; inset: -8px; }
+  :is(button, a).h-7.w-7::after { content: ""; position: absolute; inset: -6px; }
+  :is(button, a).h-8.w-8::after { content: ""; position: absolute; inset: -4px; }
+  button[role="checkbox"]:not(.absolute):not(.fixed) { position: relative; }
+  button[role="checkbox"]::after { content: ""; position: absolute; inset: -11px; }
   /* square icon buttons stay square when they grow to the 44px touch height */
   button.h-9.w-9,
   button.h-10.w-10 {
@@ -104,6 +105,27 @@ body {
     max-height: 92vh;
     overflow-y: auto;
   }
+  /* v3.4 dialogs open as a sheet from the bottom of the screen, with a grab handle */
+  .dlg-sheet[data-state="open"] { animation: dlg-up .32s cubic-bezier(.2, .8, .2, 1) both !important; }
+  .dlg-sheet[data-state="closed"] { animation: dlg-down .2s ease-in both !important; }
+  .dlg-sheet::before { content: ""; position: absolute; top: 7px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 4px; background: hsl(var(--border)); }
+  /* v3.4 a dialog that ends in a plain button (or a row of buttons) keeps it in reach at the bottom of the sheet */
+  .dlg-sheet > :is(button:not(.absolute), div:not(.absolute):has(> button):not(:has(> :not(button):not(a)))):nth-last-child(2) {
+    position: sticky; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 10;
+    box-shadow: 0 0 0 12px hsl(var(--background)), 0 24px 0 12px hsl(var(--background));
+  }
+  /* v3.4 form grids inside dialogs: one field per row on phones (a 2–4 column grid of inputs is too cramped) */
+  :is(.dlg-sheet, [data-sheet-form]) .grid:is(.grid-cols-2, .grid-cols-3, .grid-cols-4):has(> * input:not([type="checkbox"]):not([type="radio"]), > * textarea, > * button[role="combobox"], > input, > button[role="combobox"]) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  :is(.dlg-sheet, [data-sheet-form]) .grid:is(.grid-cols-2, .grid-cols-3, .grid-cols-4):has(> * input:not([type="checkbox"]):not([type="radio"]), > * textarea, > * button[role="combobox"], > input, > button[role="combobox"]) > * {
+    grid-column: 1 / -1 !important;
+  }
+  /* date and month fields: a little less padding so the 16px date text isn't clipped in half-width cells */
+  input:is([type="date"], [type="month"], [type="time"], [type="datetime-local"]) { padding-left: 8px !important; padding-right: 4px !important; min-width: 0; }
+  input:is([type="date"], [type="month"], [type="time"], [type="datetime-local"])::-webkit-calendar-picker-indicator { margin-left: 0; padding: 2px; }
+  /* iOS zooms into any field under 16px: keep typing fields at 16px on phones */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea { font-size: 16px !important; }
   /* v2.6: big ₹ figures in 2-column KPI tiles overflowed their cards on phones */
   .font-mono.text-2xl {
     font-size: 1.125rem;
@@ -113,4 +135,75 @@ body {
     font-size: 1rem;
     line-height: 1.5rem;
   }
+}
+
+/* ---- v3.4 Phones: tables become lists of cards (see components/ui/table.jsx) ---- */
+@media (max-width: 767px) {
+  .rt-cards { overflow: visible !important; }
+  .rt-cards > table, .rt-cards > table > tbody, .rt-cards > table > tfoot { display: block; width: 100% !important; min-width: 0 !important; }
+  .rt-cards > table > thead { display: none; }
+  .rt-cards > table > tbody > tr, .rt-cards > table > tfoot > tr {
+    position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; align-items: start;
+    padding: 14px 16px; border-width: 0 0 1px 0 !important; border-style: solid; border-color: hsl(var(--border)) !important;
+  }
+  .rt-cards > table > tbody > tr:last-child { border-bottom-width: 0 !important; }
+  .rt-cards > table > tfoot > tr { background: hsl(var(--muted) / .6); }
+  .rt-cards > table > tbody > tr > td, .rt-cards > table > tfoot > tr > td, .rt-cards > table > tbody > tr > th {
+    display: block; min-width: 0; width: auto !important; max-width: none !important; height: auto !important;
+    padding: 0 !important; text-align: left !important; white-space: normal !important; overflow-wrap: anywhere;
+  }
+  .rt-cards > table > tbody > tr > td.hidden, .rt-cards > table > tfoot > tr > td.hidden { display: none !important; }
+  .rt-cards td:empty, .rt-cards td[data-rt="empty"] { display: none !important; }
+  .rt-cards td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 3px; font-size: 11px; font-weight: 500; line-height: 1.2;
+    color: hsl(var(--muted-foreground)); text-transform: none; letter-spacing: 0;
+  }
+  .rt-cards td[data-rt="title"] { grid-column: 1 / -1; order: -2; font-size: 15px; }
+  .rt-cards td[data-rt="wide"] { grid-column: 1 / -1; }
+  .rt-cards td[data-rt="full"] { grid-column: 1 / -1; text-align: center !important; }
+  .rt-cards td[data-rt="actions"] { grid-column: 1 / -1; order: 50; display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .rt-cards td[data-rt="actions"] > * { margin: 0 !important; }
+  .rt-cards td[data-rt="check"] { position: absolute; top: 8px; right: 8px; display: flex !important; align-items: center; gap: 2px; }
+  .rt-cards tr:has(> td[data-rt="check"]) > td[data-rt="title"] { padding-right: 84px !important; min-height: 36px; }
+  .rt-cards td[data-rt="full"]:has(div, table, form, p, ul) { text-align: left !important; }
+  .rt-cards td[data-rt="check"] { top: 4px; right: 4px; gap: 0; }
+  .rt-cards td[data-rt="check"] button:not([role="checkbox"]) { width: 40px !important; height: 40px !important; }
+  .rt-cards td[data-rt="check"] button[role="checkbox"] { margin: 0 11px; }
+  .rt-cards td[data-rt="actions"] :is(button, a).h-7, .rt-cards td[data-rt="actions"] :is(button, a).h-8 { width: 40px; height: 40px; }
+  .rt-cards tr[class*="cursor-pointer"] { -webkit-tap-highlight-color: transparent; }
+  .rt-cards tr[class*="cursor-pointer"]:active { background: hsl(var(--accent) / .7); }
+}
+
+@keyframes dlg-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes dlg-down { from { transform: none; } to { transform: translateY(100%); } }
+
+/* ---- v3.4 Phones: swipeable rows (chart pairs, kanban boards) ---- */
+@media (max-width: 640px) {
+  .m-swipe {
+    display: flex !important; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory; scroll-padding-inline: 1rem; scrollbar-width: none;
+    margin-inline: -1rem; padding-inline: 1rem; padding-bottom: 2px;
+  }
+  .m-swipe::-webkit-scrollbar { display: none; }
+  .m-swipe > * { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; margin-top: 0 !important; }
+  .m-kanban { scroll-snap-type: x mandatory; scroll-padding-inline: 1rem; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .m-kanban::-webkit-scrollbar { display: none; }
+  .m-kanban > * { scroll-snap-align: start; flex: 0 0 82vw !important; width: 82vw !important; min-width: 0 !important; max-width: none !important; }
+}
+
+/* ---- v3.4 Phones: a row of filters becomes a tidy 2-column grid (search and pill groups take a full row) ---- */
+@media (max-width: 640px) {
+  .m-filters { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px !important; align-items: center; }
+  .m-filters > * { width: 100% !important; min-width: 0 !important; max-width: none !important; margin: 0 !important; }
+  .m-filters > .relative:first-child, .m-filters > div.flex, .m-filters > [data-full] { grid-column: 1 / -1; }
+  .m-filters > div.flex { overflow-x: auto; scrollbar-width: none; }
+  .m-filters > div.flex > * { flex-shrink: 0; }
+  .m-filters > span.text-gray-400 { display: none; }
+  .m-filters input { width: 100% !important; }
+  .m-filters button[role="combobox"] { width: 100% !important; }
+}
+
+/* ---- v3.4 touch phones open the native date picker on a tap anywhere in the field; the small calendar icon only cost width ---- */
+@media (max-width: 640px) and (pointer: coarse) {
+  input:is([type="date"], [type="month"], [type="datetime-local"])::-webkit-calendar-picker-indicator { display: none; }
 }

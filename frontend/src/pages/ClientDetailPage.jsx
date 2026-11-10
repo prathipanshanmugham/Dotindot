@@ -203,7 +203,7 @@ export default function ClientDetailPage() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
             <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold">{(client.projects || []).length}</div><div className="text-xs text-gray-500">Projects</div></CardContent></Card>
             <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono">{formatINR(totalBudget)}</div><div className="text-xs text-gray-500">Revenue billed (project budgets)</div></CardContent></Card>
             <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold">{(client.contracts || []).length}</div><div className="text-xs text-gray-500">Contracts</div></CardContent></Card>

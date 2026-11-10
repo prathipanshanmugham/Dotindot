@@ -73,7 +73,7 @@ export default function MarketingPage() {
         </div>
       }
     >
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono text-red-500" data-testid="mkt-total-spend">{formatINR(data.total_spend)}</div><div className="text-xs text-gray-500">Total campaign spend</div></CardContent></Card>
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono text-emerald-600" data-testid="mkt-total-revenue">{formatINR(data.total_attributed_revenue)}</div><div className="text-xs text-gray-500">Attributed revenue</div></CardContent></Card>
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono" data-testid="mkt-overall-roi">{data.overall_roi}x</div><div className="text-xs text-gray-500">Overall ROI</div></CardContent></Card>

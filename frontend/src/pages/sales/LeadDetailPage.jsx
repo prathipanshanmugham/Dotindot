@@ -179,8 +179,12 @@ export default function LeadDetailPage() {
                       {["call", "email", "meeting", "note"].map((k) => <SelectItem key={k} value={k}>{labelize(k)}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Input type="date" className="sm:w-[150px]" title="Activity date" value={activity.date} onChange={(e) => setActivity((p) => ({ ...p, date: e.target.value }))} data-testid="activity-date-input" />
-                  <Input type="date" className="sm:w-[150px]" title="Set follow-up date" value={activity.follow_up_date} onChange={(e) => setActivity((p) => ({ ...p, follow_up_date: e.target.value }))} data-testid="activity-followup-input" />
+                  <label className="contents sm:block"><span className="sm:hidden block text-[11px] font-medium text-gray-500 -mb-1.5 col-start-1 row-start-2">Date</span>
+                  <Input type="date" className="sm:w-[150px] max-sm:row-start-3 max-sm:col-start-1" title="Activity date" value={activity.date} onChange={(e) => setActivity((p) => ({ ...p, date: e.target.value }))} data-testid="activity-date-input" />
+                  </label>
+                  <label className="contents sm:block"><span className="sm:hidden block text-[11px] font-medium text-gray-500 -mb-1.5 col-start-2 row-start-2">Follow-up on</span>
+                  <Input type="date" className="sm:w-[150px] max-sm:row-start-3 max-sm:col-start-2" title="Set follow-up date" value={activity.follow_up_date} onChange={(e) => setActivity((p) => ({ ...p, follow_up_date: e.target.value }))} data-testid="activity-followup-input" />
+                  </label>
                 </div>
                 <Textarea rows={2} placeholder="What happened? (call summary, email sent, meeting notes...)" value={activity.text} onChange={(e) => setActivity((p) => ({ ...p, text: e.target.value }))} data-testid="activity-text-input" />
                 <Button size="sm" onClick={addActivity} data-testid="add-activity-btn" className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold">

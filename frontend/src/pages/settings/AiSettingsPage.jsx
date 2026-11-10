@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Bot, Copy, KeyRound, Lock, Plug, Plus, ShieldCheck, Sparkles, Ban, CheckCircle2, XCircle, ScrollText, Database } from "lucide-react";
+import { CardTable } from "@/components/ui/table";
 
 const LEVEL_LABEL = { none: "Off", read: "Read", write: "Read + write" };
 const LEVEL_TONE = { none: "gray", read: "blue", write: "orange" };
@@ -329,7 +330,7 @@ function AccessLog({ s }) {
       </CardHeader>
       <CardContent className="pt-0 overflow-x-auto">
         {!rows ? <Spinner className="h-32" /> : rows.length === 0 ? <Empty icon={ScrollText} title="No AI requests yet" sub="Calls made with an agent token show up here." /> : (
-          <table className="w-full text-sm" data-testid="ai-log">
+          <CardTable><table className="w-full text-sm" data-testid="ai-log">
             <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100"><th className="text-left py-2 pr-3">When</th><th className="text-left py-2 pr-3">Token</th><th className="text-left py-2 pr-3">Via</th><th className="text-left py-2 pr-3">What</th><th className="text-left py-2 pr-3">Module</th><th className="text-right py-2">Records</th></tr></thead>
             <tbody>{rows.map((r) => (
               <tr key={r.id} className="border-b border-gray-50 last:border-0 align-top">
@@ -340,7 +341,7 @@ function AccessLog({ s }) {
                 <td className="py-2 pr-3 text-gray-600">{r.module || "—"}</td>
                 <td className="py-2 text-right font-mono">{r.ok ? r.count : <XCircle className="h-4 w-4 text-red-500 inline" />}</td>
               </tr>))}</tbody>
-          </table>
+          </table></CardTable>
         )}
       </CardContent>
     </Card>

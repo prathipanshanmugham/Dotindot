@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Landmark, HandCoins, CalendarClock, AlertTriangle, Plus, Pencil, Percent, Calculator } from "lucide-react";
+import { CardTable } from "@/components/ui/table";
 
 const num = (v) => (v === "" || v == null ? 0 : Number(v));
 const BLANK = { name: "", direction: "borrowed", kind: "term_loan", counterparty: "", employee_id: "", principal: "", rate_annual: "", method: "reducing", tenure_months: "12",
@@ -193,7 +194,7 @@ export default function LoansPage() {
           <div className="flex items-center gap-2"><PillTabs tabs={[["all", "All"], ["borrowed", "Borrowed"], ["lent", "Lent"], ["closed", "Closed"]]} value={dir} onChange={setDir} testid="loans-filter" /><span className="ml-auto">{del.dialog}</span></div>
           <Card className="border-gray-200/80 shadow-sm"><CardContent className="p-0 overflow-x-auto">
             {rows.length === 0 ? <Empty icon={Landmark} title="No loans here" sub="Add bank loans, vehicle loans, OD limits, and advances you've given to employees or partners." /> : (
-              <table className="w-full text-sm" data-testid="loans-table">
+              <CardTable><table className="w-full text-sm" data-testid="loans-table">
                 <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 bg-gray-50/60"><th className="w-14" />
                   <th className="text-left font-semibold py-2.5 px-2">Loan</th><th className="text-right font-semibold py-2.5 px-2">Principal</th><th className="text-right font-semibold py-2.5 px-2">Rate</th>
                   <th className="text-right font-semibold py-2.5 px-2">EMI</th><th className="text-right font-semibold py-2.5 px-2">Outstanding</th><th className="text-left font-semibold py-2.5 px-2">Next</th><th className="text-left font-semibold py-2.5 px-4">Repaid</th></tr></thead>
@@ -207,7 +208,7 @@ export default function LoansPage() {
                     <td className="py-2.5 px-2 text-xs whitespace-nowrap">{l.overdue_amount > 0.5 ? <span className="text-red-600 font-semibold">{inr(l.overdue_amount)} overdue</span> : l.next_due ? fmtDate(l.next_due.date, { day: "numeric", month: "short" }) : "—"}</td>
                     <td className="py-2.5 px-4"><div className="flex items-center gap-2"><div className="h-1.5 w-20 rounded-full bg-gray-100 overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${l.progress}%` }} /></div><span className="text-xs font-mono text-gray-500">{Math.round(l.progress)}%</span></div></td>
                   </tr>))}</tbody>
-              </table>
+              </table></CardTable>
             )}
           </CardContent></Card>
           <p className="text-xs text-gray-400 flex items-center gap-1"><Calculator className="h-3.5 w-3.5" /> Interest and principal are worked out from the schedule; edit the split when recording if your bank statement differs.</p>

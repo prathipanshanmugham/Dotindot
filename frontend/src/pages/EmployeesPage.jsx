@@ -99,18 +99,18 @@ export default function EmployeesPage() {
       </div>
 
       {del.canDelete && people.length > 0 && <div className="flex justify-end">{del.dialog}<BulkDeleteBar kit={del} /></div>}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
         {people.map((p) => (
           <Link key={p.id} to={`/employees/${p.id}`} data-testid={`employee-card-${p.id}`}>
             <Card className={`border-gray-200/80 shadow-sm hover:border-orange-300 hover:shadow-md transition-all h-full ${p.is_active === false ? "opacity-60" : ""}`}>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white font-bold flex items-center justify-center text-sm">
+              <CardContent className="p-5 max-sm:p-3.5 max-sm:grid max-sm:grid-cols-[auto_minmax(0,1fr)_auto] max-sm:gap-x-3">
+                <div className="flex items-start justify-between max-sm:contents">
+                  <div className="h-12 w-12 max-sm:h-10 max-sm:w-10 max-sm:row-span-3 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white font-bold flex items-center justify-center text-sm">
                     {initials(p.name)}
                   </div>
-                  <div className="flex items-center gap-1"><RoleBadge role={p.role} /><RowDeleteControls kit={del} row={p} /></div>
+                  <div className="flex items-center gap-1 max-sm:col-start-3 max-sm:row-start-1 max-sm:self-start"><RoleBadge role={p.role} /><RowDeleteControls kit={del} row={p} /></div>
                 </div>
-                <div className="mt-3">
+                <div className="mt-3 max-sm:mt-0 max-sm:col-start-2 max-sm:row-start-1 max-sm:min-w-0">
                   <div className="font-semibold text-gray-900 flex items-center gap-2">
                     {p.name}
                     {p.is_active === false && <Badge variant="outline" className="text-[9px] bg-gray-100 text-gray-500">Inactive</Badge>}
@@ -118,18 +118,18 @@ export default function EmployeesPage() {
                   <div className="text-xs text-gray-500">{p.designation || "—"}</div>
                 </div>
                 {p.city && (
-                  <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
+                  <div className="mt-2 max-sm:mt-1 max-sm:col-start-2 max-sm:col-span-2 flex items-center gap-1 text-xs text-gray-400">
                     <MapPin className="h-3 w-3" /> {p.city}
                   </div>
                 )}
                 {p.skills?.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1">
+                  <div className="mt-3 max-sm:mt-1.5 max-sm:col-start-2 max-sm:col-span-2 flex flex-wrap gap-1">
                     {p.skills.slice(0, 3).map((s) => (
                       <span key={s} className="text-[10px] font-medium bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">{s}</span>
                     ))}
                   </div>
                 )}
-                <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#F26B21]">
+                <div className="mt-4 max-sm:hidden flex items-center gap-1 text-xs font-semibold text-[#F26B21]">
                   View profile <ArrowRight className="h-3 w-3" />
                 </div>
               </CardContent>

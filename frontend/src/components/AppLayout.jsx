@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
@@ -83,7 +83,7 @@ const NAV = [
   },
 ];
 
-const GlobalSearch = () => {
+const GlobalSearch = ({ autoFocus = false }) => {
   const [q, setQ] = useState("");
   const [results, setResults] = useState(null);
   const [open, setOpen] = useState(false);
@@ -129,6 +129,8 @@ const GlobalSearch = () => {
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
       <Input
         data-testid="global-search-input"
+        autoFocus={autoFocus}
+        enterKeyHint="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onFocus={() => q.trim() && results && setOpen(true)}
@@ -181,13 +183,19 @@ const GlobalSearch = () => {
 
 const SidebarInner = ({ user, hasPerm, onNavigate }) => {
   const initials = (user?.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const navRef = useRef(null);
+  // phones: the menu opens with the current page in view, not at the top of a long list
+  useLayoutEffect(() => {
+    const nav = navRef.current, a = nav && nav.querySelector('[aria-current="page"]');
+    if (onNavigate && a && a.offsetTop + a.offsetHeight > nav.clientHeight - 24) nav.scrollTop = a.offsetTop - nav.clientHeight / 2 + a.offsetHeight / 2;
+  }, [onNavigate]);
   return (
     <>
-      <div className="h-16 flex items-center px-5 border-b border-gray-100 shrink-0">
+      <div className={`flex items-center px-5 border-b border-gray-100 shrink-0 ${onNavigate ? "h-[calc(4rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)]" : "h-16"}`}>
         <NavLink to="/dashboard" onClick={onNavigate} aria-label="dotindot home" className="flex items-center"><DotindotWordmark height={24} /></NavLink>
         <Badge variant="outline" className="ml-2.5 text-[9px] px-1.5 border-gray-200 text-gray-400">Ops</Badge>
       </div>
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+      <nav ref={navRef} className="relative flex-1 overflow-y-auto overscroll-contain py-4 px-3 space-y-5">
         {NAV.map((section) => {
           const visible = section.items.filter(
             (i) => (!i.perm || hasPerm(...i.perm)) && (!i.when || i.when(user, hasPerm))
@@ -206,7 +214,7 @@ const SidebarInner = ({ user, hasPerm, onNavigate }) => {
                   onClick={onNavigate}
                   data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium mb-0.5 transition-colors ${
+                    `flex items-center gap-3 px-3 py-2 ${onNavigate ? "max-lg:py-2.5" : ""} rounded-lg text-sm font-medium mb-0.5 transition-colors ${
                       isActive
                         ? "bg-[#FFF7ED] text-[#F26B21]"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -221,7 +229,7 @@ const SidebarInner = ({ user, hasPerm, onNavigate }) => {
           );
         })}
       </nav>
-      <div className="p-3 border-t border-gray-100 shrink-0">
+      <div className={`p-3 border-t border-gray-100 shrink-0 ${onNavigate ? "pb-[max(0.75rem,env(safe-area-inset-bottom))]" : ""}`}>
         <div className="flex items-center gap-2.5 px-2 py-1.5">
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-xs font-bold flex items-center justify-center">
             {initials}
@@ -236,6 +244,36 @@ const SidebarInner = ({ user, hasPerm, onNavigate }) => {
   );
 };
 
+/** Phones: the four places this person uses most, plus the full menu, within reach of a thumb. */
+const BOTTOM_PICK = ["/dashboard", "/projects", "/sales", "/clients", "/daily", "/support", "/my-hr", "/finance"];
+const BottomNav = ({ user, hasPerm, menuOpen, onMenu }) => {
+  const location = useLocation();
+  const all = NAV.flatMap((s) => s.items).filter((i) => (!i.perm || hasPerm(...i.perm)) && (!i.when || i.when(user, hasPerm)));
+  const items = BOTTOM_PICK.map((p) => all.find((i) => i.path === p)).filter(Boolean).slice(0, 4);
+  const short = { "Daily Reporting": "Daily", "My HR & Payslips": "My HR" };
+  const onOne = items.some((i) => location.pathname === i.path || location.pathname.startsWith(i.path + "/"));
+  return (
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]" data-testid="bottom-nav" aria-label="Main">
+      <div className="flex h-[3.75rem]">
+        {items.map((item) => (
+          <NavLink key={item.path} to={item.path} data-testid={`bottom-nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+            className={({ isActive }) => `flex-1 min-w-0 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${isActive ? "text-[#F26B21]" : "text-gray-500 active:text-gray-800"}`}>
+            {({ isActive }) => (<>
+              <span className={`flex items-center justify-center h-7 w-12 rounded-full transition-colors ${isActive ? "bg-[#FFF1E6]" : ""}`}><item.icon className="h-[19px] w-[19px]" /></span>
+              <span className="truncate max-w-full px-1 leading-none">{short[item.name] || item.name}</span>
+            </>)}
+          </NavLink>
+        ))}
+        <button type="button" onClick={onMenu} aria-label="All sections" data-testid="bottom-nav-menu"
+          className={`!min-h-0 flex-1 min-w-0 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${menuOpen || !onOne ? "text-[#F26B21]" : "text-gray-500 active:text-gray-800"}`}>
+          <span className={`flex items-center justify-center h-7 w-12 rounded-full transition-colors ${menuOpen || !onOne ? "bg-[#FFF1E6]" : ""}`}><Menu className="h-[19px] w-[19px]" /></span>
+          <span className="leading-none">More</span>
+        </button>
+      </div>
+    </nav>
+  );
+};
+
 export default function AppLayout({ children }) {
   const { user, hasPerm, logout } = useAuth();
   const navigate = useNavigate();
@@ -245,6 +283,7 @@ export default function AppLayout({ children }) {
 
   useEffect(() => {
     setMobileOpen(false);
+    setMobileSearch(false);
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -268,14 +307,14 @@ export default function AppLayout({ children }) {
 
       {/* Mobile slide-over sidebar */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-72 p-0 flex flex-col" data-testid="mobile-sidebar">
+        <SheetContent side="left" className="w-72 max-w-[85vw] p-0 flex flex-col" data-testid="mobile-sidebar" onOpenAutoFocus={(e) => e.preventDefault()}>
           <SidebarInner user={user} hasPerm={hasPerm} onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
 
       {/* Main */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0">
-        <header className="h-16 sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 flex items-center gap-2 sm:gap-6 px-3 sm:px-6">
+        <header className="h-[calc(4rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 flex items-center gap-2 sm:gap-6 px-3 sm:px-6">
           <button
             onClick={() => setMobileOpen(true)}
             className="lg:hidden !min-h-0 h-11 w-11 -ml-1 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-50 transition-colors shrink-0"
@@ -325,14 +364,15 @@ export default function AppLayout({ children }) {
           </div>
         </header>
         {mobileSearch && (
-          <div className="sm:hidden sticky top-16 z-30 bg-white border-b border-gray-200 px-3 py-2.5" data-testid="mobile-search-bar">
-            <GlobalSearch />
+          <div className="sm:hidden sticky top-[calc(4rem+env(safe-area-inset-top))] z-30 bg-white border-b border-gray-200 px-3 py-2.5" data-testid="mobile-search-bar">
+            <GlobalSearch autoFocus />
           </div>
         )}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-fadein min-w-0" key={location.pathname}>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-md:pb-[calc(5.5rem+env(safe-area-inset-bottom))] animate-fadein min-w-0" key={location.pathname}>
           {children}
         </main>
       </div>
+      <BottomNav user={user} hasPerm={hasPerm} menuOpen={mobileOpen} onMenu={() => setMobileOpen(true)} />
     </div>
   );
 }

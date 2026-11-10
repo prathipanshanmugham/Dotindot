@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, MapPin } from "lucide-react";
 import { BranchFilter } from "@/components/BranchFilter";
+import { FilterBar } from "@/components/kit";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 
 const FILTERS = [
@@ -93,8 +94,8 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Chart-first header */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Chart-first header (phones: swipe between the two charts) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 m-swipe">
         <Card className="border-gray-200/80 shadow-sm">
           <CardHeader className="pb-0"><CardTitle className="text-sm font-semibold text-gray-700">Clients by status</CardTitle></CardHeader>
           <CardContent className="h-52" data-testid="clients-status-donut">
@@ -126,25 +127,25 @@ export default function ClientsPage() {
 
       {/* Filters */}
       <Card className="border-gray-200/80 shadow-sm">
-        <CardContent className="p-4 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input data-testid="client-search-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or company..." className="pl-9" />
-          </div>
-          {FILTERS.map((f) => (
-            <Select key={f.key} value={filters[f.key] || "all"} onValueChange={(v) => setFilters((p) => ({ ...p, [f.key]: v }))}>
-              <SelectTrigger className="w-[140px]" data-testid={`filter-${f.key}`}>
-                <SelectValue placeholder={f.label} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All {f.label}</SelectItem>
-                {f.options.map((o) => (
-                  <SelectItem key={o} value={o}>{labelize(o)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ))}
-          <BranchFilter value={filters.branch} onChange={(v) => setFilters((p) => ({ ...p, branch: v }))} testid="filter-branch" />
+        <CardContent className="p-3 sm:p-4">
+          <FilterBar active={Object.values(filters).filter((v) => v && v !== "all").length}
+            search={<><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input data-testid="client-search-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or company..." className="pl-9" /></>}>
+            {FILTERS.map((f) => (
+              <Select key={f.key} value={filters[f.key] || "all"} onValueChange={(v) => setFilters((p) => ({ ...p, [f.key]: v }))}>
+                <SelectTrigger className="w-[140px]" data-testid={`filter-${f.key}`}>
+                  <SelectValue placeholder={f.label} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All {f.label}</SelectItem>
+                  {f.options.map((o) => (
+                    <SelectItem key={o} value={o}>{labelize(o)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ))}
+            <BranchFilter value={filters.branch} onChange={(v) => setFilters((p) => ({ ...p, branch: v }))} testid="filter-branch" />
+          </FilterBar>
         </CardContent>
       </Card>
 

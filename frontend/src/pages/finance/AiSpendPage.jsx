@@ -23,7 +23,7 @@ export default function AiSpendPage() {
   return (
     <FinanceLayout title="AI Spend" subtitle="Dedicated sub-ledger for AI tooling — API usage, subscriptions and client-attributable costs."
       actions={<ExportMenu dataset="ai-spend" />}>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono" data-testid="ai-total-spend">{formatINR(data.total_tx_spend)}</div><div className="text-xs text-gray-500">AI usage spend (ledger, 6 mo)</div></CardContent></Card>
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono" data-testid="ai-subs-burn">{formatINR(data.subscriptions_monthly_burn)}</div><div className="text-xs text-gray-500">AI subscriptions / month</div></CardContent></Card>
         <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono">{data.by_tool.length}</div><div className="text-xs text-gray-500">AI tools in use</div></CardContent></Card>

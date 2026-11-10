@@ -1,3 +1,4 @@
+import { CardTable } from "@/components/ui/table";
 // v3.1 Digital Growth — follower growth, views and engagement for every client and for dotindot's own accounts.
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -289,7 +290,7 @@ function Leaderboard({ board, onOpen }) {
         <Kpi icon={Eye} tone="violet" label="Client views" value={fmtCompact(sum("views"))} />
       </div>
       <Card className="border-gray-200/80 shadow-sm"><CardContent className="p-0 overflow-x-auto">
-        <table className="w-full text-sm min-w-[720px]" data-testid="growth-board-table">
+        <CardTable><table className="w-full text-sm min-w-[720px]" data-testid="growth-board-table">
           <thead><tr className="text-xs text-gray-500 border-b border-gray-100 bg-gray-50/60">
             <th className="text-left font-semibold py-2.5 px-4">Client</th><th className="text-right font-semibold py-2.5 px-3">Audience</th>
             <th className="text-right font-semibold py-2.5 px-3">New followers</th><th className="text-right font-semibold py-2.5 px-3">Views</th>
@@ -305,7 +306,7 @@ function Leaderboard({ board, onOpen }) {
               <td className="py-2.5 px-3 text-right">{r.missing_last_month ? <Pill tone="amber">{r.missing_last_month} missing</Pill> : null}</td>
             </tr>
           ))}</tbody>
-        </table>
+        </table></CardTable>
       </CardContent></Card>
       <p className="text-xs text-gray-400">Audience = followers and subscribers across social accounts at the end of each month. Growth compares the end of the period with the month before it starts.</p>
     </div>

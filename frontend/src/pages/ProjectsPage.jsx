@@ -100,7 +100,7 @@ export default function ProjectsPage() {
 
       {/* Filters */}
       <Card className="border-gray-200/80 shadow-sm">
-        <CardContent className="p-4 flex flex-wrap items-center gap-3">
+        <CardContent className="p-3 sm:p-4 flex flex-wrap items-center gap-3 m-filters">
           <Select value={filters.status} onValueChange={(v) => setFilters((p) => ({ ...p, status: v }))}>
             <SelectTrigger className="w-[160px]" data-testid="filter-project-status"><SelectValue /></SelectTrigger>
             <SelectContent>

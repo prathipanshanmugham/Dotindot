@@ -1,3 +1,4 @@
+import { CardTable } from "@/components/ui/table";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -283,7 +284,7 @@ export function HRPeoplePage() {
       </div>
       <Card className="border-gray-200/80 shadow-sm"><CardContent className="p-0 overflow-x-auto">
         {!rows || !meta ? <Spinner className="h-40" /> : (
-          <table className="w-full text-sm" data-testid="hr-people-table">
+          <CardTable><table className="w-full text-sm" data-testid="hr-people-table">
             <thead><tr className="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100 bg-gray-50/60">
               <th className="text-left font-semibold py-2.5 px-4">Employee</th><th className="text-left font-semibold py-2.5 px-2">Code</th><th className="text-left font-semibold py-2.5 px-2">Department</th>
               <th className="text-left font-semibold py-2.5 px-2">Location</th><th className="text-left font-semibold py-2.5 px-2">Type</th><th className="text-left font-semibold py-2.5 px-2">Joined</th>
@@ -299,7 +300,7 @@ export function HRPeoplePage() {
                 <td className="py-2.5 px-2"><Pill tone={STATUS_TONE[r.status]}>{meta.statuses.find((s) => s.value === r.status)?.label}</Pill></td>
                 <td className="py-2.5 px-4"><div className="flex items-center gap-2"><div className="h-1.5 w-16 rounded-full bg-gray-100 overflow-hidden"><div className={`h-full ${r.completeness >= 80 ? "bg-emerald-500" : r.completeness >= 50 ? "bg-amber-400" : "bg-red-400"}`} style={{ width: `${r.completeness}%` }} /></div><span className="text-xs text-gray-500 font-mono">{r.completeness}%</span></div></td>
               </tr>))}</tbody>
-          </table>
+          </table></CardTable>
         )}
       </CardContent></Card>
       {meta && <PersonSheet id={openId} meta={meta} onClose={() => setOpen(null)} onSaved={reload} />}

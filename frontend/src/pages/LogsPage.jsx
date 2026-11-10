@@ -16,6 +16,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ScrollText, Trash2, ShieldCheck, Clock, CalendarClock, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
+import { CardTable } from "@/components/ui/table";
 
 const actionStyle = (action) => {
   if (action === "login") return "bg-blue-50 text-blue-700 border-blue-200";
@@ -167,7 +168,7 @@ export default function LogsPage() {
       </Card>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-wrap gap-3 items-center m-filters">
         <Select value={filters.user_id} onValueChange={(v) => setFilter("user_id", v)}>
           <SelectTrigger className="w-48 bg-white" data-testid="logs-user-filter"><SelectValue placeholder="User" /></SelectTrigger>
           <SelectContent>
@@ -195,7 +196,7 @@ export default function LogsPage() {
       {/* Table */}
       <Card className="border-gray-200/80 shadow-sm overflow-hidden">
         <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm min-w-[640px]">
+          <CardTable><table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60 text-left text-[11px] uppercase tracking-widest text-gray-400">
                 {del.canDelete && <th className="pl-4 pr-1 py-3 w-24 normal-case tracking-normal">{del.dialog}<BulkDeleteBar kit={del} /></th>}
@@ -234,7 +235,7 @@ export default function LogsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></CardTable>
         </CardContent>
       </Card>
 
