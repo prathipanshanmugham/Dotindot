@@ -363,6 +363,41 @@ html.js .reel.on .reel-stage{position:sticky;top:0;height:100vh;height:100svh;ov
 }
 .mnav.open~.dot-fab,.mnav.open~.dot-hint{display:none}
 
+/* ---------- AI automation: the list and the example conversation ---------- */
+.ai-grid{display:grid;gap:48px;align-items:center}
+@media (min-width:960px){.ai-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:72px}}
+.ai-copy .lead{margin-top:20px}
+.ai-list{display:grid;margin:28px 0 32px;border-top:1px solid var(--line)}
+.ai-list li{position:relative;display:grid;gap:4px;padding:16px 0 16px 28px;border-bottom:1px solid var(--line)}
+.ai-list li::before{content:"";position:absolute;left:2px;top:23px;width:10px;height:10px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 4px var(--orange-soft)}
+.ai-list b{font-weight:650;letter-spacing:-.01em}.ai-list span{color:var(--slate);font-size:.9375rem;line-height:1.5}
+.ai-demo{margin:0;display:grid;justify-items:center;gap:16px}
+.phone{width:min(100%,340px);border-radius:32px;background:#fff;box-shadow:0 40px 80px -40px rgba(14,27,51,.45),0 0 0 1px var(--line);overflow:hidden}
+.ph-top{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.ph-av{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--ink);color:#fff;font-size:.75rem;font-weight:700;flex:none}
+.ph-top b{display:block;font-size:.9375rem}.ph-top small{color:#15803d;font-size:.75rem;font-weight:600}
+.ph-chat{display:flex;flex-direction:column;justify-content:flex-end;gap:8px;height:440px;padding:16px 14px;background:var(--mist);overflow:hidden}
+.ph-chat .b{max-width:84%;padding:9px 12px;border-radius:16px;font-size:.875rem;line-height:1.45}
+.ph-chat .b.in{align-self:flex-end;background:var(--ink);color:#fff;border-bottom-right-radius:4px}
+.ph-chat .b.out{align-self:flex-start;background:#fff;border-bottom-left-radius:4px;box-shadow:0 1px 0 var(--line)}
+.ph-crm{display:grid;gap:2px;padding:10px 12px;border:1px solid #bbf7d0;border-radius:12px;background:#effaf3;color:#14532d;font-size:.8125rem;line-height:1.4}
+.ph-crm b{font-size:.875rem}
+.ph-typing{align-self:flex-start;display:flex;gap:4px;padding:12px;border-radius:16px;background:#fff}
+.ph-typing i{width:6px;height:6px;border-radius:50%;background:var(--slate);animation:blink2 1.2s infinite ease-in-out}.ph-typing i:nth-child(2){animation-delay:.15s;background:var(--brand)}.ph-typing i:nth-child(3){animation-delay:.3s}
+.ai-demo figcaption{max-width:340px;color:var(--slate);font-size:.875rem;line-height:1.5;text-align:center}
+.ph-replay{margin-left:4px;padding:6px 2px;border:0;background:none;font:inherit;font-weight:600;color:var(--ink);text-decoration:underline;text-decoration-color:var(--brand);text-underline-offset:3px;cursor:pointer}
+html.js .ai-demo.armed .wait{display:none}
+.ai-demo .show{animation:msg .45s cubic-bezier(.34,1.56,.64,1) both}
+.uc-grid{display:grid;border-top:1px solid var(--line)}
+.uc{padding:28px 0 32px;border-bottom:1px solid var(--line)}
+.uc h3{font-size:1.25rem;font-weight:700;letter-spacing:-.02em;margin-bottom:14px}
+@media (min-width:760px){.uc-grid{grid-template-columns:repeat(2,1fr);border-left:1px solid var(--line)}.uc{padding:32px;border-right:1px solid var(--line)}}
+@media (min-width:1100px){.uc-grid{grid-template-columns:repeat(4,1fr)}}
+.safe{display:grid;gap:24px;margin-top:32px}.safe div{display:grid;gap:6px}.safe b{font-weight:650}.safe span{color:var(--slate);line-height:1.55}
+@media (min-width:760px){.safe{grid-template-columns:1fr 1fr}}
+.int{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.int li{padding:8px 14px;border:1px solid var(--line-2);border-radius:999px;background:#fff;font-size:.875rem;font-weight:550}
+
 /* ---------- clients ---------- */
 .logos{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}
 .logos li{display:flex;flex-direction:column;justify-content:center;gap:6px;min-height:132px;padding:24px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}
@@ -596,6 +631,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
 .ftr-brand .contact{display:grid;gap:6px;font-weight:600;color:var(--ink)}
 .ftr-brand .contact a:hover{color:var(--orange-ink)}
 .ftr-offices{margin-top:14px;color:var(--slate);font-size:.9375rem}.ftr-offices a{font-weight:600;color:var(--ink)}
+.ftr .social{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.ftr .social a{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line-2);border-radius:50%;background:#fff;color:var(--ink);transition:background .25s,border-color .25s,color .25s,transform .3s cubic-bezier(.34,1.56,.64,1)}
+.ftr .social a:hover,.ftr .social a:focus-visible{background:var(--brand);border-color:var(--brand);color:var(--ink);transform:translateY(-3px)}
+.ftr .social svg{width:18px;height:18px}
 .ftr h3{font-size:.9375rem;font-weight:650;color:var(--ink);margin-bottom:16px}
 .ftr ul{display:grid;gap:10px}
 .ftr ul a{font-size:.9375rem;color:var(--slate);transition:color .2s}.ftr ul a:hover{color:var(--ink)}
@@ -606,6 +645,14 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
 .logins{display:flex;flex-wrap:wrap;gap:10px}
 .logins a{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border:1px solid var(--line-2);border-radius:var(--r);background:#fff;font-weight:600;color:var(--ink-2);transition:border-color .2s}
 .logins a:hover{border-color:var(--ink)}.logins svg{width:16px;height:16px}
+@media (max-width:899px){
+  .ftr{text-align:center}
+  .ftr-brand img{margin:0 auto}.ftr-brand p{margin-inline:auto}
+  .ftr-brand .contact{justify-items:center}.ftr .social{justify-content:center}
+  .ftr ul{justify-items:center}
+  .ftr-bot{flex-direction:column;justify-content:center;text-align:center;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .ftr-bot nav,.logins{justify-content:center}
+}
 .wordmark{padding:clamp(24px,4vw,48px) 0 0;overflow:hidden}
 .wordmark svg{width:100%;height:auto;opacity:.95}
 

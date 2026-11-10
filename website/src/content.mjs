@@ -82,8 +82,19 @@ export const services = [
     deliverables: ["WhatsApp, web chat and email agents trained only on what you approve", "Instant lead routing, scoring and follow-up sequences", "Review requests and reputation workflows", "Automated reporting and live dashboards", "Custom internal tools and AI integrations"],
     fit: ["You get more enquiries than people to answer them", "Leads arrive on WhatsApp, forms, calls and DMs, and some vanish", "Your team copies data between tools by hand", "Your Monday starts with building last week's report"],
     steps: [["Week 1", "Map the workflow and the hand-offs"], ["Week 2", "Build and train on your approved answers"], ["Week 3", "Test with real conversations, human in the loop"], ["Every month", "Review transcripts, improve answers, add the next workflow"]],
-    faq: [["Will the AI say something wrong to my customers?", "It answers only from information you've approved and hands anything else to a person. You can read every conversation."],
-      ["Which tools do you connect?", "WhatsApp Business API, Meta and Google lead forms, Google Workspace, Shopify, Stripe, Razorpay, popular CRMs and custom systems."]],
+    faq: [["Will the AI say something wrong to my customers?", "It answers only from information you've approved and hands anything else to a person. You can read every conversation, and we review them with you every month."],
+      ["Which tools do you connect?", "WhatsApp Business (Meta's official API), Instagram and Facebook messages, website chat, Gmail and Google Workspace, Google Sheets, Odoo and other popular CRMs, Shopify, Razorpay, Stripe, Calendly and custom systems. Workflows run on n8n, so nothing is locked in."],
+      ["Which AI models do you use?", "Claude, GPT or Gemini, chosen per task, always through business accounts rather than consumer apps. For voice and Indian languages, including Tamil, we use models built for them."],
+      ["What does it cost to run?", "A fixed quotation for the build, then a monthly fee that covers hosting, AI usage, monitoring and improvements. No per-seat licences."],
+      ["Who owns the automations?", "You do. They run in your accounts, with your data, and we document every workflow so another team could take it over."],
+      ["Can we see one working?", "Yes, you're looking at one: Dot, the assistant in the corner of this site, answers questions and hands leads to our team the same way. Ask it anything."]],
+    usecases: [["Sales", ["Answer and qualify every enquiry in seconds", "Book calls and site visits straight into the calendar", "Follow up until the lead replies, then hand over"]],
+      ["Marketing", ["Weekly performance summaries written from your ads, CRM and analytics", "Content drafts, repurposing and approvals with people editing", "Audiences and conversions synced back to Meta and Google"]],
+      ["Customer service", ["WhatsApp and chat agents for FAQs, order status and bookings", "Review requests sent at the right moment", "Every conversation logged, searchable and handed over when needed"]],
+      ["Operations", ["Invoices, POs and forms read and entered automatically", "Approvals and reminders that don't need chasing", "An internal assistant that answers from your SOPs and price lists"]]],
+    integrations: ["WhatsApp Business", "Instagram & Facebook DMs", "Website chat", "Gmail & Google Workspace", "Google Sheets", "Odoo", "Popular CRMs", "Shopify", "Razorpay", "Stripe", "Calendly", "Slack", "n8n", "Claude", "ChatGPT", "Gemini", "Indian-language voice"],
+    safety: [["Approved answers only", "The agent answers from the knowledge you sign off, and says so when it doesn't know."], ["A person one tap away", "Hot leads, complaints and anything unusual go to your team instantly, with the conversation attached."],
+      ["Everything logged", "Every message, decision and hand-off is recorded and reviewed with you every month."], ["Your accounts, your data", "Workflows run in your WhatsApp, CRM and Google accounts, with consent and opt-outs built in."]],
     icon: "ai",
   },
 ];
@@ -254,6 +265,16 @@ export const markets = [
 ];
 
 // ---------- marketing health check ----------
+// AI automation on the home page: what it does for a business, in plain words
+export const automations = [
+  ["Every enquiry answered in seconds", "WhatsApp, Instagram, website chat and email, around the clock, in your customers' language."],
+  ["Leads qualified and routed", "The right questions asked, the lead scored, and hot ones sent straight to the right person."],
+  ["Follow-up that never forgets", "Reminders, quotes and nudges until the lead replies, then a human takes over."],
+  ["Meetings booked for you", "Calls, demos and site visits go straight into your team's calendar."],
+  ["Reports that write themselves", "A weekly summary of ads, leads and sales, in plain English, every Monday morning."],
+  ["Busywork off your team's plate", "Invoices, forms and data entry handled, so people spend time on customers."],
+];
+
 export const quiz = [
   { q: "How fast does your website load on a phone?", a: [["Under 2 seconds", 3], ["2–5 seconds", 1], ["Over 5 seconds", 0]], fix: "Speed up your website — every second costs enquiries." },
   { q: "Ask ChatGPT for the best in your field. Are you named?", a: [["Yes", 3], ["Not sure", 1], ["No", 0]], fix: "Get cited by AI assistants (AI search optimisation)." },

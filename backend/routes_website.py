@@ -229,27 +229,55 @@ def _config() -> dict:
 DEFAULT_CHAT = {"enabled": True, "name": "Dot", "greeting": "", "instructions": "", "provider": "", "model": "", "daily_limit": 400}
 
 
-async def _seed_articles(now: str):
-    """The site's articles (website/src/insights.json) become editable rows the first time the editor opens."""
+LEGACY_SEEDED = {"answer-every-lead-in-60-seconds", "creative-testing-system", "geo-vs-seo", "get-cited-by-ai-assistants",
+                 "website-speed-is-a-sales-problem", "what-should-a-lead-cost"}  # the articles v3.3 shipped with
+
+
+async def _seed_articles(now: str, doc: Optional[dict] = None) -> int:
+    """The site's built-in articles (website/src/insights.json) become editable rows. New built-in articles are added
+    once, when they first ship; an article you delete or rename stays that way. Returns how many were added."""
     try:
         rows = json.loads((WEBSITE / "src" / "insights.json").read_text())
     except Exception:
         rows = []
-    if not await db.site_insights.count_documents({}):
-        for i, a in enumerate(rows):
-            if a.get("slug") and a.get("title"):
-                await db.site_insights.insert_one({"id": str(uuid.uuid4()), "slug": a["slug"], "title": a["title"], "summary": a.get("summary", ""),
-                                                   "body": a.get("body", ""), "date": a.get("date", now[:10]), "image": "", "seo_title": "", "seo_description": "",
-                                                   "visible": True, "order": i, "created_at": now, "updated_at": now, "created_by": "website"})
-    await db.site_settings.update_one({"id": "website"}, {"$set": {"seeded_articles": True}})
+    doc = doc if doc is not None else (await db.site_settings.find_one({"id": "website"}, {"_id": 0}) or {})
+    done = set(doc.get("seeded_article_slugs") or [])
+    if not done and doc.get("seeded_articles"):
+        done = set(LEGACY_SEEDED)
+    have = {r["slug"] for r in await db.site_insights.find({}, {"_id": 0, "slug": 1}).to_list(1000)}
+    added = 0
+    for a in rows:
+        sl = a.get("slug")
+        if not sl or not a.get("title") or sl in done:
+            continue
+        done.add(sl)
+        if sl in have:
+            continue
+        await db.site_insights.insert_one({"id": str(uuid.uuid4()), "slug": sl, "title": a["title"], "summary": a.get("summary", ""),
+                                           "body": a.get("body", ""), "date": a.get("date", now[:10]), "image": "", "seo_title": "", "seo_description": "",
+                                           "visible": True, "order": 0, "created_at": now, "updated_at": now, "created_by": "website"})
+        added += 1
+    await db.site_settings.update_one({"id": "website"}, {"$set": {"seeded_articles": True, "seeded_article_slugs": sorted(done)}})
+    return added
+
+
+async def sync_on_startup():
+    """After a deploy: if the editor is in use and new built-in articles arrived, add them and republish."""
+    doc = await db.site_settings.find_one({"id": "website"}, {"_id": 0})
+    if not doc:
+        return
+    try:
+        if await _seed_articles(_now(), doc):
+            await publish(None)
+    except Exception as e:  # never block startup
+        print("website sync skipped:", e)
 
 
 async def _settings() -> dict:
     doc = await db.site_settings.find_one({"id": "website"}, {"_id": 0})
     if doc:
-        if not doc.get("seeded_articles"):
-            await _seed_articles(_now())
-            doc["seeded_articles"] = True
+        if not doc.get("seeded_article_slugs"):
+            await _seed_articles(_now(), doc)
         return doc
     c = _config()
     now = _now()

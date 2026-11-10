@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, statSync, exist
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { services, steps, aiHuman, values, faqs, whyUs, expertise, industries, insights as INSIGHTS0, careers, tools, markets, quiz, seoTitles } from "./src/content.mjs";
+import { services, steps, aiHuman, values, faqs, whyUs, expertise, industries, insights as INSIGHTS0, careers, tools, markets, quiz, seoTitles, automations } from "./src/content.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const C = JSON.parse(readFileSync(join(ROOT, "site.config.json"), "utf8"));
@@ -136,15 +136,17 @@ function header(path) {
 }
 
 function footer() {
-  const soc = Object.entries(C.social).filter(([, v]) => v).map(([k, v]) => `<li><a href="${v}" target="_blank" rel="noopener me">${({ x: "X", linkedin: "LinkedIn", youtube: "YouTube", instagram: "Instagram" })[k] || k[0].toUpperCase() + k.slice(1)}</a></li>`).join("");
-  return `<footer class="ftr"><div class="wrap">
+  const SOC = [["instagram", "Instagram"], ["facebook", "Facebook"], ["youtube", "YouTube"], ["linkedin", "LinkedIn"], ["x", "X"]];
+  const socIcons = SOC.filter(([k]) => (C.social || {})[k]).map(([k, n]) => `<li><a href="${esc(C.social[k])}" rel="me" aria-label="${esc(C.name)} on ${n}" title="${n}">${SOCIAL_ICON[k]}</a></li>`).join("");
+  return newTab(`<footer class="ftr"><div class="wrap">
 <div class="ftr-grid">
 <div class="ftr-brand"><img src="/assets/wordmark-color.svg" alt="dotindot." width="150" height="29"><p>${esc(C.name)} is an AI-first growth agency for brands worldwide: marketing that performs and technology that scales.</p>
 <div class="contact"><a href="mailto:${C.email}">${C.email}</a><a href="tel:${tel}">${esc(C.phoneDisplay)}</a><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a></div>
-${locations.length ? `<p class="ftr-offices"><a href="/contact/#offices">Offices</a>: ${locations.map((l) => esc(l.name)).join(", ")}</p>` : ""}</div>
+${locations.length ? `<p class="ftr-offices"><a href="/contact/#offices">Offices</a>: ${locations.map((l) => esc(l.name)).join(", ")}</p>` : ""}
+${socIcons ? `<ul class="social" aria-label="Follow us">${socIcons}</ul>` : ""}</div>
 <div><h3>Services</h3><ul>${services.map((s) => `<li><a href="/services/${s.slug}/">${esc(s.name)}</a></li>`).join("")}</ul></div>
 <div><h3>Company</h3><ul><li><a href="/about/">About</a></li><li><a href="/clients/">Clients</a></li><li><a href="/process/">How we work</a></li><li><a href="/insights/">Insights</a></li><li><a href="/careers/">Careers</a></li><li><a href="/contact/">Contact</a></li></ul></div>
-<div><h3>Resources</h3><ul><li><a href="/free-audit/">Free growth audit</a></li><li><a href="/speed-test/">Website speed test</a></li><li><a href="/growth-score/">Marketing health check</a></li></ul><h3 style="margin-top:28px">Follow</h3><ul>${soc}</ul></div>
+<div><h3>Resources</h3><ul><li><a href="/free-audit/">Free growth audit</a></li><li><a href="/speed-test/">Website speed test</a></li><li><a href="/growth-score/">Marketing health check</a></li><li><a href="/markets/">Markets</a></li></ul></div>
 <div><h3>Markets</h3><ul>${markets.map((m) => `<li><a href="/markets/${m.slug}/">${esc(m.country)}</a></li>`).join("")}</ul></div>
 </div>
 <div class="ftr-bot">
@@ -152,8 +154,18 @@ ${locations.length ? `<p class="ftr-offices"><a href="/contact/#offices">Offices
 <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/llms.txt">llms.txt</a></nav>
 <span class="logins"><a href="${appHref(C.clientLogin)}" rel="nofollow">${I.user} Client login</a><a href="${appHref(C.employeeLogin)}" rel="nofollow">${I.lock} Employee login</a></span>
 </div>
-</div></footer>`;
+</div></footer>`);
 }
+// every link in the footer opens in a new tab (except email and phone links)
+const newTab = (html) => html.replace(/<a (?![^>]*target=)([^>]*href="(?!mailto:|tel:)[^"]*"[^>]*)>/g, (m, attrs) =>
+  `<a ${/\brel="/.test(attrs) ? attrs.replace(/\brel="([^"]*)"/, (x, r) => `rel="${r} noopener"`) : attrs + ' rel="noopener"'} target="_blank">`);
+const SOCIAL_ICON = {
+  instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.6" cy="6.4" r="1" fill="currentColor" stroke="none"/></svg>',
+  facebook: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 22v-8.2h2.8l.4-3.2h-3.2V8.6c0-.9.3-1.6 1.6-1.6h1.7V4.1c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3v2.3H7.3v3.2h2.8V22z"/></svg>',
+  youtube: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.6 7.2a2.8 2.8 0 0 0-2-2C18.9 4.8 12 4.8 12 4.8s-6.9 0-8.6.4a2.8 2.8 0 0 0-2 2C1 8.9 1 12 1 12s0 3.1.4 4.8a2.8 2.8 0 0 0 2 2c1.7.4 8.6.4 8.6.4s6.9 0 8.6-.4a2.8 2.8 0 0 0 2-2c.4-1.7.4-4.8.4-4.8s0-3.1-.4-4.8zM9.8 15.1V8.9l5.7 3.1z"/></svg>',
+  linkedin: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.5h4V21H3zM9.5 9.5h3.8v1.6h.1c.5-1 1.8-2 3.8-2 4 0 4.8 2.6 4.8 6V21h-4v-5.2c0-1.2 0-2.9-1.8-2.9s-2 1.4-2 2.8V21h-4z"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.8 3h3.1l-6.8 7.7L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.3-8.3L2 3h6.4l4.4 5.8zm-1.1 16.2h1.7L7.4 4.7H5.6z"/></svg>',
+};
 
 const INDEX = [];
 const href = (p) => "{{R}}" + p.replace(/^\//, "") + (PREVIEW && p.endsWith("/") ? "index.html" : "");
@@ -295,6 +307,24 @@ const statement = () => {
   const words = STATEMENT.replace(/\.$/, "").split(" ");
   return `<section class="statement" data-statement aria-label="Who you work with"><div class="st-stage"><div class="wrap"><p class="st-text">${words.map((w, i) => `<span class="w">${esc(w)}${i === words.length - 1 ? '<span class="st-end" data-st-end></span><span class="sr">.</span>' : ""}</span>`).join(" ")}</p></div><div class="st-white" aria-hidden="true"></div></div></section>`;
 };
+// AI automation: an example conversation that plays when it scrolls into view (site.js), static without scripts
+const AI_CHAT = [["in", "Hi, do you install rooftop solar for factories?"],
+  ["out", "Yes, we do. To size it properly, roughly what's your monthly electricity bill, and where is the site?"],
+  ["in", "Around ₹3 lakh a month. The factory is in Coimbatore."],
+  ["out", "Thanks! A bill that size usually makes a strong case for solar. Shall I book a free site survey? Our engineer is free Tuesday 11 am or Thursday 4 pm."],
+  ["in", "Tuesday works."],
+  ["out", "Booked: Tuesday, 11 am. You'll get a confirmation here with the engineer's name and number."]];
+const aiDemo = () => `<figure class="ai-demo" data-demo>
+<div class="phone" aria-label="Example conversation with an AI agent"><div class="ph-top"><span class="ph-av" aria-hidden="true">AI</span><div><b>A solar installer</b><small>AI assistant · online</small></div></div>
+<div class="ph-chat">${AI_CHAT.map(([w, t]) => `<p class="b ${w}">${esc(t)}</p>`).join("")}
+<p class="ph-crm"><b>New lead · Hot</b><span>Site survey booked for Tuesday, 11 am</span><span>Added to the CRM and sent to the sales team</span></p></div></div>
+<figcaption>An example of an agent we'd build: it answers, qualifies, books the visit and updates your CRM, then a person takes over. <button class="ph-replay" type="button" hidden>Play again</button></figcaption></figure>`;
+const aiSection = () => `<section class="sec" id="ai-automation"><div class="wrap ai-grid">
+<div class="ai-copy">${H2("AI that works while you sleep")}<p class="lead" data-reveal>We build AI agents and automations on the tools you already use, so enquiries are answered in seconds, leads never go cold and your team stops doing busywork.</p>
+<ul class="ai-list">${automations.map(([h, t]) => `<li data-reveal><b>${esc(h)}</b><span>${esc(t)}</span></li>`).join("")}</ul>
+<div class="btns" data-reveal><a class="btn" href="/services/ai-automation/">See AI automation</a>${CHAT.enabled ? '<button class="btn ghost" type="button" data-chat="What could AI automate in my business?">Try Dot, our own agent</button>' : ""}</div></div>
+<div data-reveal>${aiDemo()}</div>
+</div></section>`;
 const ART = { "performance-ads": "perf", "social-content": "social", "seo-ai-search": "seo", "websites-apps": "web", "brand-video": "brand", "ai-automation": "ai" };
 const reel = () => `<section class="reel" id="services" data-reel style="--n:${services.length}"><div class="reel-stage"><div class="wrap reel-wrap">
 <div class="reel-top">${H2("What we do")}<p>Six disciplines under one roof, planned together and measured on the same numbers: qualified leads, sales and cost per customer.</p></div>
@@ -318,6 +348,8 @@ const homeBody = `
 ${statement()}
 
 ${reel()}
+
+${aiSection()}
 
 <section class="sec mist" id="clients"><div class="wrap">
 <div class="shead">${H2("Who we work with")}<p data-reveal>${esc(PG.clients_intro || "Growth-focused businesses in energy, manufacturing, retail, e-commerce and professional services, from a first serious website to multi-market growth.")}</p></div>
@@ -380,10 +412,20 @@ services.forEach((s, idx) => {
 <div data-reveal><h2 class="h-mid">${esc(s.tagline)}</h2><p class="lead" style="margin-top:16px">${esc(s.intro)}</p></div>
 <div data-reveal><p class="label">What's included</p><ul class="check">${s.deliverables.map((d) => `<li>${esc(d)}</li>`).join("")}</ul></div>
 </div></section>
+${s.usecases ? `<section class="sec mist"><div class="wrap ai-grid">
+<div>${H2("How an agent handles an enquiry")}<p class="lead" data-reveal>It replies in seconds, asks the questions your best salesperson would, books the next step and puts everything in your CRM. Your team only steps in when it matters.</p>
+${CHAT.enabled ? '<p data-reveal style="margin-top:28px"><button class="ask-dot" type="button" data-chat="What could AI automate in my business?">' + dotMark + "<span>Try one now: ask Dot, the assistant on this site</span></button></p>" : ""}</div>
+<div data-reveal>${aiDemo()}</div></div></section>
+<section class="sec"><div class="wrap"><div class="shead">${H2("What we automate")}<p data-reveal>Start with the workflow that costs your team the most hours, then add the next one each month.</p></div>
+<div class="uc-grid" data-reveal-group>${s.usecases.map(([team, items]) => `<div class="uc" data-reveal><h3>${esc(team)}</h3><ul class="check">${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div></div></section>` : ""}
 <section class="sec mist"><div class="wrap two">
 <div data-reveal>${H2("Who it's for")}<ul class="check" style="margin-top:32px">${s.fit.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></div>
 <div data-reveal><p class="label">How it runs</p><ol class="timeline">${s.steps.map(([w, t]) => `<li><b>${esc(w)}</b><span>${esc(t)}</span></li>`).join("")}</ol></div>
 </div></section>
+${s.safety ? `<section class="sec"><div class="wrap two">
+<div>${H2("Safe by design")}<div class="safe">${s.safety.map(([h, t]) => `<div data-reveal><b>${esc(h)}</b><span>${esc(t)}</span></div>`).join("")}</div></div>
+<div data-reveal><p class="label">Works with the tools you already use</p><ul class="int">${s.integrations.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+</div></section>` : ""}
 ${faqSec("Questions, answered", s.faq)}
 <section class="sec tight"><div class="wrap"><p class="label">Related services</p><div class="related">${others.map((o) => `<a href="/services/${o.slug}/"><b>${esc(o.name)}</b><span>${esc(o.short)}</span></a>`).join("")}</div></div></section>
 ${talk(`service-${s.slug}`, { pre: s.slug, title: `Let's talk ${lc(s.name)}` })}` }));

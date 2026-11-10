@@ -208,6 +208,9 @@ async def startup():
     await migrate_role_defaults()
     await repair_coordinates()
     start_scheduler()
+    from routes_website import sync_on_startup
+    import asyncio as _aio
+    _aio.get_event_loop().create_task(sync_on_startup())  # new built-in articles after a deploy (rebuilds in the background)
     try:
         init_storage()
         logger.info("Object storage initialized")

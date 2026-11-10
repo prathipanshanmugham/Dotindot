@@ -520,6 +520,30 @@
     });
   });
 
+  /* ---------------- AI automation: the example conversation plays once it's in view ---------------- */
+  $$("[data-demo]").forEach(function (fig) {
+    if (reduce || !("IntersectionObserver" in window)) return;
+    var items = $$(".b, .ph-crm", fig), chat = $(".ph-chat", fig), again = $(".ph-replay", fig), timers = [];
+    var dots = function (on) {
+      var t = $(".ph-typing", chat); if (t) t.remove();
+      if (on) { t = document.createElement("div"); t.className = "ph-typing"; t.innerHTML = "<i></i><i></i><i></i>"; chat.appendChild(t); }
+    };
+    var reset = function () { timers.forEach(clearTimeout); timers = []; dots(false); items.forEach(function (b) { b.classList.add("wait"); b.classList.remove("show"); }); };
+    var play = function () {
+      reset(); var at = 500;
+      items.forEach(function (b) {
+        var ai = b.classList.contains("out");
+        if (ai) { timers.push(setTimeout(function () { dots(true); }, at)); at += 1300; }
+        timers.push(setTimeout(function () { dots(false); b.classList.remove("wait"); b.classList.add("show"); }, at));
+        at += ai ? 1500 : 1200;
+      });
+      timers.push(setTimeout(function () { again.hidden = false; }, at));
+    };
+    fig.classList.add("armed"); reset();
+    new IntersectionObserver(function (es, o) { if (es[0].isIntersecting) { o.disconnect(); play(); } }, { threshold: .4 }).observe(fig);
+    again.addEventListener("click", function () { again.hidden = true; play(); });
+  });
+
   /* ---------------- Dot, the chat assistant ----------------
      The logo's D, with its hole as an eye that follows the pointer and blinks. It answers questions through
      /api/chat (the app: AI when connected, a short guided conversation otherwise) and hands the visitor to a
