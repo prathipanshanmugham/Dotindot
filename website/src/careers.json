@@ -1,0 +1,34 @@
+[
+ {
+  "title": "Performance marketer",
+  "department": "Marketing",
+  "summary": "You've run Meta and Google campaigns to a cost per customer and can explain, calmly, why it moved.",
+  "location": "Remote",
+  "work_mode": "remote",
+  "type": "full_time"
+ },
+ {
+  "title": "Content creator (short-form video)",
+  "department": "Content",
+  "summary": "You script, shoot and edit short-form video, and you know what holds attention in the first second.",
+  "location": "Remote",
+  "work_mode": "remote",
+  "type": "full_time"
+ },
+ {
+  "title": "Full-stack developer (React / Python)",
+  "department": "Engineering",
+  "summary": "You've shipped production apps, you care about speed, and you write code other people enjoy reading.",
+  "location": "Remote",
+  "work_mode": "remote",
+  "type": "full_time"
+ },
+ {
+  "title": "AI automation engineer",
+  "department": "AI automation",
+  "summary": "You've built agents and workflows that real customers use, and you know when not to use AI.",
+  "location": "Remote",
+  "work_mode": "remote",
+  "type": "full_time"
+ }
+]

@@ -84,6 +84,8 @@ COLLECTIONS = {
     "site_certs": {"label": "Website: Certifications", "search": ["name"]},
     "site_insights": {"label": "Website: Articles", "search": ["title", "slug", "summary"]},
     "chat_sessions": {"label": "Website: Chat conversations", "search": ["page", "lead.name", "lead.email"]},
+    "job_posts": {"label": "Hiring: Job posts", "search": ["title", "department", "location"]},
+    "job_applications": {"label": "Hiring: Applications", "search": ["name", "email", "job_title"]},
 }
 
 # Collections that hold platform internals — never listed or wiped.
@@ -117,6 +119,7 @@ DEPS = {
               ("ai_agents", "assignee_ids", "pull"), ("ai_agents", "owner_id", "unset"), ("org_nodes", "person_ids", "pull"),
               ("daily_reports", "user_id", "delete"), ("api_accounts", "owner_id", "unset"), ("timesheets", "user_id", "delete")],
     "campaigns": [("transactions", "campaign_id", "unset")],
+    "job_posts": [("job_applications", "job_id", "unset")],
     "subscriptions": [("transactions", "subscription_id", "unset")],
     "ad_campaigns": [("transactions", "campaign_id", "unset")],
     "training_courses": [("training_assignments", "course_id", "delete")],
@@ -252,7 +255,7 @@ async def restore_snapshot(snap_id: str, user: dict = Depends(require_super_admi
             await db[op["coll"]].update_many({"id": {"$in": op["ids"]}}, {"$addToSet": {op["field"]: op["value"]}})
     await db.deleted_records.delete_one({"id": snap_id})
     await log_activity(user, "workspace_restored", snap["coll"], snap["record_id"], snap["label"])
-    if snap["coll"].startswith("site_"):  # website content: put it back on the live site too
+    if snap["coll"].startswith("site_") or snap["coll"] == "job_posts":  # website content: put it back on the live site too
         from routes_website import publish
         await publish(user)
     return {"ok": True, "restored": snap["label"]}

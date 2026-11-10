@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
   PieChart, ReceiptText, MapPin, Megaphone, CalendarDays, Sparkles, Boxes, MonitorPlay, KeyRound, Menu, Lock, Bot, Network, CalendarCheck,
-  LifeBuoy, Workflow, Contact, IdCard, Landmark, BrainCircuit, Rocket, Globe,
+  LifeBuoy, Workflow, Contact, IdCard, Landmark, BrainCircuit, Rocket, Globe, UserPlus,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
@@ -63,6 +63,7 @@ const NAV = [
     section: "People",
     items: [
       { name: "HR", path: "/hr", icon: Contact, perm: ["hr"] },
+      { name: "Hiring", path: "/hr/jobs", icon: UserPlus, perm: ["hiring"], when: (u, hasPerm) => !hasPerm("hr") },
       { name: "Payroll", path: "/hr/payroll", icon: Contact, perm: ["payroll"], when: (u, hasPerm) => !hasPerm("hr") },
       { name: "My HR & Payslips", path: "/my-hr", icon: IdCard },
       { name: "Employees", path: "/employees", icon: UserCheck, perm: ["employees"] },

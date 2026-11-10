@@ -499,7 +499,7 @@ def _profit_row(p, tx_by_project):
     costs = expense + alloc
     net = revenue - costs
     return {
-        "project_id": p["id"], "project_name": p["name"], "client_id": p["client_id"],
+        "project_id": p["id"], "project_name": p["name"], "client_id": p.get("client_id"), "kind": p.get("kind") or "client",
         "status": p["status"], "budget": p.get("budget", 0),
         "revenue": round(revenue, 2), "linked_expenses": round(expense, 2),
         "cost_allocation": round(alloc, 2), "total_costs": round(costs, 2),
@@ -518,7 +518,7 @@ async def project_profit(user: dict = Depends(require_roles(*PROFIT))):
     cmap, _ = await name_maps()
     rows = [_profit_row(p, tx_by_project) for p in projects]
     for r in rows:
-        r["client_name"] = cmap.get(r["client_id"], "")
+        r["client_name"] = "Internal" if r.get("kind") == "internal" else cmap.get(r.get("client_id"), "")
     rows.sort(key=lambda r: -r["net"])
     return rows
 
@@ -534,7 +534,7 @@ async def project_profit_detail(project_id: str, user: dict = Depends(require_ro
     cmap, pmap = await name_maps()
     enrich(tx, cmap, pmap)
     row = _profit_row(p, {project_id: tx})
-    row["client_name"] = cmap.get(p["client_id"], "")
+    row["client_name"] = "Internal" if p.get("kind") == "internal" else cmap.get(p.get("client_id"), "")
     row["transactions"] = tx
     return row
 

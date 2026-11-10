@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Plus, Pencil } from "lucide-react";
 import ProjectEditDialog from "@/components/ProjectEditDialog";
 import { BranchFilter } from "@/components/BranchFilter";
+import { InternalBadge } from "@/components/ProjectKind";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function ProjectsPage() {
@@ -21,7 +22,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [clients, setClients] = useState([]);
   const [team, setTeam] = useState([]);
-  const [filters, setFilters] = useState({ status: "all", client_id: "all", team_member: "all" });
+  const [filters, setFilters] = useState({ kind: "all", status: "all", client_id: "all", team_member: "all" });
   const [loading, setLoading] = useState(true);
   const [editProject, setEditProject] = useState(null);
 
@@ -110,13 +111,21 @@ export default function ProjectsPage() {
           </Select>
           {!isEmployee && (
             <>
-              <Select value={filters.client_id} onValueChange={(v) => setFilters((p) => ({ ...p, client_id: v }))}>
+              <Select value={filters.kind} onValueChange={(v) => setFilters((p) => ({ ...p, kind: v, client_id: v === "internal" ? "all" : p.client_id }))}>
+                <SelectTrigger className="w-[160px]" data-testid="filter-project-kind"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Client & internal</SelectItem>
+                  <SelectItem value="client">Client projects</SelectItem>
+                  <SelectItem value="internal">Internal projects</SelectItem>
+                </SelectContent>
+              </Select>
+              {filters.kind !== "internal" && <Select value={filters.client_id} onValueChange={(v) => setFilters((p) => ({ ...p, client_id: v }))}>
                 <SelectTrigger className="w-[190px]" data-testid="filter-project-client"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Clients</SelectItem>
                   {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
-              </Select>
+              </Select>}
               <Select value={filters.team_member} onValueChange={(v) => setFilters((p) => ({ ...p, team_member: v }))}>
                 <SelectTrigger className="w-[190px]" data-testid="filter-project-team"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -158,7 +167,7 @@ export default function ProjectsPage() {
                     <div className="font-semibold text-gray-900">{p.name}</div>
                     <div className="text-xs text-gray-400">{p.location}</div>
                   </TableCell>
-                  <TableCell className="text-sm text-gray-600">{p.client_name}</TableCell>
+                  <TableCell className="text-sm text-gray-600">{p.kind === "internal" ? <InternalBadge /> : p.client_name}</TableCell>
                   <TableCell><ProjectStatusBadge status={p.status} /></TableCell>
                   <TableCell className="hidden md:table-cell font-mono text-sm">{formatINR(p.budget)}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-gray-500">{p.start_date} → {p.end_date}</TableCell>

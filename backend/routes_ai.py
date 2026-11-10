@@ -72,6 +72,7 @@ MODULES: Dict[str, dict] = {
     "website": {"label": "Website content (clients, testimonials, team, case studies, offices, certifications, articles)",
                 "colls": ["site_clients", "site_testimonials", "site_team", "site_cases", "site_locations", "site_certs", "site_insights"],
                 "search": ["name", "company", "title", "quote", "client"]},
+    "hiring": {"label": "Job posts (titles, locations, status; not applicants)", "coll": "job_posts", "search": ["title", "department", "location", "status"]},
     "support": {"label": "Support tickets", "coll": "tickets", "search": ["number", "subject", "client_name"],
                 "write": {"create": ["subject", "body", "category", "priority"], "update": ["status", "priority", "reply"]}},
     "employees": {"label": "Team directory (name, role, skills)", "coll": "users", "search": ["name", "designation", "department", "skills"],
@@ -101,7 +102,7 @@ SENSITIVE_PERM = {"payroll": "payroll", "hr_personal": "hr", "investors": "inves
 # You can only open a module to AI (or put it on a token) if you can see that data in the app yourself.
 MODULE_PERM = {"clients": "clients", "projects": "projects", "leads": "sales.pipeline", "client_leads": "lead_flow", "quotes": "sales.quotes",
                "finance": "finance.ledger", "expenses": "finance.expenses", "subscriptions": "finance.subscriptions", "loans": "finance.loans",
-               "ads": "ads", "social": "social", "influencers": "influencers", "growth": "growth", "billing": "billing", "website": "website", "support": "support", "employees": "employees",
+               "ads": "ads", "social": "social", "influencers": "influencers", "growth": "growth", "billing": "billing", "website": "website", "hiring": "hiring", "support": "support", "employees": "employees",
                "attendance": "daily_reports.team", "timesheets": "daily_reports.team", "holidays": "daily_reports", "hr": "hr", "assets": "assets",
                "partnerships": "partnerships", "locations": "locations", "org": "org_structure", "agents": "ai_agents",
                "api_credits": "finance.api_credits", "payroll": "payroll", "hr_records": "hr", "investors": "investors"}

@@ -283,7 +283,7 @@ async def compare_branches(user: dict = Depends(get_current_user)):
     branches = await db.branches.find({}, {"_id": 0}).sort("name", 1).to_list(50)
     clients = await db.clients.find({}, {"_id": 0, "id": 1, "branch_id": 1, "status": 1}).to_list(2000)
     cb = {c["id"]: c.get("branch_id") for c in clients}
-    projects = await db.projects.find({}, {"_id": 0, "id": 1, "client_id": 1, "status": 1, "budget": 1}).to_list(2000)
+    projects = await db.projects.find({}, {"_id": 0, "id": 1, "client_id": 1, "status": 1, "budget": 1, "kind": 1, "branch_id": 1}).to_list(2000)
     tx = await db.transactions.find({"type": "income", "client_id": {"$nin": [None, ""]}},
                                     {"_id": 0, "client_id": 1, "amount": 1}).to_list(20000)
     leads = await db.leads.find({}, {"_id": 0, "branch_id": 1, "stage": 1, "estimated_value": 1}).to_list(2000)
@@ -295,7 +295,7 @@ async def compare_branches(user: dict = Depends(get_current_user)):
         bid = b["id"]
         b_clients = [c for c in clients if c.get("branch_id") == bid]
         b_client_ids = {c["id"] for c in b_clients}
-        b_projects = [p for p in projects if p["client_id"] in b_client_ids]
+        b_projects = [p for p in projects if p.get("client_id") in b_client_ids or (p.get("kind") == "internal" and p.get("branch_id") == bid)]
         rows.append({
             "id": bid, "name": b["name"], "city": b.get("city"), "country": b.get("country"),
             "status": b.get("status", "active"),

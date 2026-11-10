@@ -530,7 +530,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
 .phero{padding:clamp(48px,7vw,104px) 0 clamp(40px,5vw,72px)}
 .phero .lead{margin-top:24px}
 .phero .btns{margin-top:32px}
-.crumbs{display:flex;flex-wrap:wrap;gap:8px;font-size:.875rem;color:var(--slate);margin-bottom:24px}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.875rem;color:var(--slate);margin-bottom:24px}
 .crumbs a:hover{color:var(--ink)}
 .crumbs span::before{content:"/";margin-right:8px;color:var(--line-2)}
 .check{display:grid;gap:0;border-top:1px solid var(--line)}
@@ -575,6 +575,40 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
 .role .pl{display:block;color:var(--slate);font-size:.9375rem;font-weight:400;margin-top:2px}
 .role p{color:var(--ink-2);max-width:40em}
 @media (min-width:900px){.role{grid-template-columns:minmax(0,4fr) minmax(0,6fr) auto;gap:40px;align-items:center}}
+/* careers: open roles from HR → Hiring, a page per job and the apply form */
+.jobs{display:grid;border-top:1px solid var(--line)}
+.job-row{display:grid;grid-template-columns:1fr auto;gap:6px 20px;align-items:center;padding:24px 4px;border-bottom:1px solid var(--line);color:var(--ink);transition:background .25s var(--ease)}
+.job-row:hover{background:var(--mist)}.job-row:focus-visible{outline:3px solid var(--brand);outline-offset:-3px}
+.job-t{display:grid;gap:4px;min-width:0}.job-t b{font-size:clamp(1.1875rem,1.6vw,1.375rem);font-weight:700;letter-spacing:-.02em;line-height:1.25}
+.job-t small{font-size:.875rem;font-weight:600;color:var(--orange-ink)}
+.job-m{grid-column:1;color:var(--slate);font-size:.9375rem}
+.job-go{grid-column:2;grid-row:1/3;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);transition:background .25s,border-color .25s,transform .3s var(--ease)}
+.job-go svg{width:18px;height:18px}.job-row:hover .job-go{background:var(--brand);border-color:var(--brand);transform:translateX(4px)}
+@media (min-width:900px){.job-row{grid-template-columns:minmax(0,5fr) minmax(0,4fr) auto;padding:28px 8px}.job-m{grid-column:2;grid-row:1}.job-go{grid-column:3;grid-row:1}}
+.job-grid{display:grid;gap:40px;align-items:start}
+@media (min-width:1000px){.job-grid{grid-template-columns:minmax(0,1fr) 340px;gap:72px}.job-facts{position:sticky;top:calc(var(--hdr) + 24px)}}
+.job-body h2{font-size:1.375rem;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin-top:1.8em}
+.job-facts{border:1px solid var(--line);border-radius:14px;padding:24px;background:#fff}
+.job-facts dl{display:grid;gap:14px;margin:0 0 22px}
+.job-facts dt{font-size:.8125rem;font-weight:600;color:var(--slate)}.job-facts dd{margin:2px 0 0;font-weight:600;color:var(--ink)}
+.job-facts .btn{width:100%;justify-content:center}
+.prose .skills,.skills{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0}
+.prose .skills li,.skills li{margin:0;padding:7px 14px;border:1px solid var(--line-2);border-radius:999px;font-size:.9375rem;font-weight:550;line-height:1.4;color:var(--ink);background:#fff}.prose .skills li::before{content:none}
+.apply-wrap{display:grid;gap:36px}
+@media (min-width:1000px){.apply-wrap{grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:72px;align-items:start}.apply-intro{position:sticky;top:calc(var(--hdr) + 24px)}}
+.apply-intro .lead{margin-top:14px}
+.cv-field{display:grid;gap:8px}.cv-l{font-size:.9375rem;font-weight:600;color:var(--ink-2)}
+.form .drop{display:flex;align-items:center;gap:14px;padding:18px;border:1.5px dashed var(--line-2);border-radius:12px;background:var(--mist);cursor:pointer;position:relative;transition:border-color .2s,background .2s}
+.form .drop:hover,.form .drop.over{border-color:var(--brand);background:var(--orange-soft)}
+.form .drop:focus-within{border-color:var(--ink);box-shadow:0 0 0 3px rgba(255,122,26,.25)}
+.form .drop input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;min-height:0}
+.drop-i{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#fff;border:1px solid var(--line-2);color:var(--ink)}.drop-i svg{width:20px;height:20px}
+.drop-t{display:grid;gap:2px;min-width:0}.drop-t b{font-weight:650;color:var(--ink);overflow-wrap:anywhere}.drop-t small{color:var(--slate);font-weight:400;font-size:.875rem}
+.drop.has .drop-i{background:var(--brand);border-color:var(--brand)}
+.form .consent{display:flex;align-items:flex-start;gap:12px;font-weight:400;color:var(--ink-2);line-height:1.5;cursor:pointer}
+.form .consent input{flex:none;width:22px;height:22px;min-height:0;margin:1px 0 0;padding:0;border:1.5px solid var(--line-2);border-radius:5px;background:#fff center/14px no-repeat;cursor:pointer}
+.form .consent input:checked{background-color:var(--ink);border-color:var(--ink);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E")}
+.form .consent input:focus-visible{box-shadow:0 0 0 3px rgba(255,122,26,.35)}
 .meta{color:var(--slate);font-size:.9375rem;margin-top:20px}
 .prose{max-width:44rem;font-size:1.125rem;line-height:1.72;color:var(--ink-2)}
 .prose>*+*{margin-top:1.15em}

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import ProjectKindField from "@/components/ProjectKind";
 
 const tmpId = () => `new-${Math.random().toString(36).slice(2, 9)}`;
 const move = (arr, i, d) => {
@@ -34,7 +35,7 @@ export default function ProjectEditDialog({ open, onOpenChange, project, onSaved
     if (!open || !project) return;
     setTab("details");
     setForm({
-      name: project.name || "", client_id: project.client_id || "", status: project.status || "kickoff",
+      name: project.name || "", kind: project.kind || "client", client_id: project.client_id || "", branch_id: project.branch_id || null, status: project.status || "kickoff",
       description: project.description || "", location: project.location || "",
       start_date: project.start_date || "", end_date: project.end_date || "",
       budget: String(project.budget ?? ""), cost_allocation: String(project.cost_allocation ?? ""),
@@ -52,11 +53,12 @@ export default function ProjectEditDialog({ open, onOpenChange, project, onSaved
 
   const save = async () => {
     if (!form.name.trim()) { setTab("details"); return toast.error("Project name can't be empty"); }
+    if (form.kind === "client" && !form.client_id) { setTab("details"); return toast.error("Pick the client, or mark the project internal"); }
     if (form.start_date && form.end_date && form.end_date < form.start_date) { setTab("timeline"); return toast.error("End date must be after the start date"); }
     setBusy(true);
     const clean = (x) => { const { id, ...rest } = x; return String(id || "").startsWith("new-") ? rest : x; };
     const body = {
-      name: form.name.trim(), client_id: form.client_id, status: form.status, description: form.description, location: form.location,
+      name: form.name.trim(), kind: form.kind, ...(form.kind === "internal" ? { branch_id: form.branch_id } : { client_id: form.client_id }), status: form.status, description: form.description, location: form.location,
       start_date: form.start_date || null, end_date: form.end_date || null,
       budget: Number(form.budget) || 0, cost_allocation: Number(form.cost_allocation) || 0,
       team_member_ids: form.team_member_ids,
@@ -107,22 +109,18 @@ export default function ProjectEditDialog({ open, onOpenChange, project, onSaved
 
           <TabsContent value="details" className="space-y-3 pt-2">
             <div className="space-y-1"><Label>Project name *</Label><Input value={form.name} onChange={(e) => set("name", e.target.value)} data-testid="project-edit-name" /></div>
+            <ProjectKindField value={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} clients={clients} testid="project-edit-kind" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Client</Label>
-                <Select value={form.client_id} onValueChange={(v) => set("client_id", v)}>
-                  <SelectTrigger data-testid="project-edit-client"><SelectValue placeholder="Select a client" /></SelectTrigger>
-                  <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}{c.city ? ` — ${c.city}` : ""}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1"><Label>Status</Label>
                 <Select value={form.status} onValueChange={(v) => set("status", v)}>
                   <SelectTrigger data-testid="project-edit-status"><SelectValue /></SelectTrigger>
                   <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s}>{labelize(s)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1"><Label>Location</Label><Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="City, region" /></div>
             </div>
-            {form.client_id !== project.client_id && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">This moves the project to a different client. Its ledger entries stay linked to the project.</p>}
-            <div className="space-y-1"><Label>Location</Label><Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="City, region" /></div>
+            {form.kind === "client" && project.kind !== "internal" && form.client_id !== project.client_id && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">This moves the project to a different client. Its ledger entries stay linked to the project.</p>}
+            {form.kind === "internal" && project.kind !== "internal" && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">The project leaves {project.client_name || "the client"}'s portal. Its ledger entries stay linked to the project.</p>}
             <div className="space-y-1"><Label>Description</Label><Textarea rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} data-testid="project-edit-description" /></div>
           </TabsContent>
 

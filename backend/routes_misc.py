@@ -26,18 +26,17 @@ async def global_search(q: str = Query(..., min_length=1), user: dict = Depends(
     pq = {"name": {"$regex": re.escape(q), "$options": "i"}}
     if user["role"] == "employee":
         pq["team_member_ids"] = user["id"]
-    ids = await scoped_client_ids(user)
-    if ids is not None:
-        pq["client_id"] = {"$in": ids}
+    from routes_projects import project_scope
+    scope = await project_scope(user)
     projects = await db.projects.find(
-        pq, {"_id": 0, "id": 1, "name": 1, "status": 1, "client_id": 1}
+        {"$and": [pq, scope]} if scope else pq, {"_id": 0, "id": 1, "name": 1, "status": 1, "client_id": 1, "kind": 1}
     ).limit(6).to_list(6)
     if projects:
-        cids = list({p["client_id"] for p in projects})
+        cids = list({p["client_id"] for p in projects if p.get("client_id")})
         crows = await db.clients.find({"id": {"$in": cids}}, {"_id": 0, "id": 1, "name": 1}).to_list(50)
         cmap = {c["id"]: c["name"] for c in crows}
         for p in projects:
-            p["client_name"] = cmap.get(p["client_id"], "")
+            p["client_name"] = "Internal" if p.get("kind") == "internal" else cmap.get(p.get("client_id"), "")
     results["projects"] = projects
     return results
 
@@ -84,6 +83,13 @@ async def notifications(user: dict = Depends(get_current_user)):
         for l in leads:
             items.append({"kind": "followup", "title": f"Follow-up overdue: {l['name']}",
                           "sub": f"Was due {l['follow_up_date']}", "link": f"/sales/leads/{l['id']}", "date": l["follow_up_date"]})
+
+    if has_permission(user, "hiring.manage"):
+        from routes_jobs import new_application_count
+        n = await new_application_count(user)
+        if n:
+            items.append({"kind": "hiring", "title": f"{n} new job application{'s' if n > 1 else ''}",
+                          "sub": "Review them in HR → Hiring", "link": "/hr/jobs?tab=applications", "date": t_iso})
 
     if role in ("admin", "finance"):
         limit30a = (today + timedelta(days=30)).isoformat()

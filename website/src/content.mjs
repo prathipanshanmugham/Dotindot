@@ -153,12 +153,8 @@ const _ins = JSON.parse(readFileSync(new URL("./insights.json", import.meta.url)
 const _words = (t) => String(t).split(/\s+/).filter(Boolean).length;
 export const insights = _ins.map((a) => ({ minutes: Math.max(1, Math.round(_words(a.body) / 220)), ...a }));
 
-export const careers = [
-  { title: "Performance marketer", place: "Remote, full-time", text: "You've run Meta and Google campaigns to a cost per customer and can explain, calmly, why it moved." },
-  { title: "Content creator (short-form video)", place: "Remote, full-time", text: "You script, shoot and edit short-form video, and you know what holds attention in the first second." },
-  { title: "Full-stack developer (React / Python)", place: "Remote, full-time", text: "You've shipped production apps, you care about speed, and you write code other people enjoy reading." },
-  { title: "AI automation engineer", place: "Remote, full-time", text: "You've built agents and workflows that real customers use, and you know when not to use AI." },
-];
+// the roles that were on the careers page before HR → Hiring; used only until the app publishes its own job list
+export const careers = JSON.parse(readFileSync(new URL("./careers.json", import.meta.url), "utf8")).map((r) => ({ ...r, place: `${r.location}, full-time`, text: r.summary }));
 
 export const tools = ["Meta Ads", "Google Ads", "GA4", "LinkedIn Ads", "TikTok Ads", "YouTube", "Search Console", "Shopify", "WordPress", "React", "Python", "n8n", "WhatsApp Business", "ChatGPT", "Claude", "Midjourney", "Kling", "ElevenLabs", "Canva", "Figma", "Looker Studio"];
 

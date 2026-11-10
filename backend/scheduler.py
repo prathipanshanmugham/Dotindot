@@ -57,6 +57,9 @@ def start_scheduler():
     _scheduler.add_job(purge_old_logs, CronTrigger(hour=2, minute=30), id="log_purge_daily", replace_existing=True)
     _scheduler.add_job(purge_deleted_records, CronTrigger(minute=15), id="recycle_purge_hourly", replace_existing=True)
     _scheduler.add_job(sync_growth_accounts, CronTrigger(hour=20, minute=40), id="growth_sync_daily", replace_existing=True)
+    from routes_jobs import close_expired_jobs, purge_orphan_cvs
+    _scheduler.add_job(close_expired_jobs, CronTrigger(hour=18, minute=35), id="jobs_close_daily", replace_existing=True)  # just past midnight IST
+    _scheduler.add_job(purge_orphan_cvs, CronTrigger(hour=3, minute=10), id="cv_purge_daily", replace_existing=True)
     _scheduler.start()
     logger.info("Schedulers started (log purge daily 02:30 UTC, recycle-bin purge hourly, growth sync daily 20:40 UTC / 02:10 IST)")
 

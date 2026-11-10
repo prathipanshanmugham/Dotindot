@@ -6,7 +6,8 @@ import { useLoad, Spinner, PageHead, Field } from "@/components/kit";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, LayoutGrid, Newspaper, Search, FileText, MessageCircle, Phone } from "lucide-react";
+import { ExternalLink, LayoutGrid, Newspaper, Search, FileText, MessageCircle, Phone, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PublishBar, siteUrl, ORANGE_BTN } from "./websiteKit";
 import ContentTab from "./ContentTab";
 import InsightsTab from "./InsightsTab";
@@ -18,16 +19,55 @@ import ChatbotTab from "./ChatbotTab";
 // (the site is rebuilt next to the live one and swapped in, a few seconds).
 const SECTIONS = [
   ["content", "Content", LayoutGrid], ["insights", "Insights", Newspaper], ["seo", "SEO", Search],
-  ["pages", "Pages", FileText], ["chatbot", "Chatbot", MessageCircle], ["contact", "Contact & numbers", Phone],
+  ["pages", "Pages", FileText], ["chatbot", "Chatbot", MessageCircle], ["contact", "Contact & social", Phone],
 ];
 
-const SOCIAL = [["linkedin", "LinkedIn"], ["instagram", "Instagram"], ["youtube", "YouTube"], ["x", "X"], ["facebook", "Facebook"]];
+// what each platform's link usually looks like
+const SOCIAL_HINT = {
+  instagram: "https://instagram.com/yourbrand", facebook: "https://facebook.com/yourbrand", youtube: "https://youtube.com/@yourbrand",
+  linkedin: "https://linkedin.com/company/yourbrand", x: "https://x.com/yourbrand", threads: "https://threads.net/@yourbrand",
+  whatsapp: "https://wa.me/919876543210", tiktok: "https://tiktok.com/@yourbrand", pinterest: "https://pinterest.com/yourbrand",
+  behance: "https://behance.net/yourbrand", dribbble: "https://dribbble.com/yourbrand", github: "https://github.com/yourbrand",
+  medium: "https://medium.com/@yourbrand", telegram: "https://t.me/yourbrand", google: "https://g.page/yourbrand", other: "https://",
+};
+const move = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return arr; const out = [...arr]; [out[i], out[j]] = [out[j], out[i]]; return out; };
 
-const SettingsForm = ({ settings, canManage, onSaved }) => {
+/** Social profiles: any number of platforms, in the order they appear in the website footer. */
+const SocialList = ({ rows, platforms, onChange, disabled }) => {
+  const used = new Set(rows.map((r) => r.platform));
+  const next = Object.keys(platforms).find((k) => k !== "other" && !used.has(k)) || "other";
+  const set = (i, k, v) => onChange(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  return (
+    <div className="space-y-2.5" data-testid="social-list">
+      {!rows.length && <p className="text-sm text-gray-500">No profiles yet. Add one and its icon appears in the website footer.</p>}
+      {rows.map((r, i) => (
+        <div key={r.key} className="rounded-xl border border-gray-200 p-2.5 sm:p-3 grid gap-2 sm:grid-cols-[190px_1fr_auto] sm:items-start" data-testid={`social-row-${i}`}>
+          <div className="space-y-2 min-w-0">
+            <Select value={r.platform} onValueChange={(v) => set(i, "platform", v)} disabled={disabled}>
+              <SelectTrigger aria-label="Platform" data-testid={`social-platform-${i}`}><SelectValue /></SelectTrigger>
+              <SelectContent>{Object.entries(platforms).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+            </Select>
+            {r.platform === "other" && <Input value={r.label} onChange={(e) => set(i, "label", e.target.value)} maxLength={30} placeholder="Name, e.g. Clutch" aria-label="Name" disabled={disabled} data-testid={`social-label-${i}`} />}
+          </div>
+          <Input value={r.url} onChange={(e) => set(i, "url", e.target.value)} inputMode="url" placeholder={SOCIAL_HINT[r.platform] || "https://"} aria-label="Link" disabled={disabled} className="min-w-0" data-testid={`social-url-${i}`} />
+          <div className="flex items-center justify-end gap-0.5">
+            {/^https:\/\/\S+\.\S+/.test(r.url) && <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-gray-400" asChild><a href={r.url} target="_blank" rel="noopener noreferrer" title="Open" aria-label="Open the profile"><ExternalLink className="h-4 w-4" /></a></Button>}
+            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-gray-400" disabled={disabled || i === 0} onClick={() => onChange(move(rows, i, -1))} aria-label="Move up"><ArrowUp className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-gray-400" disabled={disabled || i === rows.length - 1} onClick={() => onChange(move(rows, i, 1))} aria-label="Move down"><ArrowDown className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-gray-400 hover:text-red-600" disabled={disabled} onClick={() => onChange(rows.filter((_, j) => j !== i))} aria-label="Remove" data-testid={`social-remove-${i}`}><Trash2 className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      ))}
+      {rows.length < 15 && <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange([...rows, { key: Math.random().toString(36).slice(2), platform: next, url: "", label: "" }])} data-testid="social-add"><Plus className="h-3.5 w-3.5 mr-1.5" /> Add a profile</Button>}
+    </div>
+  );
+};
+
+const SettingsForm = ({ settings, platforms, canManage, onSaved }) => {
   const init = () => ({
     numbers: [...(settings.numbers || []), ...Array(4).fill({ value: "", label: "" })].slice(0, 4),
     email: settings.email || "", phone: settings.phone || "", phone_display: settings.phone_display || "", whatsapp: settings.whatsapp || "",
-    social: Object.fromEntries(SOCIAL.map(([k]) => [k, settings.social?.[k] || ""])),
+    social: (Array.isArray(settings.social) ? settings.social : []).map((r) => ({ ...r, label: r.label || "", key: Math.random().toString(36).slice(2) })),
   });
   const [f, setF] = useState(init);
   const [busy, setBusy] = useState(false);
@@ -36,9 +76,11 @@ const SettingsForm = ({ settings, canManage, onSaved }) => {
   const save = async (e) => {
     e.preventDefault();
     if (f.numbers.some((n) => !!n.value.trim() !== !!n.label.trim())) return toast.error("Each number needs both a figure and a label");
+    const social = f.social.filter((r) => r.url.trim()).map(({ platform, url, label }) => ({ platform, url: url.trim(), label: label.trim() }));
+    if (social.some((r) => !/^https:\/\//.test(r.url))) return toast.error("Social links must start with https://");
     setBusy(true);
     try {
-      const r = await api.put("/website-settings", { ...f, numbers: f.numbers.filter((n) => n.value.trim() && n.label.trim()) });
+      const r = await api.put("/website-settings", { ...f, social, numbers: f.numbers.filter((n) => n.value.trim() && n.label.trim()) });
       onSaved(r.data.publish, "Saved");
     } catch (err) { toast.error(apiError(err)); }
     setBusy(false);
@@ -80,13 +122,9 @@ const SettingsForm = ({ settings, canManage, onSaved }) => {
         <CardContent className="p-5 space-y-4">
           <div>
             <h3 className="font-semibold text-gray-900">Social profiles</h3>
-            <p className="text-sm text-gray-500">Full links starting with https://. Leave blank to hide.</p>
+            <p className="text-sm text-gray-500">Shown as icons in the website footer, in this order, and linked from search results. Full links starting with https://.</p>
           </div>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {SOCIAL.map(([k, label]) => (
-              <Field key={k} label={label}><Input value={f.social[k]} onChange={(e) => setF({ ...f, social: { ...f.social, [k]: e.target.value } })} placeholder="https://" disabled={dis} /></Field>
-            ))}
-          </div>
+          <SocialList rows={f.social} platforms={platforms || {}} onChange={(social) => setF((s) => ({ ...s, social }))} disabled={dis} />
         </CardContent>
       </Card>
       {canManage && <div className="flex justify-end"><Button type="submit" disabled={busy} className={ORANGE_BTN} data-testid="website-settings-save">{busy ? "Publishing…" : "Save and publish"}</Button></div>}
@@ -136,7 +174,7 @@ export default function WebsitePage() {
       {section === "seo" && <SeoTab {...props} />}
       {section === "pages" && <PagesTab {...props} />}
       {section === "chatbot" && <ChatbotTab {...props} />}
-      {section === "contact" && <SettingsForm settings={data.settings} canManage={canManage} onSaved={done} />}
+      {section === "contact" && <SettingsForm settings={data.settings} platforms={data.social_platforms} canManage={canManage} onSaved={done} />}
     </div>
   );
 }

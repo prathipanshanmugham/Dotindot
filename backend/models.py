@@ -112,7 +112,9 @@ class Deliverable(BaseModel):
 
 
 class ProjectCreate(BaseModel):
-    client_id: str
+    kind: str = "client"  # client | internal (our own work: no client, kept out of the client portal)
+    client_id: Optional[str] = None
+    branch_id: Optional[str] = None  # internal projects only; client projects follow the client's branch
     name: str
     description: Optional[str] = ""
     status: str = "kickoff"  # kickoff | in_progress | review | completed | on_hold
@@ -128,7 +130,9 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
+    kind: Optional[str] = None
     client_id: Optional[str] = None
+    branch_id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None

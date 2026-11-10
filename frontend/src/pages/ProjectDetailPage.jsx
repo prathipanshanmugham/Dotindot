@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { InternalBadge } from "@/components/ProjectKind";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError } from "@/lib/api";
 import { ProjectStatusBadge, labelize, PROJECT_STATUSES } from "@/components/Badges";
@@ -98,7 +99,9 @@ export default function ProjectDetailPage() {
             <ProjectStatusBadge status={project.status} />
           </div>
           <p className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
-            {user.role !== "employee" ? (
+            {project.kind === "internal" ? (
+              <><InternalBadge />{project.branch_name && <span className="font-medium">{project.branch_name}</span>}</>
+            ) : user.role !== "employee" ? (
               <Link to={`/clients/${project.client_id}`} className="text-[#F26B21] font-medium hover:underline" data-testid="project-client-link">
                 {project.client_name}
               </Link>

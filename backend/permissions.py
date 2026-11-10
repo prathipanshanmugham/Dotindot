@@ -22,7 +22,7 @@ PERMISSION_GROUPS = {
                 "finance.loans", "finance.delete", "billing", "billing.manage", "billing.delete"],
     "Investors": ["investors", "investors.manage", "investors.delete"],
     "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud", "lead_flow", "lead_flow.manage", "sales.delete"],
-    "HR": ["hr", "hr.manage", "hr.delete", "payroll", "payroll.manage", "payroll.delete"],
+    "HR": ["hr", "hr.manage", "hr.delete", "payroll", "payroll.manage", "payroll.delete", "hiring", "hiring.manage", "hiring.delete"],
     "Growth": ["growth", "growth.manage", "growth.delete", "ads", "ads.delete", "social", "social.delete", "influencers", "influencers.delete"],
     "Operations": ["employees", "training", "training.delete", "partnerships", "partnerships.delete", "assets", "assets.delete", "locations", "locations.delete",
                    "ai_agents", "ai_agents.manage", "ai_agents.delete", "org_structure", "org_structure.manage", "org_structure.delete",
@@ -61,7 +61,7 @@ ROLE_DEFAULTS = {
     "ads_manager": {"ads", "clients", *_V26_EVERYONE, "lead_flow", "lead_flow.manage", "growth", "growth.manage"},
     "social_manager": {"social", "influencers", "clients", *_V26_EVERYONE, "lead_flow", "growth", "growth.manage"},
     # v3.0: HR Manager — people records, onboarding/offboarding, skills, KT, payroll, attendance.
-    "hr": {"employees", "training", "training.delete", "hr", "hr.manage", "hr.delete", "payroll", "payroll.manage",
+    "hr": {"employees", "training", "training.delete", "hr", "hr.manage", "hr.delete", "payroll", "payroll.manage", "hiring", "hiring.manage", "hiring.delete",
            "daily_reports", "daily_reports.team", "holidays.manage", "org_structure", "org_structure.manage", "ai_agents",
            "locations", "reports", "support", "support.manage"},
 }
@@ -101,9 +101,15 @@ V33_NEW_KEYS = {role: (keys & _V33) for role, keys in ROLE_DEFAULTS.items()}
 for _r in (V26_NEW_KEYS, V27_NEW_KEYS, V28_NEW_KEYS, V30_NEW_KEYS, V31_NEW_KEYS, V32_NEW_KEYS):
     for _k in _r:
         _r[_k] = _r[_k] - _V33
+# v3.4: Hiring (job posts on the careers page + applications)
+_V34 = {"hiring", "hiring.manage", "hiring.delete"}
+V34_NEW_KEYS = {role: (keys & _V34) for role, keys in ROLE_DEFAULTS.items()}
+for _r in (V26_NEW_KEYS, V27_NEW_KEYS, V28_NEW_KEYS, V30_NEW_KEYS, V31_NEW_KEYS, V32_NEW_KEYS, V33_NEW_KEYS):
+    for _k in _r:
+        _r[_k] = _r[_k] - _V34
 ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS), ("role_defaults_v28", V28_NEW_KEYS),
                    ("role_defaults_v30", V30_NEW_KEYS), ("role_defaults_v31", V31_NEW_KEYS), ("role_defaults_v32", V32_NEW_KEYS),
-                   ("role_defaults_v33", V33_NEW_KEYS)]
+                   ("role_defaults_v33", V33_NEW_KEYS), ("role_defaults_v34", V34_NEW_KEYS)]
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
@@ -268,6 +274,7 @@ PATH_PERMISSIONS = [
     ("/api/lead-flow", ("lead_flow", "sales.pipeline")),
     ("/api/client-leads", ("lead_flow",)),
     ("/api/hr/payroll", ("payroll",)),
+    ("/api/hr/jobs", ("hiring",)),
     # KT handovers + onboarding/offboarding checklists: participants (task owners, handover receivers) reach them too;
     # the routes check membership themselves.
     ("/api/hr/kt", None),

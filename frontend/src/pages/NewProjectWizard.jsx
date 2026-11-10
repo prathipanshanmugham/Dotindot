@@ -14,8 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ArrowRight, CalendarIcon, Plus, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
+import ProjectKindField from "@/components/ProjectKind";
 
-const STEPS = ["Client & Basics", "Timeline & Milestones", "Budget", "Team & Deliverables", "Review"];
+const STEPS = ["Basics", "Timeline & Milestones", "Budget", "Team & Deliverables", "Review"];
 
 const DatePickerField = ({ label, value, onChange, testid }) => (
   <div className="space-y-1.5">
@@ -47,7 +48,9 @@ export default function NewProjectWizard() {
   const [team, setTeam] = useState([]);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
+    kind: searchParams.get("internal") ? "internal" : "client",
     client_id: searchParams.get("client") || "",
+    branch_id: null,
     name: "",
     description: "",
     status: "kickoff",
@@ -69,7 +72,7 @@ export default function NewProjectWizard() {
   const selectedClient = clients.find((c) => c.id === form.client_id);
 
   const canNext = () => {
-    if (step === 0) return form.client_id && form.name.trim();
+    if (step === 0) return (form.kind === "internal" || form.client_id) && form.name.trim();
     if (step === 2) return form.budget !== "" && Number(form.budget) >= 0;
     return true;
   };
@@ -79,6 +82,8 @@ export default function NewProjectWizard() {
     try {
       const payload = {
         ...form,
+        client_id: form.kind === "internal" ? null : form.client_id,
+        branch_id: form.kind === "internal" ? form.branch_id : null,
         budget: Number(form.budget) || 0,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
@@ -128,15 +133,7 @@ export default function NewProjectWizard() {
         <CardContent className="p-6 space-y-4">
           {step === 0 && (
             <>
-              <div className="space-y-1.5">
-                <Label>Client *</Label>
-                <Select value={form.client_id} onValueChange={(v) => set("client_id", v)}>
-                  <SelectTrigger data-testid="wizard-client-select"><SelectValue placeholder="Select a client" /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name} — {c.city}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              <ProjectKindField value={form} onChange={(patch) => setForm((p) => ({ ...p, ...patch }))} clients={clients} testid="wizard-kind" />
               <div className="space-y-1.5">
                 <Label>Project name *</Label>
                 <Input data-testid="wizard-project-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Website Revamp 2026" />
@@ -155,7 +152,7 @@ export default function NewProjectWizard() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Location tag</Label>
-                  <Input data-testid="wizard-project-location" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder={selectedClient ? `${selectedClient.city}, ${selectedClient.region} (inherited)` : "Inherits client location"} />
+                  <Input data-testid="wizard-project-location" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder={form.kind === "internal" ? "e.g. Erode office" : selectedClient ? `${selectedClient.city}, ${selectedClient.region} (inherited)` : "Inherits client location"} />
                 </div>
               </div>
             </>
@@ -244,7 +241,7 @@ export default function NewProjectWizard() {
             <div className="space-y-3" data-testid="wizard-review">
               <h3 className="text-lg font-semibold text-gray-900">Review & create</h3>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <div><div className="text-xs text-gray-400 uppercase tracking-wide">Client</div>{selectedClient?.name || "—"}</div>
+                <div><div className="text-xs text-gray-400 uppercase tracking-wide">Client</div>{form.kind === "internal" ? "Internal project" : selectedClient?.name || "—"}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Project</div>{form.name}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Status</div>{labelize(form.status)}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Timeline</div>{form.start_date || "—"} → {form.end_date || "—"}</div>

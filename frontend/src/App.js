@@ -64,6 +64,7 @@ import CompanyPage from "@/pages/settings/CompanyPage";
 import { HROverviewPage, HRPeoplePage, OnboardingPage, OffboardingPage, SkillsPage, KTPage } from "@/pages/hr/HRPages";
 import { PayrollPage, IncentivesPage } from "@/pages/hr/PayrollPages";
 import MyHRPage from "@/pages/hr/MyHRPage";
+import HiringPage from "@/pages/hr/HiringPage";
 import LoansPage from "@/pages/finance/LoansPage";
 import InvestorsPage from "@/pages/investors/InvestorsPage";
 import { InvestorLoginPage, InvestorDashboardPage } from "@/pages/investors/InvestorPortalPages";
@@ -191,6 +192,7 @@ function App() {
           <Route path="/hr/people" element={<Protected perm="hr"><HRPeoplePage /></Protected>} />
           <Route path="/hr/payroll" element={<Protected perm="payroll"><PayrollPage /></Protected>} />
           <Route path="/hr/incentives" element={<Protected perm="payroll"><IncentivesPage /></Protected>} />
+          <Route path="/hr/jobs" element={<Protected perm="hiring"><HiringPage /></Protected>} />
           <Route path="/hr/onboarding" element={<Protected><OnboardingPage /></Protected>} />
           <Route path="/hr/offboarding" element={<Protected><OffboardingPage /></Protected>} />
           <Route path="/hr/skills" element={<Protected perm="hr"><SkillsPage /></Protected>} />

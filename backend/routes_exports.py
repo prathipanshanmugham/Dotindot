@@ -56,10 +56,14 @@ async def fetch_projects(p, user):
         q["client_id"] = p["client_id"]
     if p.get("team_member"):
         q["team_member_ids"] = p["team_member"]
-    rows = await db.projects.find(q, {"_id": 0}).sort("name", 1).to_list(1000)
+    if p.get("kind") in ("client", "internal"):
+        q["kind"] = "internal" if p["kind"] == "internal" else {"$ne": "internal"}
+    from routes_projects import project_scope
+    scope = await project_scope(user)
+    rows = await db.projects.find({"$and": [q, scope]} if scope else q, {"_id": 0}).sort("name", 1).to_list(1000)
     cmap, _ = await name_maps()
     for r in rows:
-        r["client_name"] = cmap.get(r["client_id"], "")
+        r["client_name"] = "Internal" if r.get("kind") == "internal" else cmap.get(r.get("client_id"), "")
     cols = [("name", "Project", "text"), ("client_name", "Client", "text"), ("status", "Status", "text"),
             ("budget", "Budget", "money"), ("start_date", "Start", "text"), ("end_date", "End", "text"),
             ("location", "Location", "text")]
@@ -189,7 +193,7 @@ async def fetch_project_profit(p, user):
     cmap, _ = await name_maps()
     rows = [_profit_row(pr, by_p) for pr in projects]
     for r in rows:
-        r["client_name"] = cmap.get(r["client_id"], "")
+        r["client_name"] = "Internal" if r.get("kind") == "internal" else cmap.get(r.get("client_id"), "")
     rows.sort(key=lambda r: -r["net"])
     cols = [("project_name", "Project", "text"), ("client_name", "Client", "text"), ("status", "Status", "text"),
             ("budget", "Budget", "money"), ("revenue", "Revenue", "money"), ("linked_expenses", "Expenses", "money"),

@@ -17,9 +17,14 @@ if (existsSync(CONTENT_FILE)) {
     X = JSON.parse(readFileSync(CONTENT_FILE, "utf8"));
     for (const k of ["clients", "testimonials", "team", "caseStudies", "proof"]) if (Array.isArray(X[k])) C[k] = X[k];
     for (const k of ["email", "phone", "phoneDisplay", "whatsapp"]) if (typeof X[k] === "string") C[k] = X[k];
-    if (X.social && typeof X.social === "object") C.social = X.social;
+    if (X.social && typeof X.social === "object") C.social = X.social;  // a list from the website editor, or the older {platform: url}
   } catch (e) { X = {}; console.warn("content.json ignored:", e.message); }
 }
+// social profiles in the editor's order: [{platform, url, name}]
+const SOCIAL_NAMES = { instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", linkedin: "LinkedIn", x: "X" };
+const SOCIALS = (Array.isArray(C.social) ? C.social : Object.keys(SOCIAL_NAMES).map((platform) => ({ platform, url: (C.social || {})[platform] })))
+  .filter((s) => s && s.platform && /^https:\/\/\S+$/.test(s.url || ""))
+  .map((s) => ({ platform: s.platform, url: s.url, name: s.name || SOCIAL_NAMES[s.platform] || "Profile" }));
 // offices, certifications, articles, SEO, legal pages and the chat assistant — also from the editor
 const locations = (X.locations || C.locations || []).filter((l) => l && l.name && l.address);
 const certs = (X.certifications || C.certifications || []).filter((c) => c && c.name);
@@ -54,15 +59,34 @@ const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`
 const inline = (t) => esc(t)
   .replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:|\/)[^\s)]+)\)/g, (m, x, u) => `<a class="link" href="${u}"${/^https?:/.test(u) ? ' target="_blank" rel="noopener"' : ""}>${x}</a>`)
   .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
-const mdHtml = (src, vars = {}) => String(Array.isArray(src) ? src.join("\n\n") : src || "").replace(/\r/g, "")
-  .replace(/\{\{(\w+)\}\}/g, (m, k) => (k in vars ? vars[k] : m)).split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean).map((b) => {
-    const h = b.match(/^(#{2,4})\s+(.+)$/);
-    if (h && !b.includes("\n")) return `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;
-    const lines = b.split("\n");
-    if (lines.every((l) => /^\s*\d+[.)]\s+/.test(l))) return `<ol>${lines.map((l) => `<li>${inline(l.replace(/^\s*\d+[.)]\s+/, ""))}</li>`).join("")}</ol>`;
-    if (lines.every((l) => /^\s*[-*•]\s+/.test(l))) return `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*[-*•]\s+/, ""))}</li>`).join("")}</ul>`;
-    return `<p>${lines.map(inline).join("<br>")}</p>`;
-  }).join("\n");
+// Markdown for articles, job posts and legal pages: ## headings, - and 1. lists, **bold**, [links](…). Headings and lists
+// don't need a blank line around them; a blank line starts a new paragraph, a single line break stays a <br>.
+const mdHtml = (src, vars = {}) => {
+  const out = [];
+  let para = [], list = null;
+  const flushP = () => { if (para.length) out.push(`<p>${para.map(inline).join("<br>")}</p>`); para = []; };
+  const flushL = () => { if (list) out.push(`<${list.t}>${list.items.map((x) => `<li>${inline(x)}</li>`).join("")}</${list.t}>`); list = null; };
+  const text = String(Array.isArray(src) ? src.join("\n\n") : src || "").replace(/\r/g, "").replace(/\{\{(\w+)\}\}/g, (m, k) => (k in vars ? vars[k] : m));
+  for (const raw of text.split("\n")) {
+    const l = raw.trim();
+    if (!l) { flushP(); flushL(); continue; }
+    const h = l.match(/^(#{2,4})\s+(.+)$/);
+    if (h) { flushP(); flushL(); out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); continue; }
+    const ol = l.match(/^\d+[.)]\s+(.+)$/), ul = l.match(/^[-*•]\s+(.+)$/);
+    if (ol || ul) {
+      const t = ol ? "ol" : "ul";
+      flushP();
+      if (list && list.t !== t) flushL();
+      list = list || { t, items: [] };
+      list.items.push((ol || ul)[1]);
+      continue;
+    }
+    flushL();
+    para.push(l);
+  }
+  flushP(); flushL();
+  return out.join("\n");
+};
 const lc = (s) => s.split(" ").map((w) => (/^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase())).join(" ");
 const abs = (p) => C.domain.replace(/\/$/, "") + p;
 const tel = (C.phone || "").replace(/[^\d+]/g, "");
@@ -101,7 +125,7 @@ const ORG = {
   description: "AI-first growth agency for brands worldwide: performance marketing, social media and content, SEO and AI search, websites and apps, brand and video, AI agents and automation.",
   email: C.email, telephone: C.phone, areaServed: "Worldwide", address: postal(locations.find((l) => l.hq) || locations[0]),
   ...(locations.length ? { location: locations.map((l) => ({ "@type": "Place", name: `${C.name}, ${l.name}`, address: postal(l), ...(l.phone ? { telephone: l.phone } : {}) })) } : {}),
-  sameAs: Object.values(C.social).filter(Boolean), knowsAbout: services.map((s) => s.name).concat(["Generative engine optimisation", "Conversion rate optimisation"]),
+  sameAs: SOCIALS.filter((s) => !["whatsapp", "telegram"].includes(s.platform)).map((s) => s.url), knowsAbout: services.map((s) => s.name).concat(["Generative engine optimisation", "Conversion rate optimisation"]),
   slogan: "Marketing that performs. Technology that scales.",
   ...(team.length ? { founder: team.filter((p) => /founder/i.test(p.role)).map((p) => ({ "@type": "Person", name: p.name, jobTitle: p.role })) } : {}),
   contactPoint: { "@type": "ContactPoint", contactType: "sales", email: C.email, telephone: C.phone, areaServed: "Worldwide", availableLanguage: ["English"] },
@@ -136,8 +160,7 @@ function header(path) {
 }
 
 function footer() {
-  const SOC = [["instagram", "Instagram"], ["facebook", "Facebook"], ["youtube", "YouTube"], ["linkedin", "LinkedIn"], ["x", "X"]];
-  const socIcons = SOC.filter(([k]) => (C.social || {})[k]).map(([k, n]) => `<li><a href="${esc(C.social[k])}" rel="me" aria-label="${esc(C.name)} on ${n}" title="${n}">${SOCIAL_ICON[k]}</a></li>`).join("");
+  const socIcons = SOCIALS.map((s) => `<li><a href="${esc(s.url)}" rel="me" aria-label="${esc(C.name)} on ${esc(s.name)}" title="${esc(s.name)}">${SOCIAL_ICON[s.platform] || SOCIAL_ICON.other}</a></li>`).join("");
   return newTab(`<footer class="ftr"><div class="wrap">
 <div class="ftr-grid">
 <div class="ftr-brand"><img src="/assets/wordmark-color.svg" alt="dotindot." width="150" height="29"><p>${esc(C.name)} is an AI-first growth agency for brands worldwide: marketing that performs and technology that scales.</p>
@@ -165,6 +188,17 @@ const SOCIAL_ICON = {
   youtube: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.6 7.2a2.8 2.8 0 0 0-2-2C18.9 4.8 12 4.8 12 4.8s-6.9 0-8.6.4a2.8 2.8 0 0 0-2 2C1 8.9 1 12 1 12s0 3.1.4 4.8a2.8 2.8 0 0 0 2 2c1.7.4 8.6.4 8.6.4s6.9 0 8.6-.4a2.8 2.8 0 0 0 2-2c.4-1.7.4-4.8.4-4.8s0-3.1-.4-4.8zM9.8 15.1V8.9l5.7 3.1z"/></svg>',
   linkedin: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.5h4V21H3zM9.5 9.5h3.8v1.6h.1c.5-1 1.8-2 3.8-2 4 0 4.8 2.6 4.8 6V21h-4v-5.2c0-1.2 0-2.9-1.8-2.9s-2 1.4-2 2.8V21h-4z"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.8 3h3.1l-6.8 7.7L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.3-8.3L2 3h6.4l4.4 5.8zm-1.1 16.2h1.7L7.4 4.7H5.6z"/></svg>',
+  threads: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.321.142 1.49.7 2.58 1.761 3.154 3.07.797 1.82.871 4.79-1.548 7.158-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69c-.242 0-.487.007-.739.021-1.836.103-2.98.946-2.916 2.143.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221z"/></svg>',
+  whatsapp: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>',
+  tiktok: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>',
+  pinterest: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0z"/></svg>',
+  behance: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.969 16.927a2.561 2.561 0 0 0 1.901.677 2.501 2.501 0 0 0 1.531-.475c.362-.235.636-.584.779-.99h2.585a5.091 5.091 0 0 1-1.9 2.896 5.292 5.292 0 0 1-3.091.88 5.839 5.839 0 0 1-2.284-.433 4.871 4.871 0 0 1-1.723-1.211 5.657 5.657 0 0 1-1.08-1.874 7.057 7.057 0 0 1-.383-2.393c-.005-.8.129-1.595.396-2.349a5.313 5.313 0 0 1 5.088-3.604 4.87 4.87 0 0 1 2.376.563c.661.362 1.231.87 1.668 1.485a6.2 6.2 0 0 1 .943 2.133c.194.821.263 1.666.205 2.508h-7.699c-.063.79.184 1.574.688 2.187ZM6.947 4.084a8.065 8.065 0 0 1 1.928.198 4.29 4.29 0 0 1 1.49.638c.418.303.748.711.958 1.182.241.579.357 1.203.341 1.83a3.506 3.506 0 0 1-.506 1.961 3.726 3.726 0 0 1-1.503 1.287 3.588 3.588 0 0 1 2.027 1.437c.464.747.697 1.615.67 2.494a4.593 4.593 0 0 1-.423 2.032 3.945 3.945 0 0 1-1.163 1.413 5.114 5.114 0 0 1-1.683.807 7.135 7.135 0 0 1-1.928.259H0V4.084h6.947Zm-.235 12.9c.308.004.616-.029.916-.099a2.18 2.18 0 0 0 .766-.332c.228-.158.411-.371.534-.619.142-.317.208-.663.191-1.009a2.08 2.08 0 0 0-.642-1.715 2.618 2.618 0 0 0-1.696-.505h-3.54v4.279h3.471Zm13.635-5.967a2.13 2.13 0 0 0-1.654-.619 2.336 2.336 0 0 0-1.163.259 2.474 2.474 0 0 0-.738.62 2.359 2.359 0 0 0-.396.792c-.074.239-.12.485-.137.734h4.769a3.239 3.239 0 0 0-.679-1.785l-.002-.001Zm-13.813-.648a2.254 2.254 0 0 0 1.423-.433c.399-.355.607-.88.56-1.413a1.916 1.916 0 0 0-.178-.891 1.298 1.298 0 0 0-.495-.533 1.851 1.851 0 0 0-.711-.274 3.966 3.966 0 0 0-.835-.073H3.241v3.631h3.293v-.014ZM21.62 5.122h-5.976v1.527h5.976V5.122Z"/></svg>',
+  dribbble: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 24C5.385 24 0 18.615 0 12S5.385 0 12 0s12 5.385 12 12-5.385 12-12 12zm10.12-10.358c-.35-.11-3.17-.953-6.384-.438 1.34 3.684 1.887 6.684 1.992 7.308 2.3-1.555 3.936-4.02 4.395-6.87zm-6.115 7.808c-.153-.9-.75-4.032-2.19-7.77l-.066.02c-5.79 2.015-7.86 6.025-8.04 6.4 1.73 1.358 3.92 2.166 6.29 2.166 1.42 0 2.77-.29 4-.814zm-11.62-2.58c.232-.4 3.045-5.055 8.332-6.765.135-.045.27-.084.405-.12-.26-.585-.54-1.167-.832-1.74C7.17 11.775 2.206 11.71 1.756 11.7l-.004.312c0 2.633.998 5.037 2.634 6.855zm-2.42-8.955c.46.008 4.683.026 9.477-1.248-1.698-3.018-3.53-5.558-3.8-5.928-2.868 1.35-5.01 3.99-5.676 7.17zM9.6 2.052c.282.38 2.145 2.914 3.822 6 3.645-1.365 5.19-3.44 5.373-3.702-1.81-1.61-4.19-2.586-6.795-2.586-.825 0-1.63.1-2.4.285zm10.335 3.483c-.218.29-1.935 2.493-5.724 4.04.24.49.47.985.68 1.486.08.18.15.36.22.53 3.41-.43 6.8.26 7.14.33-.02-2.42-.88-4.64-2.31-6.38z"/></svg>',
+  github: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>',
+  medium: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.21 0A4.201 4.201 0 0 0 0 4.21v15.58A4.201 4.201 0 0 0 4.21 24h15.58A4.201 4.201 0 0 0 24 19.79v-1.093c-.137.013-.278.02-.422.02-2.577 0-4.027-2.146-4.09-4.832a7.592 7.592 0 0 1 .022-.708c.093-1.186.475-2.241 1.105-3.022a3.885 3.885 0 0 1 1.395-1.1c.468-.237 1.127-.367 1.664-.367h.023c.101 0 .202.004.303.01V4.211A4.201 4.201 0 0 0 19.79 0Zm.198 5.583h4.165l3.588 8.435 3.59-8.435h3.864v.146l-.019.004c-.705.16-1.063.397-1.063 1.254h-.003l.003 10.274c.06.676.424.885 1.063 1.03l.02.004v.145h-4.923v-.145l.019-.005c.639-.144.994-.353 1.054-1.03V7.267l-4.745 11.15h-.261L6.15 7.569v9.445c0 .857.358 1.094 1.063 1.253l.02.004v.147H4.405v-.147l.019-.004c.705-.16 1.065-.397 1.065-1.253V6.987c0-.857-.358-1.094-1.064-1.254l-.018-.004zm19.25 3.668c-1.086.023-1.733 1.323-1.813 3.124H24V9.298a1.378 1.378 0 0 0-.342-.047Zm-1.862 3.632c-.1 1.756.86 3.239 2.204 3.634v-3.634z"/></svg>',
+  telegram: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>',
+  google: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.527 4.799c1.212 2.608.937 5.678-.405 8.173-1.101 2.047-2.744 3.74-4.098 5.614-.619.858-1.244 1.75-1.669 2.727-.141.325-.263.658-.383.992-.121.333-.224.673-.34 1.008-.109.314-.236.684-.627.687h-.007c-.466-.001-.579-.53-.695-.887-.284-.874-.581-1.713-1.019-2.525-.51-.944-1.145-1.817-1.79-2.671L19.527 4.799zM8.545 7.705l-3.959 4.707c.724 1.54 1.821 2.863 2.871 4.18.247.31.494.622.737.936l4.984-5.925-.029.01c-1.741.601-3.691-.291-4.392-1.987a3.377 3.377 0 0 1-.209-.716c-.063-.437-.077-.761-.004-1.198l.001-.007zM5.492 3.149l-.003.004c-1.947 2.466-2.281 5.88-1.117 8.77l4.785-5.689-.058-.05-3.607-3.035zM14.661.436l-3.838 4.563a.295.295 0 0 1 .027-.01c1.6-.551 3.403.15 4.22 1.626.176.319.323.683.377 1.045.068.446.085.773.012 1.22l-.003.016 3.836-4.561A8.382 8.382 0 0 0 14.67.439l-.009-.003zM9.466 5.868L14.162.285l-.047-.012A8.31 8.31 0 0 0 11.986 0a8.439 8.439 0 0 0-6.169 2.766l-.016.018 3.665 3.084z"/></svg>',
+  other: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
 };
 
 const INDEX = [];
@@ -182,10 +216,10 @@ const chatHint = (path) => {
   if (path === "/growth-score/") return "Want help improving your score? Ask me.";
   return "Hi, I'm Dot! Want a few quick ideas to grow your brand? Ask me anything.";
 };
-function layout({ path, title, desc, body, ld = [], noindex = false, type = "website", fullTitle, og = "", ogImage = "", crumbs: trail = null }) {
+function layout({ path, title, desc, body, ld = [], noindex = false, type = "website", fullTitle, og = "", ogImage = "", crumbs: trail = null, kind = "" }) {
   const url = abs(path);
   const t0 = fullTitle || `${title} — ${C.name}`, ov = (SEO.pages || {})[path] || {};
-  if (!noindex) INDEX.push({ path, title: t0, description: desc, kind: type === "article" ? "article" : "page" });
+  if (!noindex) INDEX.push({ path, title: t0, description: desc, kind: kind || (type === "article" ? "article" : "page") });
   const t = ov.title || t0;
   desc = ov.description || desc;
   const ogImg = ogImage ? `/${ogImage.replace(/^\//, "")}` : og && existsSync(join(ROOT, `assets/og/${og}.jpg`)) ? `/assets/og/${og}.jpg` : "/assets/og.png";
@@ -559,12 +593,78 @@ ${faqSec(`Questions from ${m.name}`, mfaq)}
 ${talk(`market-${m.slug}`, { title: `Let's grow your brand in ${m.name}` })}` }));
 });
 
-// careers
+// careers: open jobs from HR → Hiring in the app (content.json "jobs"). Until the app has published a job list,
+// the roles that were on the page before stay as they were (applications by email).
+const JOBS = Array.isArray(X.jobs) ? X.jobs.filter((j) => j && j.slug && j.title) : null;
+const EXPERIENCE = ["Fresher", "Under 1 year", "1–2 years", "3–5 years", "6–10 years", "10+ years"];
+const CUR_SIGN = { INR: "₹", USD: "$", GBP: "£", EUR: "€", AED: "AED ", SGD: "S$", AUD: "A$", CAD: "C$" };
+const salaryText = (x) => {
+  if (!x || !(x.min || x.max)) return "";
+  const f = (n) => (CUR_SIGN[x.currency] || `${x.currency} `) + Number(n).toLocaleString(x.currency === "INR" ? "en-IN" : "en-US");
+  return `${x.min && x.max && x.min !== x.max ? `${f(x.min)} – ${f(x.max)}` : f(x.min || x.max)} a ${x.period === "year" ? "year" : "month"}`;
+};
+const jobFacts = (j) => [j.location || (j.work_mode === "remote" ? "Remote" : ""), j.work_mode !== "remote" ? j.work_mode_label : "", j.type_label].filter(Boolean);
+const EMP_TYPE = { full_time: "FULL_TIME", part_time: "PART_TIME", contract: "CONTRACTOR", intern: "INTERN" };
+const jobLd = (j, url) => ({
+  "@context": "https://schema.org", "@type": "JobPosting", title: j.title, description: mdHtml(j.description || j.summary), identifier: { "@type": "PropertyValue", name: C.name, value: j.id },
+  datePosted: j.posted || today, ...(j.closes_on ? { validThrough: `${j.closes_on}T23:59:59+05:30` } : {}), employmentType: EMP_TYPE[j.type] || "FULL_TIME",
+  hiringOrganization: { "@type": "Organization", name: C.name, sameAs: abs("/"), logo: abs("/assets/icon-512.png") }, directApply: true, url,
+  ...(j.work_mode === "remote"
+    ? { jobLocationType: "TELECOMMUTE", applicantLocationRequirements: { "@type": "Country", name: j.country || "India" } }
+    : { jobLocation: { "@type": "Place", address: { "@type": "PostalAddress", ...(j.city ? { addressLocality: j.city } : j.location ? { addressLocality: j.location.split(",")[0].trim() } : {}), ...(j.region ? { addressRegion: j.region } : {}), addressCountry: j.country || "India" } } }),
+  ...(j.salary && (j.salary.min || j.salary.max) ? { baseSalary: { "@type": "MonetaryAmount", currency: j.salary.currency, value: { "@type": "QuantitativeValue", ...(j.salary.min ? { minValue: j.salary.min } : {}), ...(j.salary.max ? { maxValue: j.salary.max } : {}), unitText: j.salary.period === "year" ? "YEAR" : "MONTH" } } } : {}),
+  ...(j.skills?.length ? { skills: j.skills.join(", ") } : {}), ...(j.experience ? { experienceRequirements: j.experience } : {}),
+});
+const clip = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+const applyForm = (job) => `<form class="form apply" data-apply action="/api/careers/apply" method="post" enctype="multipart/form-data" novalidate>
+<input type="hidden" name="job_id" value="${job ? esc(job.id) : "general"}"><input type="hidden" name="page" value="">
+<label>Full name<input name="name" autocomplete="name" required maxlength="80"></label>
+<label>Email<input name="email" type="email" inputmode="email" autocomplete="email" required maxlength="120"></label>
+<label>Phone or WhatsApp<input name="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="30" placeholder="With country code, e.g. +91"></label>
+<label><span>City <small>(optional)</small></span><input name="city" autocomplete="address-level2" maxlength="60"></label>
+<label><span>Experience</span><select name="experience"><option value="">Choose</option>${EXPERIENCE.map((o) => `<option>${o}</option>`).join("")}</select></label>
+<label><span>LinkedIn or portfolio <small>(optional)</small></span><input name="link" inputmode="url" maxlength="300" placeholder="linkedin.com/in/yourname"></label>
+<label class="full"><span>${job ? "Why this role?" : "What would you like to do here?"} <small>(optional)</small></span><textarea name="note" rows="4" maxlength="3000"></textarea></label>
+<div class="full cv-field"><span class="cv-l">Your CV</span><label class="drop"><input type="file" name="cv" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required><span class="drop-i">${clip}</span><span class="drop-t"><b>Attach your CV</b><small>PDF or Word, up to 5 MB</small></span></label></div>
+<label class="full consent"><input type="checkbox" name="consent" value="1" required><span>I agree to ${esc(C.name)} keeping my application to consider me for this and similar roles, as the <a class="link" href="/privacy/">privacy policy</a> describes.</span></label>
+<label class="hp" aria-hidden="true">Leave this empty<input name="website_url" tabindex="-1" autocomplete="off"></label>
+<div class="full form-foot"><button class="btn" type="submit">${job ? "Send application" : "Send my CV"}</button><p class="status" role="status" aria-live="polite"></p></div>
+</form>`;
+const careersHero = phero({ h: "Careers", lead: "Real clients around the world, modern AI tools and a team that values craft and clear thinking.", trail: [["Careers"]] });
+if (JOBS) {
+  const list = JOBS.length
+    ? `<ul class="jobs" role="list">${JOBS.map((j) => `<li><a class="job-row" href="/careers/${j.slug}/" data-reveal><span class="job-t"><b>${esc(j.title)}</b>${j.department ? `<small>${esc(j.department)}</small>` : ""}</span><span class="job-m">${jobFacts(j).map(esc).join(" · ")}</span><span class="job-go" aria-hidden="true">${I.arrow}</span></a></li>`).join("")}</ul>`
+    : `<p class="lead" data-reveal>There are no open roles right now. If you're good at what you do, send us your CV anyway: we read every one.</p>`;
+  add("/careers/", layout({ path: "/careers/", title: "Careers", fullTitle: `Careers — ${JOBS.length ? `${JOBS.length} open role${JOBS.length > 1 ? "s" : ""}` : "work with us"} — ${C.name}`, og: "careers",
+    desc: JOBS.length ? `Open roles at ${C.name}: ${JOBS.slice(0, 4).map((j) => j.title).join(", ")}${JOBS.length > 4 ? " and more" : ""}. Apply online with your CV.` : `Work at ${C.name}: marketing, content, engineering and AI automation. Send us your CV.`,
+    crumbs: [["Home", "/"], ["Careers", "/careers/"]], ld: [crumbsLd([["Home", "/"], ["Careers", "/careers/"]])],
+    body: `${careersHero}
+<section class="sec tight"><div class="wrap"><p class="label">Open roles${JOBS.length ? ` · ${JOBS.length}` : ""}</p>${list}</div></section>
+<section class="sec tight" id="apply"><div class="wrap apply-wrap"><div class="apply-intro">${H2(JOBS.length ? "Don't see your role?" : "Send us your CV")}<p class="lead">Tell us what you do best. When a role opens that fits, we'll get in touch.</p></div>${applyForm(null)}</div></section>` }));
+  for (const j of JOBS) {
+    const path = `/careers/${j.slug}/`, trail = [["Home", "/"], ["Careers", "/careers/"], [j.title, path]];
+    const facts = [["Location", j.location || (j.work_mode === "remote" ? "Remote" : "")], ["Work", j.work_mode_label], ["Type", j.type_label], ["Experience", j.experience],
+      ["Salary", salaryText(j.salary)], ["Openings", j.openings > 1 ? String(j.openings) : ""], ["Apply by", j.closes_on ? new Date(j.closes_on + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : ""]].filter(([, v]) => v);
+    add(path, layout({ path, title: j.title, fullTitle: `${j.title}${j.location ? ` — ${j.location}` : ""} — Careers at ${C.name}`, og: "careers", kind: "job",
+      desc: (j.summary || `${j.title} at ${C.name}.`).slice(0, 300), crumbs: trail, ld: [crumbsLd(trail), jobLd(j, abs(path))],
+      body: `${phero({ h: j.title, lead: esc(j.summary), trail: [["Careers", "/careers/"], [j.title]], btns: `<a class="btn" href="#apply">Apply for this role</a>` })}
+<section class="sec tight"><div class="wrap job-grid">
+<article class="prose job-body">${mdHtml(j.description || j.summary)}${j.skills?.length ? `<h2>Skills</h2><ul class="skills" role="list">${j.skills.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</article>
+<aside class="job-facts" aria-label="About the role"><dl>${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl><a class="btn" href="#apply">Apply now</a></aside>
+</div></section>
+<section class="sec tight" id="apply"><div class="wrap apply-wrap"><div class="apply-intro">${H2("Apply for this role")}<p class="lead">It takes two minutes. We read every application and reply to the people we'd like to meet.</p></div>${applyForm(j)}</div></section>` }));
+  }
+} else {
 add("/careers/", layout({ path: "/careers/", title: "Careers", fullTitle: `Careers — marketing, content and engineering roles — ${C.name}`, og: "careers", desc: "Work at Dotindot: roles in performance marketing, content, engineering and AI automation, with clients around the world.",
   crumbs: [["Home", "/"], ["Careers", "/careers/"]], ld: [crumbsLd([["Home", "/"], ["Careers", "/careers/"]])],
   body: `${phero({ h: "Careers", lead: "Real clients around the world, modern AI tools and a team that values craft and clear thinking.", trail: [["Careers"]] })}
 <section class="sec tight"><div class="wrap"><p class="label">Open roles</p><div class="roles">${careers.map((r) => `<div class="role" data-reveal><h3>${esc(r.title)}<span class="pl">${esc(r.place)}</span></h3><p>${esc(r.text)}</p><a class="btn sm ghost" href="mailto:${C.email}?subject=${encodeURIComponent("Application: " + r.title)}">Apply</a></div>`).join("")}</div>
 <p class="lead" data-reveal style="margin-top:40px">Don't see your role? Write to <a class="link" href="mailto:${C.email}?subject=${encodeURIComponent("Open application")}">${C.email}</a> with what you do best and a link to your work.</p></div></section>` }));
+
+}
+add("/careers/applied/", layout({ path: "/careers/applied/", title: "Application received", desc: "We've received your application.", noindex: true,
+  body: `<section class="phero center"><div class="wrap">${H1("Application received")}<p class="lead">Thank you. We read every application and reply to the people we'd like to meet.</p>
+<div class="btns" style="margin-top:32px"><a class="btn" href="/careers/">Back to careers</a><a class="btn ghost" href="/about/">About us</a></div></div></section>` }));
 
 // thanks, legal, 404
 add("/thanks/", layout({ path: "/thanks/", title: "Thank you", desc: "We've received your message.", noindex: true,
@@ -609,14 +709,14 @@ for (const [p, h] of pages) {
   writeFileSync(file, html);
 }
 
-const live = pages.map(([p]) => p).filter((p) => !p.endsWith(".html") && p !== "/thanks/");
+const live = pages.map(([p]) => p).filter((p) => !p.endsWith(".html") && p !== "/thanks/" && p !== "/careers/applied/");
 writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${live.map((p) => `<url><loc>${abs(p)}</loc><lastmod>${today}</lastmod><changefreq>${p === "/" ? "weekly" : "monthly"}</changefreq><priority>${p === "/" ? "1.0" : p.split("/").length <= 3 ? "0.8" : "0.6"}</priority></url>`).join("\n")}\n</urlset>\n`);
 {
   const rules = "Allow: /\nDisallow: /app/\nDisallow: /api/\nDisallow: /thanks/\n";
   const ai = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"];
   writeFileSync(join(OUT, "robots.txt"), `User-agent: *\n${rules}\n# AI assistants are welcome. Start at /llms.txt\n${ai.map((b) => `User-agent: ${b}\n`).join("")}${rules}\nSitemap: ${abs("/sitemap.xml")}\n`);
 }
-const LLMS = `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first growth agency headquartered in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in ${curList}. Contact: ${C.email}.${locations.length ? ` Offices: ${locations.map((l) => [l.name, l.city].filter((v, i, a) => v && a.indexOf(v) === i).join(", ")).join("; ")}.` : ""}\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [Clients](${abs("/clients/")}): who we work with${clients.length ? " (" + clients.map((c) => c.name).join(", ") + ")" : ""}\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Markets\n${markets.map((m) => `- [${m.country}](${abs(`/markets/${m.slug}/`)}): marketing for brands in ${m.name}, invoiced in ${m.cur}`).join("\n")}\n\n## Free tools\n- [Website speed test](${abs("/speed-test/")}): Google PageSpeed score and Core Web Vitals in about 30 seconds\n- [Marketing health check](${abs("/growth-score/")}): a 60-second marketing assessment\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`;
+const LLMS = `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first growth agency headquartered in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in ${curList}. Contact: ${C.email}.${locations.length ? ` Offices: ${locations.map((l) => [l.name, l.city].filter((v, i, a) => v && a.indexOf(v) === i).join(", ")).join("; ")}.` : ""}\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [Clients](${abs("/clients/")}): who we work with${clients.length ? " (" + clients.map((c) => c.name).join(", ") + ")" : ""}\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Markets\n${markets.map((m) => `- [${m.country}](${abs(`/markets/${m.slug}/`)}): marketing for brands in ${m.name}, invoiced in ${m.cur}`).join("\n")}\n\n## Free tools\n- [Website speed test](${abs("/speed-test/")}): Google PageSpeed score and Core Web Vitals in about 30 seconds\n- [Marketing health check](${abs("/growth-score/")}): a 60-second marketing assessment\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n${JOBS && JOBS.length ? `\n## Careers\n${JOBS.map((j) => `- [${j.title}](${abs(`/careers/${j.slug}/`)}): ${jobFacts(j).join(", ")}`).join("\n")}\n` : ""}\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`;
 writeFileSync(join(OUT, "llms.txt"), (PG.llms || "").trim() ? PG.llms.trim() + "\n" : LLMS);
 const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>|<svg[\s\S]*?<\/svg>|<template[\s\S]*?<\/template>|<span aria-hidden="true">[\s\S]*?<\/span><\/h[12]>/g, (m) => (m.startsWith("<span aria-hidden") ? "" : "")).replace(/<div class="mnav"[\s\S]*?<\/nav>/g, "").replace(/<h([1-3])[^>]*>/g, (m, n) => `\n${"#".repeat(+n)} `).replace(/<li[^>]*>/g, "\n- ").replace(/<\/p>|<\/h[1-3]>|<br\s*\/?>|<\/summary>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/[ \t]+/g, " ").replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
 writeFileSync(join(OUT, "llms-full.txt"), `# ${C.name} — full site text\n` + pages.filter(([p]) => live.includes(p)).map(([p, h]) => `\n\n---\nURL: ${abs(p)}\n\n${strip(h)}`).join(""));
@@ -637,6 +737,7 @@ if (!PREVIEW) writeFileSync(join(ROOT, "site-index.json"), JSON.stringify({
     contact: { email: C.email, phone: C.phoneDisplay || C.phone, whatsapp: C.whatsapp ? `https://wa.me/${C.whatsapp}` : "" },
     links: { audit: abs("/free-audit/"), contact: abs("/contact/"), speed_test: abs("/speed-test/"), health_check: abs("/growth-score/"), insights: abs("/insights/") },
     insights: insights.map((x) => ({ title: x.title, url: abs(`/insights/${x.slug}/`), summary: x.summary })),
+    careers: { url: abs("/careers/"), open_roles: (JOBS || []).map((j) => ({ title: j.title, team: j.department, where: jobFacts(j).join(", "), url: abs(`/careers/${j.slug}/`) })) },
   },
 }, null, 1));
 writeFileSync(join(OUT, "manifest.webmanifest"), JSON.stringify({ name: C.name, short_name: C.shortName, start_url: "/", display: "browser", background_color: "#ffffff", theme_color: "#ffffff", icons: [{ src: "/assets/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" }, { src: "/assets/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }, { src: "/assets/favicon.svg", sizes: "any", type: "image/svg+xml" }] }));

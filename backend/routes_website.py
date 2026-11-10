@@ -66,7 +66,23 @@ URL_FIELDS = {"url", "linkedin", "map_url"}
 IMAGE_FIELDS = {"logo", "photo", "image"}
 MULTILINE = {"quote", "bio", "summary", "address", "body"}
 BOOLS = {"visible": None, "consent": "testimonials", "hq": "locations"}
-SOCIALS = ("linkedin", "instagram", "youtube", "x", "facebook")
+# social profiles shown as icons in the website footer, in the order the team sets
+SOCIAL_PLATFORMS = {"instagram": "Instagram", "facebook": "Facebook", "youtube": "YouTube", "linkedin": "LinkedIn", "x": "X", "threads": "Threads",
+                    "whatsapp": "WhatsApp", "tiktok": "TikTok", "pinterest": "Pinterest", "behance": "Behance", "dribbble": "Dribbble",
+                    "github": "GitHub", "medium": "Medium", "telegram": "Telegram", "google": "Google Business Profile", "other": "Other"}
+SOCIAL_MAX = 15
+
+
+def _social_list(v) -> list:
+    """Saved profiles as [{platform, url, label}], also reading the older {platform: url} form."""
+    if isinstance(v, dict):
+        order = ("instagram", "facebook", "youtube", "linkedin", "x")
+        return [{"platform": k, "url": v[k], "label": ""} for k in order if (v.get(k) or "").strip()]
+    out = []
+    for r in v or []:
+        if isinstance(r, dict) and r.get("platform") in SOCIAL_PLATFORMS and (r.get("url") or "").strip():
+            out.append({"platform": r["platform"], "url": r["url"].strip(), "label": (r.get("label") or "").strip()})
+    return out
 
 
 def _now():
@@ -215,7 +231,7 @@ class SettingsIn(BaseModel):
     phone: Optional[str] = None
     phone_display: Optional[str] = None
     whatsapp: Optional[str] = None
-    social: Optional[Dict[str, str]] = None
+    social: Optional[List[Dict[str, str]]] = None
 
 
 # ---------------------------------------------------------------- first use: start from what's live
@@ -262,12 +278,14 @@ async def _seed_articles(now: str, doc: Optional[dict] = None) -> int:
 
 
 async def sync_on_startup():
-    """After a deploy: if the editor is in use and new built-in articles arrived, add them and republish."""
-    doc = await db.site_settings.find_one({"id": "website"}, {"_id": 0})
-    if not doc:
-        return
+    """After a deploy: new built-in articles (when the editor is in use) and, once, the old careers roles as job posts.
+    Republishes when either added something, so the live site matches the app."""
     try:
-        if await _seed_articles(_now(), doc):
+        from routes_jobs import seed_jobs
+        jobs = await seed_jobs()
+        doc = await db.site_settings.find_one({"id": "website"}, {"_id": 0})
+        articles = await _seed_articles(_now(), doc) if doc else 0
+        if jobs or articles:
             await publish(None)
     except Exception as e:  # never block startup
         print("website sync skipped:", e)
@@ -282,7 +300,7 @@ async def _settings() -> dict:
     c = _config()
     now = _now()
     doc = {"id": "website", "numbers": [], "email": c.get("email", ""), "phone": c.get("phone", ""), "phone_display": c.get("phoneDisplay", ""),
-           "whatsapp": c.get("whatsapp", ""), "social": {k: (c.get("social") or {}).get(k, "") for k in SOCIALS}, "publish": None, "created_at": now}
+           "whatsapp": c.get("whatsapp", ""), "social": _social_list(c.get("social")), "publish": None, "created_at": now}
     seed = {"clients": [{"name": x.get("name"), "industry": x.get("industry", ""), "url": x.get("url", "")} for x in c.get("clients") or [] if x.get("name")],
             "testimonials": [{"quote": x.get("quote"), "name": x.get("name"), "role": x.get("role", ""), "company": x.get("company", ""), "consent": True}
                              for x in c.get("testimonials") or [] if x.get("quote") and x.get("name")],
@@ -322,6 +340,11 @@ def default_pages() -> dict:
 _lock = asyncio.Lock()
 
 
+async def _jobs() -> list:
+    from routes_jobs import jobs_for_site
+    return await jobs_for_site()
+
+
 async def export_content() -> dict:
     s = await _settings()
     pick = lambda r, keys: {k: r.get(k, "") for k in keys}  # noqa: E731
@@ -339,7 +362,9 @@ async def export_content() -> dict:
         "caseStudies": [pick(r, ("client", "title", "result", "summary")) for r in await _rows("cases") if r.get("visible", True)],
         "proof": [{"value": n["value"], "label": n["label"]} for n in s.get("numbers") or [] if n.get("value") and n.get("label")],
         "email": s.get("email", ""), "phone": s.get("phone", ""), "phoneDisplay": s.get("phone_display", ""), "whatsapp": s.get("whatsapp", ""),
-        "social": {k: (s.get("social") or {}).get(k, "") for k in SOCIALS},
+        "social": [{"platform": r["platform"], "url": r["url"], "name": r["label"] if r["platform"] == "other" else SOCIAL_PLATFORMS[r["platform"]]}
+                   for r in _social_list(s.get("social"))],
+        "jobs": await _jobs(),
         "exported_at": _now(),
     }
     CONTENT_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -392,8 +417,10 @@ async def get_website(user: dict = Depends(get_current_user)):
     from routes_ai import pick_provider, PROVIDERS as AI_PROVIDERS
     chat = {**DEFAULT_CHAT, **(s.get("chat") or {})}
     prov = await pick_provider(chat.get("provider") or "")
-    return {**{k: await _rows(k) for k in KINDS}, "settings": {k: v for k, v in s.items() if k != "publish"}, "publish": s.get("publish"),
-            "pages_index": [p for p in idx.get("pages", []) if p.get("kind") != "article"], "llms_generated": idx.get("llms_generated", ""),
+    settings = {k: v for k, v in s.items() if k != "publish"}
+    settings["social"] = _social_list(s.get("social"))
+    return {**{k: await _rows(k) for k in KINDS}, "settings": settings, "social_platforms": SOCIAL_PLATFORMS, "publish": s.get("publish"),
+            "pages_index": [p for p in idx.get("pages", []) if p.get("kind") not in ("article", "job")], "llms_generated": idx.get("llms_generated", ""),
             "default_pages": default_pages(), "chat": chat,
             "chat_status": {"provider": prov, "provider_label": AI_PROVIDERS[prov]["label"] if prov else "", "providers": {k: v["label"] for k, v in AI_PROVIDERS.items()},
                             "conversations": await db.chat_sessions.count_documents({}), "leads": await db.chat_sessions.count_documents({"lead_id": {"$ne": None}})},
@@ -560,12 +587,24 @@ async def update_settings(body: SettingsIn, user: dict = Depends(get_current_use
             raise HTTPException(status_code=400, detail="WhatsApp number: digits with country code, like 919876543210")
         upd["whatsapp"] = w
     if d.get("social") is not None:
-        soc = {}
-        for k in SOCIALS:
-            v = str(d["social"].get(k) or "").strip()
-            if v and not re.match(r"^https://[^\s<>\"']+$", v):
-                raise HTTPException(status_code=400, detail=f"{k.capitalize()} link must start with https://")
-            soc[k] = v
+        soc, seen = [], set()
+        for r in d["social"]:
+            k, v, label = r.get("platform") or "", str(r.get("url") or "").strip(), re.sub(r"\s+", " ", str(r.get("label") or "")).strip()
+            if not v:
+                continue
+            if k not in SOCIAL_PLATFORMS:
+                raise HTTPException(status_code=400, detail="Pick a platform for each social profile")
+            name = label if k == "other" else SOCIAL_PLATFORMS[k]
+            if k == "other" and not label:
+                raise HTTPException(status_code=400, detail="Give the “Other” profile a name, like Clutch or Upwork")
+            if len(v) > 300 or not re.match(r"^https://[^\s<>\"']+\.[^\s<>\"']+$", v):
+                raise HTTPException(status_code=400, detail=f"{name} link must be a full web address starting with https://")
+            if v.lower() in seen:
+                continue
+            seen.add(v.lower())
+            soc.append({"platform": k, "url": v, "label": label[:30] if k == "other" else ""})
+        if len(soc) > SOCIAL_MAX:
+            raise HTTPException(status_code=400, detail=f"Up to {SOCIAL_MAX} social profiles")
         upd["social"] = soc
     if d.get("seo") is not None:
         upd.update({f"seo.{k}": v for k, v in _clean_seo(d["seo"]).items()})

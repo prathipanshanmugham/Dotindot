@@ -118,7 +118,8 @@ async def manager_dashboard(branch: Optional[str] = Query(None), user: dict = De
     won = [l for l in leads if l["stage"] == "won" and (won_at(l) or "") >= start]
     open_leads = [l for l in leads if l["stage"] not in ("won", "lost")]
     tx = await db.transactions.find({"client_id": {"$in": cids}, "type": "income", "date": {"$gte": start, "$lte": end}}, {"_id": 0, "amount": 1}).to_list(5000)
-    projects = await db.projects.find({"client_id": {"$in": cids}}, {"_id": 0, "id": 1, "name": 1, "status": 1, "team_member_ids": 1, "client_id": 1}).to_list(3000)
+    projects = await db.projects.find({"$or": [{"client_id": {"$in": cids}}, {"kind": "internal", "branch_id": {"$in": ids}}]},
+                                      {"_id": 0, "id": 1, "name": 1, "status": 1, "team_member_ids": 1, "client_id": 1}).to_list(3000)
 
     team = {}
     for l in won:
@@ -159,13 +160,13 @@ async def manager_dashboard(branch: Optional[str] = Query(None), user: dict = De
 async def staff_dashboard(user: dict = Depends(get_current_user)):
     uid = user["id"]
     start, end = _month_range()
-    projects = await db.projects.find({"team_member_ids": uid}, {"_id": 0, "id": 1, "name": 1, "status": 1, "deliverables": 1, "client_id": 1, "end_date": 1}).to_list(500)
+    projects = await db.projects.find({"team_member_ids": uid}, {"_id": 0, "id": 1, "name": 1, "status": 1, "deliverables": 1, "client_id": 1, "kind": 1, "end_date": 1}).to_list(500)
     cmap = {c["id"]: c["name"] for c in await db.clients.find({"id": {"$in": [p["client_id"] for p in projects if p.get("client_id")]}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}
     tasks = []
     for p in projects:
         for d in p.get("deliverables") or []:
             if not d.get("done"):
-                tasks.append({"project_id": p["id"], "project": p["name"], "client": cmap.get(p.get("client_id"), ""), "title": d.get("item") or d.get("title") or d.get("name") or "Deliverable", "due": d.get("due_date")})
+                tasks.append({"project_id": p["id"], "project": p["name"], "client": "Internal" if p.get("kind") == "internal" else cmap.get(p.get("client_id"), ""), "title": d.get("item") or d.get("title") or d.get("name") or "Deliverable", "due": d.get("due_date")})
     sales = None
     if has_permission(user, "sales.pipeline", "sales.targets"):
         leads = await db.leads.find({"owner_id": uid}, {"_id": 0}).to_list(2000)
@@ -190,7 +191,7 @@ async def staff_dashboard(user: dict = Depends(get_current_user)):
     activity = await db.activity_logs.find({"user_id": uid}, {"_id": 0}).sort("timestamp", -1).to_list(10)
     return {
         "projects": {"total": len(projects), "active": sum(1 for p in projects if p["status"] in ACTIVE),
-                     "items": [{"id": p["id"], "name": p["name"], "status": p["status"], "client": cmap.get(p.get("client_id"), ""), "end_date": p.get("end_date"),
+                     "items": [{"id": p["id"], "name": p["name"], "status": p["status"], "client": "Internal" if p.get("kind") == "internal" else cmap.get(p.get("client_id"), ""), "end_date": p.get("end_date"),
                                 "progress": round(sum(1 for d in (p.get("deliverables") or []) if d.get("done")) / max(1, len(p.get("deliverables") or [])) * 100)} for p in projects[:8]]},
         "tasks": tasks[:10], "open_tasks": len(tasks),
         "sales": sales, "assets": assets, "training": training,

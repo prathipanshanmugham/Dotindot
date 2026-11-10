@@ -94,14 +94,14 @@ async def ceo_dashboard(period: str = Query("this_month"), branch: str = Query(N
     clients = await db.clients.find({}, {"_id": 0, "credentials": 0}).to_list(2000)
     leads = await db.leads.find({}, {"_id": 0}).to_list(2000)
     users = await db.users.find({"is_active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
-    projects = await db.projects.find({}, {"_id": 0, "id": 1, "status": 1, "team_member_ids": 1, "client_id": 1}).to_list(2000)
+    projects = await db.projects.find({}, {"_id": 0, "id": 1, "status": 1, "team_member_ids": 1, "client_id": 1, "kind": 1, "branch_id": 1}).to_list(2000)
 
     if branch:
         clients = [c for c in clients if c.get("branch_id") == branch]
         _cids = {c["id"] for c in clients}
         tx = [x for x in tx if x.get("client_id") in _cids]
         leads = [l for l in leads if l.get("branch_id") == branch]
-        projects = [p for p in projects if p.get("client_id") in _cids]
+        projects = [p for p in projects if p.get("client_id") in _cids or (p.get("kind") == "internal" and p.get("branch_id") == branch)]
 
     income, expense = sums_in(tx, start, end)
     prev_income, prev_expense = sums_in(tx, prev_start, prev_end)

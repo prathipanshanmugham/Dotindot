@@ -867,3 +867,52 @@
       .then(function (r) { r.ok ? done() : fail(); }).catch(fail);
   });
 })();
+
+// ---------- careers: apply with a CV (posts to the app's /api/careers/apply; works without JavaScript too) ----------
+(function () {
+  var forms = document.querySelectorAll("form[data-apply]"); if (!forms.length) return;
+  var CFG = window.__DD || {}, MAX = 5 * 1024 * 1024, OK = /\.(pdf|docx?)$/i;
+  var kb = function (n) { return n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; };
+  Array.prototype.forEach.call(forms, function (form) {
+    var drop = form.querySelector(".drop"), file = form.querySelector('input[type="file"]'), label = drop && drop.querySelector(".drop-t");
+    var status = form.querySelector(".status"), btn = form.querySelector('button[type="submit"]');
+    var say = function (msg, ok) { status.textContent = msg; status.className = "status " + (ok ? "ok" : "err"); };
+    var show = function () {
+      var f = file.files && file.files[0];
+      drop.classList.toggle("has", !!f);
+      label.innerHTML = f ? "<b></b><small></small>" : "<b>Attach your CV</b><small>PDF or Word, up to 5 MB</small>";
+      if (f) { label.querySelector("b").textContent = f.name; label.querySelector("small").textContent = kb(f.size) + " · tap to change"; }
+    };
+    if (file) {
+      file.addEventListener("change", function () { show(); var f = file.files[0]; if (f && (!OK.test(f.name) || f.size > MAX)) say(f.size > MAX ? "That file is larger than 5 MB." : "Please attach a PDF or Word file.", false); else status.textContent = ""; });
+      ["dragenter", "dragover"].forEach(function (t) { drop.addEventListener(t, function () { drop.classList.add("over"); }); });
+      ["dragleave", "drop"].forEach(function (t) { drop.addEventListener(t, function () { drop.classList.remove("over"); }); });
+    }
+    form.addEventListener("submit", function (ev) {
+      if (!window.fetch || !window.FormData) return;  // the browser posts the form itself
+      ev.preventDefault();
+      var el = form.elements, f = file && file.files[0];
+      if (el.website_url && el.website_url.value) return;
+      if (el.page) el.page.value = location.pathname;
+      if (!el.name.value.trim()) { say("Please add your name.", false); return el.name.focus(); }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(el.email.value.trim())) { say("Please check your email address.", false); return el.email.focus(); }
+      if (el.phone.value.replace(/\D/g, "").length < 8) { say("Please add a phone number with its country code.", false); return el.phone.focus(); }
+      if (!f) { say("Please attach your CV (PDF or Word).", false); return file.focus(); }
+      if (!OK.test(f.name)) { say("Please attach your CV as a PDF or Word file.", false); return file.focus(); }
+      if (f.size > MAX) { say("Your CV is larger than 5 MB. Please attach a smaller file.", false); return file.focus(); }
+      if (!el.consent.checked) { say("Please tick the box so we can keep your application.", false); return el.consent.focus(); }
+      btn.disabled = true; say("Sending…", true); status.className = "status";
+      var done = function () {
+        var name = el.name.value.trim().split(" ")[0];
+        form.innerHTML = '<div class="full applied" role="status"><p class="lead"></p><p class="fine">If your experience fits, we\'ll be in touch by email or phone. Meanwhile, see <a class="link" href="/insights/">how we think</a>.</p></div>';
+        form.querySelector(".lead").textContent = "Thank you, " + name + ". Your application is in.";
+        var top = form.getBoundingClientRect().top; if (top < 80 || top > innerHeight - 160) window.scrollTo({ top: scrollY + top - innerHeight / 3, behavior: "smooth" });
+        try { if (window.gtag) window.gtag("event", "job_application", { job: location.pathname }); } catch (e) {}
+      };
+      if (CFG.preview) { setTimeout(done, 600); return; }
+      fetch(form.action, { method: "POST", body: new FormData(form), headers: { "X-Requested-With": "fetch" } })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (r.ok) done(); else { btn.disabled = false; say(typeof d.detail === "string" ? d.detail : "Something went wrong. Please try again.", false); } }); })
+        .catch(function () { btn.disabled = false; say("We couldn't send that just now. Please check your connection, or email your CV to " + (CFG.email || "us") + ".", false); });
+    });
+  });
+})();

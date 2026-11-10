@@ -95,9 +95,9 @@ def totals(sheet: dict) -> dict:
 
 async def _projects_index():
     clients = {c["id"]: c["name"] for c in await db.clients.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(3000)}
-    return {p["id"]: {"id": p["id"], "name": p["name"], "client_id": p.get("client_id"), "client_name": clients.get(p.get("client_id")),
-                      "status": p.get("status")}
-            for p in await db.projects.find({}, {"_id": 0, "id": 1, "name": 1, "client_id": 1, "status": 1}).to_list(3000)}
+    return {p["id"]: {"id": p["id"], "name": p["name"], "client_id": p.get("client_id"),
+                      "client_name": "Internal" if p.get("kind") == "internal" else clients.get(p.get("client_id")), "status": p.get("status")}
+            for p in await db.projects.find({}, {"_id": 0, "id": 1, "name": 1, "client_id": 1, "status": 1, "kind": 1}).to_list(3000)}
 
 
 async def _day_info(person: dict, dates: list, settings: dict):

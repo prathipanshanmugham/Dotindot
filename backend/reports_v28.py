@@ -349,7 +349,8 @@ async def tpl_project_delivery(date_from, date_to, branch_ids=None):
     ti = today.isoformat()
     clients = {c["id"]: c["name"] for c in await db.clients.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(5000)}
     users = {u["id"]: u for u in await db.users.find({}, {"_id": 0, "id": 1, "name": 1, "role": 1}).to_list(3000)}
-    projects = [p for p in await db.projects.find({}, {"_id": 0}).to_list(3000) if scope is None or p.get("client_id") in scope]
+    projects = [p for p in await db.projects.find({}, {"_id": 0}).to_list(3000)
+                if scope is None or p.get("client_id") in scope or (p.get("kind") == "internal" and p.get("branch_id") in branch_ids)]
     projects = [p for p in projects if p.get("status") != "completed" or date_from <= (p.get("end_date") or "") <= date_to]
     exp = {}
     for x in await db.transactions.find({"type": "expense", "project_id": {"$nin": [None, ""]}}, {"_id": 0, "project_id": 1, "amount": 1}).to_list(50000):

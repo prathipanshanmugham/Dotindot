@@ -52,15 +52,15 @@ async def employee_profile(user_id: str, user: dict = Depends(get_current_user))
 
     projects = await db.projects.find(
         {"team_member_ids": user_id},
-        {"_id": 0, "id": 1, "name": 1, "status": 1, "budget": 1, "client_id": 1,
+        {"_id": 0, "id": 1, "name": 1, "status": 1, "budget": 1, "client_id": 1, "kind": 1,
          "start_date": 1, "end_date": 1, "milestones": 1, "deliverables": 1},
     ).to_list(200)
-    cids = list({p["client_id"] for p in projects})
+    cids = list({p["client_id"] for p in projects if p.get("client_id")})
     crows = await db.clients.find({"id": {"$in": cids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
     cmap = {c["id"]: c["name"] for c in crows}
     dl_done = dl_total = 0
     for p in projects:
-        p["client_name"] = cmap.get(p["client_id"], "")
+        p["client_name"] = "Internal" if p.get("kind") == "internal" else cmap.get(p.get("client_id"), "")
         dls = p.pop("deliverables", []) or []
         p.pop("milestones", None)
         dl_done += sum(1 for x in dls if x.get("done"))
