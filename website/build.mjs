@@ -150,7 +150,7 @@ ${locations.length ? `<p class="ftr-offices"><a href="/contact/#offices">Offices
 <div class="ftr-bot">
 <span>© ${year} ${esc(C.name)}</span>
 <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/llms.txt">llms.txt</a></nav>
-<span class="logins"><a href="${appHref(C.clientLogin)}" rel="nofollow">${I.user} Client login</a></span>
+<span class="logins"><a href="${appHref(C.clientLogin)}" rel="nofollow">${I.user} Client login</a><a href="${appHref(C.employeeLogin)}" rel="nofollow">${I.lock} Employee login</a></span>
 </div>
 </div></footer>`;
 }

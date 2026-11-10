@@ -251,7 +251,9 @@ html.js .reel.on .reel-stage{position:sticky;top:0;height:100vh;height:100svh;ov
 
 /* ---------- Dot, the chat assistant: the logo's D with an eye that watches you ---------- */
 .dface{display:block;overflow:visible}
-.dface .d-body{fill:var(--brand)}
+.dface .d-body{fill:var(--brand);transition:fill .35s}
+.dot-fab.on-orange .d-body{fill:var(--ink)}.dot-fab.on-orange .dot-body .dface{filter:drop-shadow(0 10px 14px rgba(14,27,51,.3))}
+.dot-fab.in.away{transform:translateY(150px)}
 .dface .d-white{fill:#fff}
 .dface .d-pupil{fill:var(--ink)}
 .dface .d-glint{fill:#fff}
@@ -336,7 +338,7 @@ html.js .reel.on .reel-stage{position:sticky;top:0;height:100vh;height:100svh;ov
 .burst{position:absolute;left:24px;top:50%;width:0;height:0;pointer-events:none}
 .burst i{position:absolute;width:var(--s);height:var(--s);margin:calc(var(--s)/-2);border-radius:50%;background:var(--c);animation:burst .9s cubic-bezier(.1,.7,.3,1) forwards}
 @keyframes burst{from{transform:none;opacity:1}to{transform:translate(var(--x),var(--y)) scale(.4);opacity:0}}
-.ask-dot{display:inline-flex;align-items:center;gap:10px;padding:0;border:0;background:none;font:inherit;font-weight:600;color:var(--ink);cursor:pointer}
+.ask-dot{display:inline-flex;align-items:center;gap:10px;text-align:left;min-height:44px;padding:0;border:0;background:none;font:inherit;font-weight:600;color:var(--ink);cursor:pointer}
 .ask-dot .dface{width:18px;height:23px}.ask-dot span{text-decoration:underline;text-decoration-color:var(--brand);text-underline-offset:4px}
 .hdr-act .ask-dot{font-size:.9375rem;font-weight:550;color:var(--ink-2)}.hdr-act .ask-dot span{text-decoration:none}.hdr-act .ask-dot:hover span{color:var(--ink)}
 .talk-dot{margin-top:26px}
@@ -350,6 +352,15 @@ html.js .reel.on .reel-stage{position:sticky;top:0;height:100vh;height:100svh;ov
 }
 @media (prefers-reduced-motion:reduce){.dot-fab.hop .dot-body,.dot-fab.hop .dot-shadow,.dface.think .d-look{animation:none}.chat,.chat.open{transition:none}}
 @media print{.chat,.dot-fab,.dot-hint{display:none}}
+@media (max-width:560px){
+  .btns{flex-direction:column;align-items:stretch}.btns .btn{width:100%}
+  .form .btn[type=submit],.talk .btn,.quiz .btn,.panel .btn{width:100%}
+  .logo{padding:8px 0}
+  .crumbs a{display:inline-block;padding:11px 0}
+  .ftr a{display:inline-flex;align-items:center;min-height:40px}
+  .ftr-bot nav{gap:4px 22px}.logins a{height:44px}
+  .ftr-brand .contact{gap:0}
+}
 .mnav.open~.dot-fab,.mnav.open~.dot-hint{display:none}
 
 /* ---------- clients ---------- */

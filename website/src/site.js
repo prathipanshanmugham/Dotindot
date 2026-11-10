@@ -406,6 +406,14 @@
     document.addEventListener("visibilitychange", kick);
     addEventListener("resize", function () { if (ready) rsize(); });
   }
+  // Dot steps aside while the services reel fills a phone screen, and turns ink on orange so it stays visible
+  if (reelEl || stmt) story.push(function () {
+    var fb = document.querySelector(".dot-fab"); if (!fb) return;
+    fb.classList.toggle("on-orange", onOrange);
+    var narrow = innerWidth < 900, away = narrow && scrollY < 140; // on phones it waits until the hero's buttons have scrolled up
+    if (reelEl && reelEl.classList.contains("on")) { var r = reelEl.getBoundingClientRect(); away = away || (narrow && r.top < VH * .5 && r.bottom > VH * .5); }
+    fb.classList.toggle("away", away);
+  });
   addEventListener("resize", function () { VH = innerHeight; onScroll(); });
   if (story.length) onScroll();
 
@@ -743,12 +751,14 @@
       fab = document.createElement("button"); fab.type = "button"; fab.className = "dot-fab"; fab.setAttribute("aria-expanded", "false"); fab.setAttribute("aria-controls", "chat");
       fab.setAttribute("aria-label", "Chat with " + bot); fab.innerHTML = '<span class="dot-say">Ask ' + escH(bot) + '</span><span class="dot-body">' + face() + '</span><span class="dot-shadow" aria-hidden="true"></span>';
       document.body.appendChild(fab); fab.addEventListener("click", function () { panel && panel.classList.contains("open") ? closeChat() : openChat(); });
+      if (story.length) onScroll(); // start stepped aside if the page needs it
       requestAnimationFrame(function () { requestAnimationFrame(function () { fab.classList.add("in"); aim(); }); });
       setTimeout(hop, 1200);
       if (st.open && Date.now() - st.at < 6e5) { openChat(); return; }
       var seen = false; try { seen = !!sessionStorage.getItem("dd_chat_hint"); } catch (e) {}
-      if (!seen && CH.hint && !/\/(contact|free-audit|thanks)\//.test(location.pathname)) setTimeout(function () {
+      if (!seen && CH.hint && !/\/(contact|free-audit|thanks)\//.test(location.pathname)) setTimeout(function sayHi() {
         if (panel && panel.classList.contains("open")) return;
+        if (fab.classList.contains("away")) { setTimeout(sayHi, 2000); return; } // not while Dot is stepped aside
         hint = document.createElement("div"); hint.className = "dot-hint"; hint.setAttribute("role", "status");
         hint.innerHTML = '<div class="typing"><i></i><i></i><i></i></div><button class="x" type="button" aria-label="Dismiss">×</button>';
         document.body.appendChild(hint); requestAnimationFrame(function () { hint.classList.add("in"); hop(); });
