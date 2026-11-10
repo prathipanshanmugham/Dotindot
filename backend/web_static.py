@@ -43,8 +43,10 @@ NOINDEX = {"X-Robots-Tag": "noindex, nofollow"}
 
 YEAR = "public, max-age=31536000, immutable"   # hashed scripts, fonts, images
 PAGE = "public, max-age=600, must-revalidate"   # website pages
+DAY = "public, max-age=86400"                    # images and icons that keep their name when they change (favicon, share images)
 FRESH = "no-cache"                               # the app shell: always check for a new build
 LONG_LIVED = re.compile(r"\.(?:js|json|woff2|svg|png|jpe?g|webp|avif|ico|css|map)$", re.I)
+HASHED = re.compile(r"\.[0-9a-f]{8,}\.[a-z0-9]+$|\.woff2$", re.I)  # site.1a2b3c4d.js, fonts: safe to cache for a year
 BASE_HEADERS = {"X-Content-Type-Options": "nosniff", "Referrer-Policy": "strict-origin-when-cross-origin"}
 
 # Pages of the previous dotindot.in → their new homes (permanent; only on the public domain)
@@ -129,7 +131,7 @@ def _serve_site(request: Request, path: str):
             return RedirectResponse(_with_query(path + "/", request), status_code=301)
         target = target / "index.html"
     if target.is_file():
-        return _file(target, YEAR if LONG_LIVED.search(target.name) else PAGE, extra)
+        return _file(target, YEAR if HASHED.search(target.name) else DAY if LONG_LIVED.search(target.name) else PAGE, extra)
     return _not_found(extra)
 
 

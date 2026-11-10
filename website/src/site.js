@@ -512,41 +512,119 @@
     });
   });
 
-  /* ---------------- chat assistant: answers questions and passes the visitor to a specialist ----------------
-     The dot in the corner opens a chat that talks to /api/chat (the app: AI when connected, a short guided
-     conversation otherwise). If the app can't be reached it carries on as a guided form and sends the lead the
-     same way the contact forms do. The conversation survives page changes for the rest of the visit. */
+  /* ---------------- Dot, the chat assistant ----------------
+     The logo's D, with its hole as an eye that follows the pointer and blinks. It answers questions through
+     /api/chat (the app: AI when connected, a short guided conversation otherwise) and hands the visitor to a
+     specialist as a lead. If the app can't be reached it carries on as a guided form and sends the lead the same
+     way the contact forms do. The conversation survives page changes for the rest of the visit. */
   var CH = CFG.chat;
   if (CH && window.fetch) {
-    var CK = "dd_chat", st = { sid: "", msgs: [], chips: [], card: false, local: false, at: 0, lead: false, slots: {} };
+    var CK = "dd_chat", st0 = function () { return { sid: "", msgs: [], chips: [], card: false, local: false, at: 0, lead: false, slots: {} }; }, st = st0();
     try { var saved = JSON.parse(sessionStorage.getItem(CK) || "null"); if (saved) st = Object.assign(st, saved); } catch (e) {}
     var keep = function () { st.at = Date.now(); try { sessionStorage.setItem(CK, JSON.stringify(Object.assign({}, st, { msgs: st.msgs.slice(-40) }))); } catch (e) {} };
-    var bot = CH.name || "Dot";
-    var greet = CH.greeting || "Hi, I'm " + bot + " from Dotindot. Ask me anything about marketing, websites or AI automation, or tell me what you're working on.";
-    var CHIPS0 = ["Get more leads", "A new website", "SEO & AI search", "AI chat & automation", "Pricing"];
+    var bot = CH.name || "Dot", LINKS = CH.links || {};
+    var greet = CH.greeting || "Ask me anything about marketing, websites or AI automation, or tell me what you're working on. I reply in seconds.";
+    var face = function (cls) {
+      return '<svg class="dface ' + (cls || "") + '" viewBox="0 0 140 179" aria-hidden="true"><path class="d-body" d="M0 0H50.5A89.5 89.5 0 0 1 50.5 179H0Z"/>' +
+        '<g class="d-eye"><circle class="d-white" cx="52.5" cy="89.5" r="36"/><g class="d-look"><circle class="d-pupil" cx="52.5" cy="89.5" r="15.5"/><circle class="d-glint" cx="58.5" cy="83" r="4.6"/></g>' +
+        '<path class="d-smile" d="M33 95 Q52.5 70 72 95"/></g></svg>';
+    };
+    var ICON = {
+      leads: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>',
+      web: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg>',
+      seo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+      ai: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 17l.7 1.8 1.8.7-1.8.7L19 22l-.7-1.8-1.8-.7 1.8-.7z"/></svg>',
+      go: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+      reset: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+      x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+    };
+    var STARTERS = [["leads", "Get more leads", "Ads that pay for themselves", "I want more leads from ads"], ["web", "Build a website", "Fast sites that convert", "We need a new website"],
+      ["seo", "Rank on Google & AI", "SEO and AI search", "How do we rank on Google and in AI assistants?"], ["ai", "Automate with AI", "Chat, follow-up, reports", "Can you automate our lead follow-up with AI?"]];
     var fab, hint, panel, log, chipBox, ta, sendBtn, busy = false;
     var escH = function (t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
-    var fmtMsg = function (t) {
-      return escH(t).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, function (u) {
-        var own = u.indexOf(location.host) > -1 || /dotindot\.in/.test(u);
-        return '<a href="' + u + '"' + (own ? "" : ' target="_blank" rel="noopener"') + ">" + u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "") + "</a>";
-      }).replace(/\n/g, "<br>");
+
+    /* --- the eye: looks at the pointer (or at what's happening), blinks now and then --- */
+    var look = { x: innerWidth / 2, y: innerHeight / 2, pinned: null };
+    var aim = function () {
+      var faces = document.querySelectorAll(".dface");
+      for (var k = 0; k < faces.length; k++) {
+        var f = faces[k], r = f.getBoundingClientRect(); if (!r.width) continue;
+        var ex = r.left + r.width * .375, ey = r.top + r.height * .5, tx = look.pinned ? look.pinned[0] : look.x, ty = look.pinned ? look.pinned[1] : look.y;
+        var dx = tx - ex, dy = ty - ey, d = Math.hypot(dx, dy) || 1, m = Math.min(12, d / 18);
+        var g = f.querySelector(".d-look"); if (g) g.style.transform = "translate(" + (dx / d * m).toFixed(1) + "px," + (dy / d * m).toFixed(1) + "px)";
+      }
     };
+    var aimSoon = (function () { var q = false; return function () { if (!q) { q = true; requestAnimationFrame(function () { q = false; aim(); }); } }; })();
+    if (!reduce) {
+      addEventListener("pointermove", function (e) { look.x = e.clientX; look.y = e.clientY; aimSoon(); }, { passive: true });
+      addEventListener("scroll", aimSoon, { passive: true });
+      (function blink() {
+        setTimeout(function () {
+          var faces = document.querySelectorAll(".dface"); for (var k = 0; k < faces.length; k++) faces[k].classList.add("blink");
+          setTimeout(function () { for (var k = 0; k < faces.length; k++) faces[k].classList.remove("blink"); blink(); }, 150);
+        }, 2600 + Math.random() * 3800);
+      })();
+    }
+    var mood = function (cls, ms) { var a = panel && $(".chat-av .dface", panel); if (a) { a.classList.add(cls); if (ms) setTimeout(function () { a.classList.remove(cls); }, ms); } };
+
+    /* --- messages --- */
+    var linkFor = function (u) {
+      try { var url = new URL(u, location.href), path = url.pathname.replace(/index\.html$/, ""); if (LINKS[path] && (url.host === location.host || /dotindot\.in$/.test(url.host))) return LINKS[path]; } catch (e) {}
+      return null;
+    };
+    function render(text) { // internal links become buttons under the message; others stay inline
+      var cards = [];
+      var html = escH(text).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, function (u) {
+        var L = linkFor(u.replace(/&amp;/g, "&"));
+        if (L) { if (!cards.some(function (c) { return c[1] === L[1]; })) cards.push(L); return ""; }
+        return '<a href="' + u + '" target="_blank" rel="noopener">' + u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "") + "</a>";
+      }).replace(/\s+([.,!?])/g, "$1").replace(/:\s*$/, ".").replace(/\n/g, "<br>").trim();
+      return { html: html, cards: cards };
+    }
+    function addCards(cards) {
+      if (!cards.length) return;
+      var w = document.createElement("div"); w.className = "chat-links";
+      w.innerHTML = cards.map(function (c) { return '<a href="' + c[1] + '"><span>' + escH(c[0]) + "</span>" + ICON.go + "</a>"; }).join("");
+      log.appendChild(w);
+    }
     function addMsg(role, text, opts) {
-      var el = document.createElement("div"); el.className = "msg " + role; el.innerHTML = role === "me" ? escH(text).replace(/\n/g, "<br>") : fmtMsg(text);
-      if (opts && opts.instant) el.style.animation = "none";
-      log.appendChild(el); log.scrollTop = log.scrollHeight; return el;
+      opts = opts || {};
+      var el = document.createElement("div"); el.className = "msg " + role;
+      if (opts.instant) el.style.animation = "none";
+      log.appendChild(el);
+      if (role === "me") { el.innerHTML = escH(text).replace(/\n/g, "<br>"); }
+      else if (role === "ok") { el.textContent = text; }
+      else {
+        var R = render(text);
+        if (opts.instant || reduce) { el.innerHTML = R.html; addCards(R.cards); }
+        else { // word by word, like it's being written
+          var words = R.html.split(/(\s+)/), n = 0, step = Math.max(12, Math.min(38, 1100 / Math.max(1, words.length)));
+          (function tick() { n += 2; el.innerHTML = words.slice(0, n).join(""); log.scrollTop = log.scrollHeight; if (n < words.length) setTimeout(tick, step); else { el.innerHTML = R.html; addCards(R.cards); log.scrollTop = log.scrollHeight; } })();
+        }
+      }
+      log.scrollTop = log.scrollHeight; return el;
     }
     function setChips(list) {
       chipBox.innerHTML = ""; st.chips = list || [];
       (list || []).forEach(function (c, k) {
-        var b = document.createElement("button"); b.type = "button"; b.textContent = c; b.style.animationDelay = (k * 60) + "ms";
+        var b = document.createElement("button"); b.type = "button"; b.textContent = c; b.style.animationDelay = (k * 70) + "ms";
         b.addEventListener("click", function () { send(c); }); chipBox.appendChild(b);
       });
     }
     function typing(on) {
       var t = $(".typing", log); if (t) t.remove();
-      if (on) { t = document.createElement("div"); t.className = "typing"; t.setAttribute("aria-label", bot + " is typing"); t.innerHTML = "<i></i><i></i><i></i>"; log.appendChild(t); log.scrollTop = log.scrollHeight; }
+      mood("think"); if (!on) { var a = panel && $(".chat-av .dface", panel); if (a) a.classList.remove("think"); }
+      if (on) { t = document.createElement("div"); t.className = "typing"; t.setAttribute("aria-label", bot + " is typing"); t.innerHTML = face("think") + "<i></i><i></i><i></i>"; log.appendChild(t); log.scrollTop = log.scrollHeight; }
+    }
+    function burst(el) { // a little shower of dots when someone leaves their details
+      if (reduce) return;
+      var b = document.createElement("span"); b.className = "burst";
+      for (var k = 0; k < 18; k++) {
+        var a = Math.random() * 6.283, d = 40 + Math.random() * 90, i = document.createElement("i");
+        i.style.cssText = "--x:" + (Math.cos(a) * d).toFixed(0) + "px;--y:" + (Math.sin(a) * d - 20).toFixed(0) + "px;--s:" + (5 + Math.random() * 7).toFixed(0) + "px;--c:" + (k % 3 ? "#ff831f" : "#0e1b33") + ";animation-delay:" + (Math.random() * 80).toFixed(0) + "ms";
+        b.appendChild(i);
+      }
+      el.appendChild(b); setTimeout(function () { b.remove(); }, 1200);
     }
     function card() {
       if ($(".chat-card", log)) return;
@@ -570,32 +648,34 @@
       else if (!sl.name) sl.name = text.slice(0, 60);
       else if (!sl.contact) { if (/@/.test(text) || text.replace(/\D/g, "").length >= 8) sl.contact = text; }
       else sl.extra = ((sl.extra || "") + " " + text).trim();
-      if (!sl.name) reply = "Thanks! Who am I speaking with?";
-      else if (!sl.contact) reply = "And the best email or WhatsApp number for a specialist to reach you?";
+      if (!sl.name) reply = "Happy to help with that. Who am I speaking with?";
+      else if (!sl.contact) reply = "Thanks, " + sl.name.split(" ")[0] + ". What's the best email or WhatsApp number for a specialist to reach you?";
       else if (!st.lead) {
-        st.lead = true; reply = "Perfect — a specialist will reply within one working day.";
         var c = sl.contact, d = { name: sl.name || "Chat visitor", email: /@/.test(c) ? c : "", phone: /@/.test(c) ? "" : c, source: "website", campaign: "chat",
           message: "Chat on the website (" + location.pathname + ")\nInterested in: " + (sl.interest || "") + "\n\n" + st.msgs.map(function (m) { return (m.r === "me" ? "Visitor: " : bot + ": ") + m.t; }).join("\n") };
         if (!CFG.preview && CFG.intake) fetch(CFG.intake, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(d) }).catch(function () {});
         try { if (window.gtag) window.gtag("event", "generate_lead", { form: "chat" }); } catch (e) {}
-        return { reply: reply, saved: true };
+        return { reply: "Perfect — a specialist will reply within one working day. Meanwhile, a free growth audit is the quickest way to see where you'd grow first: " + (LINKS["/free-audit/"] ? location.origin + "/free-audit/" : ""), saved: true };
       } else reply = "Noted — I've added that for the team.";
       return { reply: reply };
     }
     function done(reply, chips, saved, ask) {
       typing(false); addMsg("bot", reply); st.msgs.push({ r: "bot", t: reply });
-      if (saved) { var ok = "Your details are with the team. A specialist will reply within one working day."; var el = addMsg("ok", ok); el.className = "msg ok"; st.msgs.push({ r: "ok", t: ok }); st.lead = true; }
+      if (saved) {
+        var ok = "Your details are with the team. A specialist will reply within one working day.";
+        var el = addMsg("ok", ok); st.msgs.push({ r: "ok", t: ok }); st.lead = true; burst(el); mood("happy", 2600);
+      }
       setChips(chips); keep(); busy = false; sendBtn.disabled = false; footNote();
-      if (ask && !st.lead) setTimeout(card, 500);
+      if (ask && !st.lead) setTimeout(card, 700);
     }
     function send(text, contact) {
       if (busy) return;
       text = text && text.trim(); if (!text && !contact) return;
-      busy = true; sendBtn.disabled = true; setChips([]);
+      busy = true; sendBtn.disabled = true; setChips([]); panel.classList.add("started");
       var shown = contact ? (contact.name ? contact.name + " — " : "") + contact.value : text;
       addMsg("me", shown); st.msgs.push({ r: "me", t: shown }); keep();
-      setTimeout(function () { typing(true); }, 250);
-      var t0 = Date.now(), finish = function (a, b, c, d) { setTimeout(function () { done(a, b, c, d); }, Math.max(0, 650 - (Date.now() - t0))); };
+      setTimeout(function () { if (busy) typing(true); }, 280);
+      var t0 = Date.now(), finish = function (a, b, c, d) { setTimeout(function () { done(a, b, c, d); }, Math.max(0, 750 - (Date.now() - t0))); };
       if (st.local || CFG.preview) { var l = local(text, contact); finish(l.reply, [], l.saved); return; }
       fetch(CH.api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ session_id: st.sid, message: text || "", contact: contact || null, page: location.pathname, tz: tz }) })
         .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
@@ -608,50 +688,80 @@
         })
         .catch(function () { st.local = true; var l = local(text, contact); finish(l.reply, [], l.saved); });
     }
+    function footNote() { // once we can reach them, no need to ask for a number again
+      var f = panel && $(".chat-foot", panel); if (!f) return;
+      f.innerHTML = st.lead ? 'A specialist will reply within one working day · <a href="' + CH.privacy + '">Privacy</a>'
+        : '<button type="button" class="cc">Leave your number</button> for a call back · <a href="' + CH.privacy + '">Privacy</a>';
+      var cc = $(".cc", f); if (cc) cc.addEventListener("click", card);
+    }
+    function hello() {
+      var h = document.createElement("div"); h.className = "chat-hello";
+      h.innerHTML = face() + "<h3>Hi, I'm " + escH(bot) + '<span>.</span></h3><p>' + escH(greet) + '</p><div class="starters">' +
+        STARTERS.map(function (s, k) { return '<button type="button" data-q="' + escH(s[3]) + '" style="animation-delay:' + (120 + k * 70) + 'ms"><span class="ic">' + ICON[s[0]] + "</span><b>" + s[1] + "</b><small>" + s[2] + "</small></button>"; }).join("") +
+        (LINKS["/free-audit/"] ? '<a class="wide" href="' + LINKS["/free-audit/"][1] + '" style="animation-delay:420ms"><span><b>Get a free growth audit</b><br><small>Website, search, social and ads, reviewed by a specialist</small></span>' + ICON.go + "</a>" : "") + "</div>";
+      $$("button[data-q]", h).forEach(function (b) { b.addEventListener("click", function () { send(b.getAttribute("data-q")); }); });
+      return h;
+    }
     function build() {
       panel = document.createElement("div"); panel.className = "chat"; panel.id = "chat"; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Chat with " + bot);
-      panel.innerHTML = '<div class="chat-top"><span class="av" aria-hidden="true"></span><div><b>' + escH(bot) + '</b><small>Dotindot assistant · replies in seconds</small></div><button class="chat-x" type="button" aria-label="Close chat">×</button></div>' +
+      panel.innerHTML = '<div class="chat-top"><span class="chat-av">' + face() + '</span><div class="chat-id"><b>' + escH(bot) + '</b><small><i class="live"></i>AI assistant · replies in seconds</small></div>' +
+        '<button class="chat-icon chat-new" type="button" aria-label="Start a new conversation" title="New conversation">' + ICON.reset + '</button><button class="chat-icon chat-x" type="button" aria-label="Close chat">' + ICON.x + "</button></div>" +
         '<div class="chat-log" aria-live="polite" data-lenis-prevent></div><div class="chips"></div>' +
-        '<form class="chat-form" novalidate><label class="sr" for="chat-in">Message</label><textarea id="chat-in" rows="1" maxlength="1000" placeholder="Type your message…"></textarea><button class="chat-send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>' +
-        '<p class="chat-foot"><button type="button" class="cc">Leave your number</button> for a call back · <a href="' + CH.privacy + '">Privacy</a></p>';
+        '<form class="chat-form" novalidate><label class="sr" for="chat-in">Message</label><textarea id="chat-in" rows="1" maxlength="1000" placeholder="Ask ' + escH(bot) + ' anything…"></textarea><button class="chat-send" type="submit" aria-label="Send">' + ICON.go + "</button></form>" +
+        '<p class="chat-foot"></p>';
       document.body.appendChild(panel);
       log = $(".chat-log", panel); chipBox = $(".chips", panel); ta = $("textarea", panel); sendBtn = $(".chat-send", panel);
       $(".chat-x", panel).addEventListener("click", closeChat);
-      $(".cc", panel).addEventListener("click", card);
+      $(".chat-new", panel).addEventListener("click", function () { st = st0(); keep(); fill(); ta.focus({ preventScroll: true }); });
       $(".chat-form", panel).addEventListener("submit", function (e) { e.preventDefault(); var v = ta.value; ta.value = ""; ta.style.height = ""; send(v); });
-      ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $(".chat-form", panel).requestSubmit ? $(".chat-form", panel).requestSubmit() : sendBtn.click(); } });
+      ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); var v = ta.value; ta.value = ""; ta.style.height = ""; send(v); } });
       ta.addEventListener("input", function () { ta.style.height = "auto"; ta.style.height = Math.min(120, ta.scrollHeight) + "px"; });
+      ta.addEventListener("focus", function () { var r = ta.getBoundingClientRect(); look.pinned = [r.left + 40, r.top]; aimSoon(); });
+      ta.addEventListener("blur", function () { look.pinned = null; aimSoon(); });
       panel.addEventListener("keydown", function (e) { if (e.key === "Escape") closeChat(); });
-      if (!st.msgs.length) { st.msgs.push({ r: "bot", t: greet }); st.chips = CHIPS0; keep(); }
-      st.msgs.forEach(function (m) { var el = addMsg(m.r === "me" ? "me" : "bot", m.t, { instant: true }); if (m.r === "ok") el.className = "msg ok"; });
-      setChips(st.chips); footNote();
+      fill();
     }
-    function openChat() {
+    function fill() {
+      log.innerHTML = ""; log.appendChild(hello()); panel.classList.toggle("started", st.msgs.length > 0);
+      st.msgs.forEach(function (m) { addMsg(m.r === "me" ? "me" : m.r === "ok" ? "ok" : "bot", m.t, { instant: true }); });
+      setChips(st.msgs.length ? st.chips : []); footNote(); aimSoon();
+    }
+    function openChat(q) {
       if (!panel) build();
       if (hint) hint.classList.remove("in");
       try { sessionStorage.setItem("dd_chat_hint", "1"); } catch (e) {}
       fab.classList.add("open"); fab.setAttribute("aria-expanded", "true"); panel.classList.add("open"); st.open = true; keep();
-      log.scrollTop = log.scrollHeight;
-      if (fine) setTimeout(function () { ta.focus({ preventScroll: true }); }, 350);
+      log.scrollTop = st.msgs.length ? log.scrollHeight : 0; setTimeout(aim, 400);
+      if (q) setTimeout(function () { send(q); }, 500);
+      else if (fine) setTimeout(function () { ta.focus({ preventScroll: true }); }, 400);
       try { if (window.gtag) window.gtag("event", "chat_open"); } catch (e) {}
     }
     function closeChat() { panel.classList.remove("open"); fab.classList.remove("open"); fab.setAttribute("aria-expanded", "false"); st.open = false; keep(); fab.focus({ preventScroll: true }); }
+    function hop() { if (reduce || !fab) return; fab.classList.remove("hop"); void fab.offsetWidth; fab.classList.add("hop"); }
     function mountChat() {
-      fab = document.createElement("button"); fab.type = "button"; fab.className = "chat-fab"; fab.setAttribute("aria-expanded", "false"); fab.setAttribute("aria-controls", "chat");
-      fab.setAttribute("aria-label", "Chat with " + bot); fab.innerHTML = '<span class="orb" aria-hidden="true"></span><span class="lbl">Ask ' + escH(bot) + "</span>";
+      if (fab) return;
+      fab = document.createElement("button"); fab.type = "button"; fab.className = "dot-fab"; fab.setAttribute("aria-expanded", "false"); fab.setAttribute("aria-controls", "chat");
+      fab.setAttribute("aria-label", "Chat with " + bot); fab.innerHTML = '<span class="dot-say">Ask ' + escH(bot) + '</span><span class="dot-body">' + face() + '</span><span class="dot-shadow" aria-hidden="true"></span>';
       document.body.appendChild(fab); fab.addEventListener("click", function () { panel && panel.classList.contains("open") ? closeChat() : openChat(); });
-      requestAnimationFrame(function () { requestAnimationFrame(function () { fab.classList.add("in"); }); });
+      requestAnimationFrame(function () { requestAnimationFrame(function () { fab.classList.add("in"); aim(); }); });
+      setTimeout(hop, 1200);
       if (st.open && Date.now() - st.at < 6e5) { openChat(); return; }
       var seen = false; try { seen = !!sessionStorage.getItem("dd_chat_hint"); } catch (e) {}
-      if (!seen && !/\/(contact|free-audit|thanks)\//.test(location.pathname)) setTimeout(function () {
+      if (!seen && CH.hint && !/\/(contact|free-audit|thanks)\//.test(location.pathname)) setTimeout(function () {
         if (panel && panel.classList.contains("open")) return;
-        hint = document.createElement("div"); hint.className = "chat-hint"; hint.setAttribute("role", "status");
-        hint.innerHTML = "Planning your next campaign? Ask me anything, or get a free growth audit.<button type=\"button\" aria-label=\"Dismiss\">×</button>";
-        document.body.appendChild(hint); requestAnimationFrame(function () { hint.classList.add("in"); });
-        hint.addEventListener("click", function (e) { if (e.target.tagName === "BUTTON") { hint.classList.remove("in"); } else openChat(); try { sessionStorage.setItem("dd_chat_hint", "1"); } catch (er) {} });
-        setTimeout(function () { hint.classList.remove("in"); }, 14000);
-      }, 9000);
+        hint = document.createElement("div"); hint.className = "dot-hint"; hint.setAttribute("role", "status");
+        hint.innerHTML = '<div class="typing"><i></i><i></i><i></i></div><button class="x" type="button" aria-label="Dismiss">×</button>';
+        document.body.appendChild(hint); requestAnimationFrame(function () { hint.classList.add("in"); hop(); });
+        setTimeout(function () { var t = $(".typing", hint); if (t) t.outerHTML = "<span>" + escH(CH.hint) + "</span>"; }, 1100);
+        hint.addEventListener("click", function (e) { if (e.target.closest(".x")) hint.classList.remove("in"); else openChat(); try { sessionStorage.setItem("dd_chat_hint", "1"); } catch (er) {} });
+        setTimeout(function () { if (hint) hint.classList.remove("in"); }, 15000);
+      }, 7000);
     }
+    // every link or button marked data-chat opens Dot (with an optional first question)
+    document.addEventListener("click", function (e) {
+      var t = e.target.closest && e.target.closest("[data-chat]"); if (!t) return;
+      e.preventDefault(); mountChat(); openChat(t.getAttribute("data-chat") || "");
+    });
     // after the page has loaded, so it never competes with the first paint
     var startChat = function () { setTimeout(mountChat, 900); };
     if (document.readyState === "complete") startChat(); else addEventListener("load", startChat);

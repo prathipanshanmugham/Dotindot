@@ -125,13 +125,13 @@ function header(path) {
   return `<header class="hdr" data-hdr><div class="wrap hdr-in">
 <a class="logo" href="/" aria-label="${esc(C.name)} home"><img src="/assets/wordmark-color.svg" alt="dotindot." width="128" height="25"></a>
 <nav class="nav" aria-label="Main"><ul>${items}</ul></nav>
-<div class="hdr-act"><a class="hdr-login" href="${appHref(C.clientLogin)}" rel="nofollow">Client login</a><a class="btn sm" href="/free-audit/">Get a free audit</a></div>
+<div class="hdr-act"><button class="ask-dot" type="button" data-chat>${dotMark}<span>Ask Dot</span></button><a class="btn sm" href="/free-audit/">Get a free audit</a></div>
 <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mnav">${I.menu}</button>
 </div></header>
 <div class="mnav" id="mnav" aria-hidden="true">
 <div class="mnav-top"><a class="logo" href="/" aria-label="${esc(C.name)} home"><img src="/assets/wordmark-color.svg" alt="dotindot." width="128" height="25"></a><button class="mnav-close" type="button" aria-label="Close menu">×</button></div>
 <nav aria-label="Menu">${NAV.map(([p, l]) => (p === "/services/" ? `<details><summary>Services ${I.chev}</summary><div><a href="/services/">All services</a>${services.map((s) => `<a href="/services/${s.slug}/">${esc(s.name)}</a>`).join("")}</div></details>` : `<a href="${p}"${current(path, p) ? ' aria-current="page"' : ""}>${l}</a>`)).join("")}</nav>
-<div class="mnav-foot"><a class="btn" href="/free-audit/">Get a free growth audit</a><p><a href="mailto:${C.email}">${C.email}</a><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a><a href="${appHref(C.clientLogin)}" rel="nofollow">Client login</a></p></div>
+<div class="mnav-foot"><a class="btn" href="/free-audit/">Get a free growth audit</a><p><a href="mailto:${C.email}">${C.email}</a><a href="${wa()}" target="_blank" rel="noopener">WhatsApp</a><a href="#" data-chat>Ask Dot</a></p></div>
 </div>`;
 }
 
@@ -150,12 +150,25 @@ ${locations.length ? `<p class="ftr-offices"><a href="/contact/#offices">Offices
 <div class="ftr-bot">
 <span>© ${year} ${esc(C.name)}</span>
 <nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/llms.txt">llms.txt</a></nav>
-<span class="logins"><a href="${appHref(C.clientLogin)}" rel="nofollow">${I.user} Client login</a><a href="${appHref(C.employeeLogin)}" rel="nofollow">${I.lock} Employee login</a></span>
 </div>
 </div></footer>`;
 }
 
 const INDEX = [];
+const href = (p) => "{{R}}" + p.replace(/^\//, "") + (PREVIEW && p.endsWith("/") ? "index.html" : "");
+const CHAT_LINKS = Object.fromEntries([["/free-audit/", "Get a free growth audit"], ["/contact/", "Talk to a specialist"], ["/services/", "All services"], ["/process/", "How we work"],
+  ["/speed-test/", "Test your website speed"], ["/growth-score/", "Take the marketing health check"], ["/insights/", "Read our insights"], ["/clients/", "Who we work with"], ["/markets/", "Markets we serve"], ["/about/", "About Dotindot"],
+  ...services.map((x) => [`/services/${x.slug}/`, x.name]), ...markets.map((m) => [`/markets/${m.slug}/`, `Working with brands in ${m.name}`]),
+  ...insights.map((a) => [`/insights/${a.slug}/`, a.title])].map(([p, t]) => [p, [t, href(p)]]));
+const chatHint = (path) => {
+  const sv = services.find((x) => path === `/services/${x.slug}/`), mk = markets.find((m) => path === `/markets/${m.slug}/`);
+  if (sv) return `Questions about ${lc(sv.name)}? Ask me — I reply in seconds.`;
+  if (mk) return `Growing in ${mk.name}? Ask me how we work with brands there.`;
+  if (/^\/insights\/[^/]+\/$/.test(path)) return "Want this applied to your business? Ask me how.";
+  if (path === "/speed-test/") return "Slow site? Ask me what we'd fix first.";
+  if (path === "/growth-score/") return "Want help improving your score? Ask me.";
+  return "Hi, I'm Dot! Want a few quick ideas to grow your brand? Ask me anything.";
+};
 function layout({ path, title, desc, body, ld = [], noindex = false, type = "website", fullTitle, og = "", ogImage = "", crumbs: trail = null }) {
   const url = abs(path);
   const t0 = fullTitle || `${title} — ${C.name}`, ov = (SEO.pages || {})[path] || {};
@@ -167,7 +180,7 @@ function layout({ path, title, desc, body, ld = [], noindex = false, type = "web
   const verify = [C.verify && C.verify.google ? `<meta name="google-site-verification" content="${esc(C.verify.google)}">` : "", C.verify && C.verify.bing ? `<meta name="msvalidate.01" content="${esc(C.verify.bing)}">` : ""].join("");
   const ga = C.ga4 ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${C.ga4}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${C.ga4}',{anonymize_ip:true})</script>` : "";
   const cfg = { intake: C.leadIntakeUrl, whatsapp: C.whatsapp, email: C.email, preview: PREVIEW, psiKey: C.pageSpeedApiKey || "",
-    chat: CHAT.enabled ? { api: "/api/chat", name: CHAT.name || "Dot", greeting: CHAT.greeting || "", privacy: "{{R}}privacy/" + (PREVIEW ? "index.html" : ""), audit: "{{R}}free-audit/" + (PREVIEW ? "index.html" : "") } : null };
+    chat: CHAT.enabled ? { api: "/api/chat", name: CHAT.name || "Dot", greeting: CHAT.greeting || "", privacy: href("/privacy/"), hint: chatHint(path), links: CHAT_LINKS } : null };
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -178,7 +191,7 @@ function layout({ path, title, desc, body, ld = [], noindex = false, type = "web
 <link rel="canonical" href="${url}">
 <meta name="robots" content="${noindex ? "noindex,follow" : "index,follow,max-image-preview:large,max-snippet:-1"}">
 <meta name="color-scheme" content="light only"><meta name="theme-color" content="#ffffff">
-<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/assets/icon-512.png"><link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.ico?v=3" sizes="48x48"><link rel="icon" href="/assets/favicon.svg?v=3" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3"><link rel="manifest" href="/manifest.webmanifest">
 <link rel="alternate" hreflang="en" href="${url}"><link rel="alternate" hreflang="x-default" href="${url}"><link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">${verify}
 <meta property="og:type" content="${type}"><meta property="og:site_name" content="${esc(C.name)}"><meta property="og:title" content="${esc(t)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${url}"><meta property="og:image" content="${abs(ogImg)}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${esc(C.name)}: ${esc(title || "Marketing that performs. Technology that scales.")}">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(t)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${abs(ogImg)}"><meta property="og:locale" content="en_GB">
@@ -218,9 +231,11 @@ ${website ? '<label class="full">Website or main social account<input name="webs
 <label class="hp" aria-hidden="true">Leave this empty<input name="website_url_hp" tabindex="-1" autocomplete="off"></label>
 <div class="full form-foot"><button class="btn" type="submit">${esc(button)}</button><span class="fine">A specialist replies within one working day.</span><p class="status" role="status" aria-live="polite"></p></div>
 </form>`;
+const dotMark = '<svg class="dface" viewBox="0 0 140 179" aria-hidden="true"><path class="d-body" d="M0 0H50.5A89.5 89.5 0 0 1 50.5 179H0Z"/><g class="d-eye"><circle class="d-white" cx="52.5" cy="89.5" r="36"/><g class="d-look"><circle class="d-pupil" cx="52.5" cy="89.5" r="15.5"/><circle class="d-glint" cx="58.5" cy="83" r="4.6"/></g></g></svg>';
 const talk = (id, { title = "Let's talk about your growth", text = "Tell us where you want your business to be in twelve months. A senior specialist replies within one working day, in your time zone.", pre = "", cls = "" } = {}) => `<section class="sec rule ${cls}" id="talk"><div class="wrap talk">
 <div class="talk-aside">${H2(title)}<p class="lead">${esc(text)}</p>
-<div class="direct"><a href="mailto:${C.email}">${C.email}<span>Email</span></a><a href="${wa()}" target="_blank" rel="noopener">WhatsApp<span>Chat now</span></a><a href="tel:${tel}">${esc(C.phoneDisplay)}<span>Call</span></a></div></div>
+<div class="direct"><a href="mailto:${C.email}">${C.email}<span>Email</span></a><a href="${wa()}" target="_blank" rel="noopener">WhatsApp<span>Chat now</span></a><a href="tel:${tel}">${esc(C.phoneDisplay)}<span>Call</span></a></div>
+${CHAT.enabled ? `<p class="talk-dot"><button class="ask-dot" type="button" data-chat>${dotMark}<span>Or ask Dot, our assistant — answers in seconds</span></button></p>` : ""}</div>
 <div data-reveal>${leadForm(id, { pre })}</div>
 </div></section>`;
 const faqBlock = (qa) => `<div class="faq">${qa.map(([q, a]) => `<details><summary>${esc(q)}<i aria-hidden="true"></i></summary><div class="ans"><p>${esc(a)}</p></div></details>`).join("")}</div>`;
@@ -526,7 +541,8 @@ add("/404.html", layout({ path: "/404.html", title: "Page not found", desc: "Tha
 // ---------- write ----------
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(join(OUT, "assets/fonts"), { recursive: true });
-for (const f of ["favicon.svg", "app-icon.svg", "icon-512.png", "og.png", "wordmark-color.svg", "wordmark-white.svg", "mark-color.svg"]) cpSync(join(ROOT, "assets", f), join(OUT, "assets", f));
+for (const f of ["favicon.svg", "app-icon.svg", "icon-192.png", "icon-512.png", "og.png", "wordmark-color.svg", "wordmark-white.svg", "mark-color.svg"]) cpSync(join(ROOT, "assets", f), join(OUT, "assets", f));
+for (const f of ["favicon.ico", "apple-touch-icon.png"]) cpSync(join(ROOT, "assets", f), join(OUT, f)); // browsers and iOS ask for these at the root
 cpSync(join(ROOT, "assets/fonts"), join(OUT, "assets/fonts"), { recursive: true });
 if (existsSync(join(ROOT, "assets/og"))) cpSync(join(ROOT, "assets/og"), join(OUT, "assets/og"), { recursive: true });
 for (const d of ["clients", "team"]) if (existsSync(join(ROOT, "assets", d))) cpSync(join(ROOT, "assets", d), join(OUT, "assets", d), { recursive: true });
@@ -538,7 +554,7 @@ function relativise(html, p) {
   const depth = p.split("/").length - 2;
   const pre = depth > 0 ? "../".repeat(depth) : "./";
   return html.replace(/(href|src|data-map)="\/((?!\/)[^"#?]*)([#?][^"]*)?"/g, (m, attr, path, tail) => {
-    if (/^(assets|media)\//.test(path) || /\.(html|xml|txt|webmanifest|json)$/.test(path)) return `${attr}="${pre}${path}${tail || ""}"`;
+    if (/^(assets|media)\//.test(path) || /\.[a-z0-9]{2,12}$/i.test(path)) return `${attr}="${pre}${path}${tail || ""}"`;
     return `${attr}="${pre}${path}${path && !path.endsWith("/") ? "/" : ""}index.html${tail || ""}"`;
   }).replace(/url\(\{\{R\}\}/g, `url(${pre}`).replace(/\{\{R\}\}/g, pre).replace(/data-next="\/([^"]*)"/g, (m, path) => `data-next="${pre}${path}index.html"`);
 }
@@ -580,7 +596,7 @@ if (!PREVIEW) writeFileSync(join(ROOT, "site-index.json"), JSON.stringify({
     insights: insights.map((x) => ({ title: x.title, url: abs(`/insights/${x.slug}/`), summary: x.summary })),
   },
 }, null, 1));
-writeFileSync(join(OUT, "manifest.webmanifest"), JSON.stringify({ name: C.name, short_name: C.shortName, start_url: "/", display: "browser", background_color: "#ffffff", theme_color: "#ffffff", icons: [{ src: "/assets/icon-512.png", sizes: "512x512", type: "image/png" }, { src: "/assets/app-icon.svg", sizes: "any", type: "image/svg+xml" }] }));
+writeFileSync(join(OUT, "manifest.webmanifest"), JSON.stringify({ name: C.name, short_name: C.shortName, start_url: "/", display: "browser", background_color: "#ffffff", theme_color: "#ffffff", icons: [{ src: "/assets/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" }, { src: "/assets/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }, { src: "/assets/favicon.svg", sizes: "any", type: "image/svg+xml" }] }));
 writeFileSync(join(OUT, ".htaccess"), `# dotindot.in — Apache (Hostinger)
 Options -Indexes
 ErrorDocument 404 /404.html
@@ -600,7 +616,8 @@ RewriteRule ^thank-you/?$ /thanks/ [L,R=301]
   Header set Referrer-Policy "strict-origin-when-cross-origin"
   Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
   Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
-  <FilesMatch "\\.(svg|png|jpg|jpeg|webp|avif|ico|woff2|js|json)$">Header set Cache-Control "public, max-age=31536000, immutable"</FilesMatch>
+  <FilesMatch "\\.(svg|png|jpg|jpeg|webp|avif|ico)$">Header set Cache-Control "public, max-age=86400"</FilesMatch>
+  <FilesMatch "(\\.[0-9a-f]{8}\\.(js|json)|\\.woff2)$">Header set Cache-Control "public, max-age=31536000, immutable"</FilesMatch>
   <FilesMatch "\\.(html|xml|txt|webmanifest)$">Header set Cache-Control "public, max-age=600, must-revalidate"</FilesMatch>
 </IfModule>
 <IfModule mod_deflate.c>
