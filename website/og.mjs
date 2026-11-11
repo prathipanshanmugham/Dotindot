@@ -27,7 +27,7 @@ const MAP = `<svg class="map" viewBox="0 0 1200 630" aria-hidden="true"><g fill=
 
 const cards = [
   ["home", "Marketing that performs. Technology that scales.", "AI-first growth agency for brands worldwide"],
-  ["services", "Services", "Performance marketing, SEO & AI search, websites, brand, AI automation"],
+  ["services", "Services", "Ads, social media, Google & AI search, websites, branding and AI assistants"],
   ...services.map((s) => [`services-${s.slug}`, s.name, s.tagline]),
   ["clients", "Clients", "Who we work with"],
   ["markets", "Markets", "UK, Europe, North America, the Middle East and Asia-Pacific"],

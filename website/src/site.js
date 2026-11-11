@@ -570,8 +570,8 @@
       reset: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
       x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'
     };
-    var STARTERS = [["leads", "Get more leads", "Ads that pay for themselves", "I want more leads from ads"], ["web", "Build a website", "Fast sites that convert", "We need a new website"],
-      ["seo", "Rank on Google & AI", "SEO and AI search", "How do we rank on Google and in AI assistants?"], ["ai", "Automate with AI", "Chat, follow-up, reports", "Can you automate our lead follow-up with AI?"]];
+    var STARTERS = [["leads", "Get more customers", "Ads that bring enquiries", "I want more enquiries and sales"], ["web", "A new website", "Fast, and brings enquiries", "We need a new website"],
+      ["seo", "Get found on Google", "And in ChatGPT answers", "People can't find us on Google. How can you help?"], ["ai", "Never miss a message", "AI replies on WhatsApp", "Can AI reply to our WhatsApp enquiries?"]];
     var fab, hint, panel, log, chipBox, ta, sendBtn, busy = false;
     var escH = function (t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
 

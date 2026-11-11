@@ -152,7 +152,7 @@ async def _save_lead(s: dict) -> bool:
 
 
 # ------------------------------------------------------------------ guided conversation (no AI needed)
-SERVICE_CHIPS = ["More leads from ads", "A new website", "SEO & AI search", "Social media", "AI chat & automation"]
+SERVICE_CHIPS = ["More enquiries from ads", "A new website", "Get found on Google", "Social media posts", "AI that replies to customers", "Not sure yet"]
 
 
 def _guided(s: dict, text: str, cfg: dict) -> dict:
@@ -212,6 +212,7 @@ What to do, in order:
 
 Rules:
 - Reply in the visitor's language. At most 70 words, plain text, no headings or tables. Use a link from the facts when it helps.
+- Talk like a helpful person, not a marketer: everyday words, short sentences. Use the plain service names and "in_simple_words" descriptions from the facts. Avoid jargon (SEO, CRM, leads, funnel, ROAS, conversion); if you must use a term, explain it in a few words, as in "words_explained". If the visitor isn't sure what they need, ask what problem they want solved and suggest the matching service from "needs_to_service".
 - Use only the facts below. If you don't know something, say a specialist will confirm it. Never invent prices, clients, results, guarantees, team members or deadlines.
 - Pricing: every engagement starts with a free audit and a fixed quotation; never a percentage of ad spend; retainers are month to month. Don't quote figures.
 - Never ask for passwords, payment details or other sensitive information.

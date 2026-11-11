@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, cpSync, statSync, exist
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { services, steps, aiHuman, values, faqs, whyUs, expertise, industries, insights as INSIGHTS0, careers, tools, markets, quiz, seoTitles, automations } from "./src/content.mjs";
+import { services, needs, glossary, steps, aiHuman, values, faqs, whyUs, expertise, industries, insights as INSIGHTS0, careers, tools, markets, quiz, seoTitles, automations } from "./src/content.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const C = JSON.parse(readFileSync(join(ROOT, "site.config.json"), "utf8"));
@@ -87,7 +87,8 @@ const mdHtml = (src, vars = {}) => {
   flushP(); flushL();
   return out.join("\n");
 };
-const lc = (s) => s.split(" ").map((w) => (/^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase())).join(" ");
+const PROPER = /^(Google|Facebook|Instagram|YouTube|WhatsApp|LinkedIn|ChatGPT|Gemini|TikTok)$/;
+const lc = (s) => s.split(" ").map((w) => (/^[A-Z]{2,}$/.test(w) || PROPER.test(w) ? w : w.toLowerCase())).join(" ");
 const abs = (p) => C.domain.replace(/\/$/, "") + p;
 const tel = (C.phone || "").replace(/[^\d+]/g, "");
 const wa = (t) => `https://wa.me/${C.whatsapp}?text=${encodeURIComponent(t || "Hello Dotindot, I'd like to talk about growing our business.")}`;
@@ -116,7 +117,7 @@ const withStop = (t) => (/[.?!]$/.test(t) ? esc(t.replace(/\.$/, "")) + (t.endsW
 const H1 = (t, cls = "h-page") => `<h1 class="${cls}">${withStop(t)}</h1>`;
 const H2 = (t, cls = "h-sec") => `<h2 class="${cls}">${withStop(t)}</h2>`;
 const crumbs = (items) => `<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a>${items.map(([n, u]) => (u ? `<span><a href="${u}">${esc(n)}</a></span>` : `<span aria-current="page">${esc(n)}</span>`)).join("")}</nav>`;
-const phero = ({ h, lead, trail = [], btns = "", cls = "" }) => `<section class="phero ${cls}"><div class="wrap">${trail.length ? crumbs(trail) : ""}${H1(h)}${lead ? `<p class="lead">${lead}</p>` : ""}${btns ? `<div class="btns">${btns}</div>` : ""}</div></section>`;
+const phero = ({ h, lead, trail = [], btns = "", cls = "", note = "" }) => `<section class="phero ${cls}"><div class="wrap">${trail.length ? crumbs(trail) : ""}${H1(h)}${lead ? `<p class="lead">${lead}</p>` : ""}${note ? `<p class="aka">${note}</p>` : ""}${btns ? `<div class="btns">${btns}</div>` : ""}</div></section>`;
 
 // ---------- schema ----------
 const postal = (l) => (l ? { "@type": "PostalAddress", streetAddress: l.address.replace(/\s*\n\s*/g, ", "), ...(l.city ? { addressLocality: l.city } : {}), addressCountry: l.country || "IN" } : { "@type": "PostalAddress", addressCountry: "IN" });
@@ -125,7 +126,7 @@ const ORG = {
   description: "AI-first growth agency for brands worldwide: performance marketing, social media and content, SEO and AI search, websites and apps, brand and video, AI agents and automation.",
   email: C.email, telephone: C.phone, areaServed: "Worldwide", address: postal(locations.find((l) => l.hq) || locations[0]),
   ...(locations.length ? { location: locations.map((l) => ({ "@type": "Place", name: `${C.name}, ${l.name}`, address: postal(l), ...(l.phone ? { telephone: l.phone } : {}) })) } : {}),
-  sameAs: SOCIALS.filter((s) => !["whatsapp", "telegram"].includes(s.platform)).map((s) => s.url), knowsAbout: services.map((s) => s.name).concat(["Generative engine optimisation", "Conversion rate optimisation"]),
+  sameAs: SOCIALS.filter((s) => !["whatsapp", "telegram"].includes(s.platform)).map((s) => s.url), knowsAbout: services.map((s) => s.aka.replace(/^./, (c) => c.toUpperCase())).concat(["Generative engine optimisation", "Conversion rate optimisation"]),
   slogan: "Marketing that performs. Technology that scales.",
   ...(team.length ? { founder: team.filter((p) => /founder/i.test(p.role)).map((p) => ({ "@type": "Person", name: p.name, jobTitle: p.role })) } : {}),
   contactPoint: { "@type": "ContactPoint", contactType: "sales", email: C.email, telephone: C.phone, areaServed: "Worldwide", availableLanguage: ["English"] },
@@ -354,14 +355,14 @@ const aiDemo = () => `<figure class="ai-demo" data-demo>
 <p class="ph-crm"><b>New lead · Hot</b><span>Site survey booked for Tuesday, 11 am</span><span>Added to the CRM and sent to the sales team</span></p></div></div>
 <figcaption>An example of an agent we'd build: it answers, qualifies, books the visit and updates your CRM, then a person takes over. <button class="ph-replay" type="button" hidden>Play again</button></figcaption></figure>`;
 const aiSection = () => `<section class="sec" id="ai-automation"><div class="wrap ai-grid">
-<div class="ai-copy">${H2("AI that works while you sleep")}<p class="lead" data-reveal>We build AI agents and automations on the tools you already use, so enquiries are answered in seconds, leads never go cold and your team stops doing busywork.</p>
+<div class="ai-copy">${H2("AI that works while you sleep")}<p class="lead" data-reveal>We set up AI assistants on the tools you already use, like WhatsApp and your website, so every enquiry gets a reply in seconds, no customer is forgotten, and your team stops doing busywork.</p>
 <ul class="ai-list">${automations.map(([h, t]) => `<li data-reveal><b>${esc(h)}</b><span>${esc(t)}</span></li>`).join("")}</ul>
-<div class="btns" data-reveal><a class="btn" href="/services/ai-automation/">See AI automation</a>${CHAT.enabled ? '<button class="btn ghost" type="button" data-chat="What could AI automate in my business?">Try Dot, our own agent</button>' : ""}</div></div>
+<div class="btns" data-reveal><a class="btn" href="/services/ai-automation/">How AI assistants work</a>${CHAT.enabled ? '<button class="btn ghost" type="button" data-chat="What could AI automate in my business?">Try Dot, our own agent</button>' : ""}</div></div>
 <div data-reveal>${aiDemo()}</div>
 </div></section>`;
 const ART = { "performance-ads": "perf", "social-content": "social", "seo-ai-search": "seo", "websites-apps": "web", "brand-video": "brand", "ai-automation": "ai" };
 const reel = () => `<section class="reel" id="services" data-reel style="--n:${services.length}"><div class="reel-stage"><div class="wrap reel-wrap">
-<div class="reel-top">${H2("What we do")}<p>Six disciplines under one roof, planned together and measured on the same numbers: qualified leads, sales and cost per customer.</p></div>
+<div class="reel-top">${H2("What we do")}<p>Six services under one roof. Use one, or let them work together. Not sure which you need? <a class="link" href="/services/#pick">Find out in ten seconds</a>.</p></div>
 <div class="reel-body"><ul class="reel-list">${services.map((s, i) => `<li class="reel-item${i ? "" : " cur"}" data-art="${ART[s.slug] || "perf"}"><h3><a href="/services/${s.slug}/">${esc(s.name)}</a></h3><p class="tag">${esc(s.tagline)}</p><ul>${s.highlights.slice(0, 4).map((d) => `<li>${esc(d)}</li>`).join("")}</ul><a class="go" href="/services/${s.slug}/" tabindex="-1" aria-hidden="true">Explore ${esc(lc(s.name))} ${I.arrow}</a></li>`).join("")}</ul>
 <div class="reel-art" aria-hidden="true"><canvas></canvas></div></div>
 <div class="reel-index" aria-hidden="true">${services.map((s, i) => `<button type="button" tabindex="-1" data-i="${i}"><i><b></b></i><span>${esc(s.name)}</span></button>`).join("")}</div>
@@ -373,11 +374,11 @@ const homeBody = `
 <section class="hero" aria-labelledby="h"><div class="wrap">
 <h1 id="h" class="h-hero"><span class="sr">${heroLines.join(". ")}.</span><span aria-hidden="true">${heroLines.map((l, i) => `<span class="ln"><span style="--i:${i}">${esc(l).replace(/(\S+)$/, `<span class="nw">$1<span class="dot"${i === heroLines.length - 1 ? " data-fs" : ""}></span></span>`)}</span></span>`).join("")}</span></h1>
 <div class="hero-row"><div class="hero-copy">
-<p class="lead">${esc(C.name)} is an AI-first growth agency. We run performance marketing, search and content, and build the websites, apps and automation behind them, for brands across the UK, Europe, North America, the Middle East, Asia-Pacific and India.</p>
+<p class="lead">We help businesses get more customers online. We run your ads and social media, get you found on Google and ChatGPT, build your website, and set up AI that replies to your customers, for businesses in India and around the world.</p>
 <div class="btns"><a class="btn" href="/free-audit/">Get a free growth audit</a><a class="btn ghost" href="#services">Explore our services</a></div>
 </div>
 <div class="hero-map" data-map="/${MAP_JSON}" aria-hidden="true"><canvas></canvas></div></div>
-<div class="facts">${proof.length >= 3 ? proof.slice(0, 3).map((p) => `<div><b>${esc(p.value)}</b><span>${esc(p.label)}</span></div>`).join("") : `<div><b>Six disciplines, one team</b><span>Paid media, search, content, web, brand and AI</span></div><div><b>Your hours, your currency</b><span>Quotes and invoices in ${CURS.length} currencies</span></div><div><b>A reply within one working day</b><span>From a specialist, not a ticket queue</span></div>`}</div>
+<div class="facts">${proof.length >= 3 ? proof.slice(0, 3).map((p) => `<div><b>${esc(p.value)}</b><span>${esc(p.label)}</span></div>`).join("") : `<div><b>Six services, one team</b><span>Ads, Google, social media, websites, branding and AI</span></div><div><b>Your hours, your currency</b><span>Quotes and invoices in ${CURS.length} currencies</span></div><div><b>A reply within one working day</b><span>From a specialist, not a ticket queue</span></div>`}</div>
 </div></section>
 ${statement()}
 
@@ -394,7 +395,7 @@ ${caseList()}
 </div></section>
 
 <section class="sec" id="why"><div class="wrap">
-<div class="shead">${H2("Why brands choose Dotindot")}<p data-reveal>Senior expertise, AI-first delivery and complete transparency, without the overheads of a traditional agency.</p></div>
+<div class="shead">${H2("Why brands choose Dotindot")}<p data-reveal>Experienced people, AI that speeds up the work, and reports you can actually read, without the cost of a traditional agency.</p></div>
 ${whyGrid()}
 ${certStrip()}
 <div class="xp-grid">
@@ -414,7 +415,7 @@ ${stepsBlock()}
 </div></section>
 
 <section class="sec"><div class="wrap">
-<div class="shead">${H2("Insights")}<p data-reveal>Practical thinking on performance marketing, search, AI and the web.</p></div>
+<div class="shead">${H2("Insights")}<p data-reveal>Practical advice on ads, Google, AI and websites.</p></div>
 ${postCards(insights.slice(0, 3))}
 <p style="margin-top:40px"><a class="btn ghost" href="/insights/">View all insights</a></p>
 </div></section>
@@ -425,43 +426,61 @@ add("/", layout({ path: "/", fullTitle: `${C.name} — AI-first growth agency: p
   desc: "AI-first growth agency for brands worldwide: performance marketing, social media, SEO and AI search, websites and apps, brand and video, and AI automation.",
   ld: [faqLd(homeFaq), ...reviewLd()], body: homeBody }));
 
-// services index
-add("/services/", layout({ path: "/services/", title: "Services", fullTitle: `Services — performance marketing, SEO & AI search, websites, AI automation — ${C.name}`, og: "services", desc: "Performance marketing, social media and content, SEO and AI search, websites and apps, brand and video, and AI agents: one AI-first team, one plan, one dashboard.",
+// services index: start from the customer's problem, then the six services, then the jargon explained
+const svcBy = Object.fromEntries(services.map((x) => [x.slug, x]));
+const needList = () => `<ul class="needs" role="list">${needs.filter(([, slug]) => svcBy[slug]).map(([q, slug]) => `<li><a class="need-row" href="/services/${slug}/" data-reveal><span class="need-q">“${esc(q)}”</span><span class="need-a"><b>${esc(svcBy[slug].name)}</b><small>${esc(svcBy[slug].short)}</small></span><span class="need-go" aria-hidden="true">${I.arrow}</span></a></li>`).join("")}
+<li><a class="need-row unsure" href="/free-audit/" data-reveal><span class="need-q">“I'm not sure what I need”</span><span class="need-a"><b>Start with a free audit</b><small>We look at your business online and tell you where to start, in plain words.</small></span><span class="need-go" aria-hidden="true">${I.arrow}</span></a></li></ul>`;
+const wordList = () => `<dl class="words">${glossary.map(([w, d]) => `<div data-reveal><dt>${esc(w)}</dt><dd>${esc(d)}</dd></div>`).join("")}</dl>`;
+add("/services/", layout({ path: "/services/", title: "Services", fullTitle: `Services — online ads, social media, SEO & AI search, websites, AI assistants — ${C.name}`, og: "services", desc: "We help businesses get more customers online: ads, social media, Google and AI search, websites and apps, logos and video, and AI assistants that reply for you. Start from what you need.",
   crumbs: [["Home", "/"], ["Services", "/services/"]],
   ld: [crumbsLd([["Home", "/"], ["Services", "/services/"]]), { "@context": "https://schema.org", "@type": "ItemList", name: "Services", itemListElement: services.map((x, i) => ({ "@type": "ListItem", position: i + 1, url: abs(`/services/${x.slug}/`), name: x.name })) }],
-  body: `${phero({ h: "Services", lead: "Six disciplines, one team and one plan. Choose what you need now and add the rest when it makes sense, with every channel reporting into the same live dashboard.", trail: [["Services"]] })}
-<section class="sec tight"><div class="wrap">${svcGrid(4)}</div></section>
-<section class="sec mist"><div class="wrap"><div class="shead">${H2("How engagements work")}<p data-reveal>Every engagement starts with a free audit and a fixed quotation. Retainers are month to month.</p></div>${stepsBlock()}</div></section>
+  body: `${phero({ h: "Services", lead: "We help businesses get more customers online. Tell us what you need help with, and we'll show you which service does it.", trail: [["Services"]] })}
+<section class="sec tight" id="pick"><div class="wrap"><div class="shead">${H2("What do you need help with?")}<p data-reveal>Pick the one that sounds most like you.${CHAT.enabled ? ' Or <button class="link" type="button" data-chat="I\'m not sure which service I need">ask Dot</button> and describe it in your own words.' : ""}</p></div>${needList()}</div></section>
+<section class="sec mist"><div class="wrap"><div class="shead">${H2("All six services")}<p data-reveal>Use one, or combine them. Either way you get one team, one plan and one simple monthly report.</p></div>${svcGrid(4)}</div></section>
+<section class="sec" id="words"><div class="wrap"><div class="shead">${H2("Words you'll hear, explained")}<p data-reveal>Marketing is full of jargon. Here's what the common words mean, so nothing in a proposal or report is a mystery.</p></div>${wordList()}</div></section>
+<section class="sec mist"><div class="wrap"><div class="shead">${H2("How working with us works")}<p data-reveal>Every engagement starts with a free audit and a fixed quotation. Monthly services run month to month.</p></div>${stepsBlock()}</div></section>
 ${faqSec("Common questions", faqs.filter((f) => /cost|contract|working|AI/i.test(f[0])))}
 ${talk("services")}` }));
 
-// service pages
+// service pages: plain words first (what it is, how it works, an example), then what you get and what we need,
+// then the details. Trade terms sit in the small "Also called" line and the collapsed technical list.
 services.forEach((s, idx) => {
   const others = services.filter((o) => o.slug !== s.slug).slice(idx % 2, idx % 2 + 3);
   const trail = [["Home", "/"], ["Services", "/services/"], [s.name, `/services/${s.slug}/`]];
-  add(`/services/${s.slug}/`, layout({ path: `/services/${s.slug}/`, title: s.name, fullTitle: `${seoTitles[s.slug]} — ${C.name}`, desc: `${s.promise} From ${C.name}, an AI-first growth agency.`, og: `services-${s.slug}`, crumbs: trail,
-    ld: [crumbsLd(trail), faqLd(s.faq), { "@context": "https://schema.org", "@type": "Service", name: s.name, serviceType: s.name, description: s.intro, provider: { "@id": abs("/#org") }, areaServed: "Worldwide", url: abs(`/services/${s.slug}/`) }],
-    body: `${phero({ h: s.name, lead: esc(s.promise), trail: [["Services", "/services/"], [s.name]], btns: `<a class="btn" href="#talk">Talk to us about ${esc(lc(s.name))}</a><a class="btn ghost" href="/free-audit/">Start with a free audit</a>` })}
-<section class="sec tight"><div class="wrap two">
-<div data-reveal><h2 class="h-mid">${esc(s.tagline)}</h2><p class="lead" style="margin-top:16px">${esc(s.intro)}</p></div>
-<div data-reveal><p class="label">What's included</p><ul class="check">${s.deliverables.map((d) => `<li>${esc(d)}</li>`).join("")}</ul></div>
+  const ai = !!s.usecases;
+  let shade = 0;
+  const sec = (cls = "") => `sec${shade++ % 2 ? " mist" : ""}${cls ? " " + cls : ""}`;
+  add(`/services/${s.slug}/`, layout({ path: `/services/${s.slug}/`, title: s.name, fullTitle: `${seoTitles[s.slug]} — ${C.name}`, desc: `${s.promise} ${s.short}`, og: `services-${s.slug}`, crumbs: trail,
+    ld: [crumbsLd(trail), faqLd(s.faq), { "@context": "https://schema.org", "@type": "Service", name: s.name, alternateName: s.aka, serviceType: s.aka, description: s.plain, provider: { "@id": abs("/#org") }, areaServed: "Worldwide", url: abs(`/services/${s.slug}/`) }],
+    body: `${phero({ h: s.name, lead: esc(s.promise), note: `Also called ${esc(s.aka)}`, trail: [["Services", "/services/"], [s.name]], btns: `<a class="btn" href="#talk">Talk to us about ${esc(lc(s.name))}</a><a class="btn ghost" href="/free-audit/">Start with a free audit</a>` })}
+<section class="${sec("tight")}"><div class="wrap">
+<div class="plain" data-reveal><p class="label">In simple words</p><p class="plain-t">${esc(s.plain)}</p></div>
+<ol class="flow" aria-label="How it works">${s.flow.map(([h, t]) => `<li data-reveal><b>${esc(h)}</b><span>${esc(t)}</span></li>`).join("")}</ol>
+<aside class="example" data-reveal><p class="label">For example</p><p>${esc(s.example)}</p></aside>
 </div></section>
-${s.usecases ? `<section class="sec mist"><div class="wrap ai-grid">
-<div>${H2("How an agent handles an enquiry")}<p class="lead" data-reveal>It replies in seconds, asks the questions your best salesperson would, books the next step and puts everything in your CRM. Your team only steps in when it matters.</p>
-${CHAT.enabled ? '<p data-reveal style="margin-top:28px"><button class="ask-dot" type="button" data-chat="What could AI automate in my business?">' + dotMark + "<span>Try one now: ask Dot, the assistant on this site</span></button></p>" : ""}</div>
+${ai ? `<section class="${sec()}"><div class="wrap ai-grid">
+<div class="ai-copy">${H2("Watch it handle an enquiry")}<p class="lead" data-reveal>It replies in seconds, asks the questions your best salesperson would, books the next step and saves everything for your team. Your team only steps in when it matters.</p>
+${CHAT.enabled ? '<p data-reveal style="margin-top:28px"><button class="ask-dot" type="button" data-chat="What could AI do for my business?">' + dotMark + "<span>Try one now: ask Dot, the assistant on this site</span></button></p>" : ""}</div>
 <div data-reveal>${aiDemo()}</div></div></section>
-<section class="sec"><div class="wrap"><div class="shead">${H2("What we automate")}<p data-reveal>Start with the workflow that costs your team the most hours, then add the next one each month.</p></div>
+<section class="${sec()}"><div class="wrap"><div class="shead">${H2("What it can do for each team")}<p data-reveal>Start with the job that takes your team the most time, then add the next one each month.</p></div>
 <div class="uc-grid" data-reveal-group>${s.usecases.map(([team, items]) => `<div class="uc" data-reveal><h3>${esc(team)}</h3><ul class="check">${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`).join("")}</div></div></section>` : ""}
-<section class="sec mist"><div class="wrap two">
-<div data-reveal>${H2("Who it's for")}<ul class="check" style="margin-top:32px">${s.fit.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></div>
+<section class="${sec()}"><div class="wrap two even">
+<div data-reveal><h2 class="h-mid">What you get</h2><ul class="check" style="margin-top:24px">${s.gets.map((d) => `<li>${esc(d)}</li>`).join("")}</ul></div>
+<div data-reveal><h2 class="h-mid">What we need from you</h2><ul class="ask" style="margin-top:24px">${s.needs.map((d) => `<li>${esc(d)}</li>`).join("")}</ul></div>
+</div></section>
+<section class="${sec()}"><div class="wrap two">
+<div data-reveal>${H2("Good for you if")}<ul class="check" style="margin-top:28px">${s.fit.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></div>
 <div data-reveal><p class="label">How it runs</p><ol class="timeline">${s.steps.map(([w, t]) => `<li><b>${esc(w)}</b><span>${esc(t)}</span></li>`).join("")}</ol></div>
 </div></section>
-${s.safety ? `<section class="sec"><div class="wrap two">
+${s.safety ? `<section class="${sec()}"><div class="wrap two">
 <div>${H2("Safe by design")}<div class="safe">${s.safety.map(([h, t]) => `<div data-reveal><b>${esc(h)}</b><span>${esc(t)}</span></div>`).join("")}</div></div>
 <div data-reveal><p class="label">Works with the tools you already use</p><ul class="int">${s.integrations.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
 </div></section>` : ""}
-${faqSec("Questions, answered", s.faq)}
-<section class="sec tight"><div class="wrap"><p class="label">Related services</p><div class="related">${others.map((o) => `<a href="/services/${o.slug}/"><b>${esc(o.name)}</b><span>${esc(o.short)}</span></a>`).join("")}</div></div></section>
+${faqSec("Questions, answered", s.faq, shade++ % 2 ? "mist" : "")}
+<section class="sec tight"><div class="wrap">
+<details class="tech"><summary>For your technical team<i aria-hidden="true"></i></summary><div class="tech-b"><p>The same work, in the terms your developer or marketing manager will look for.</p><ul>${s.technical.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div></details>
+<p class="words-link">New to a word on this page? <a class="link" href="/services/#words">See common marketing words explained</a>.</p>
+<p class="label" style="margin-top:56px">Related services</p><div class="related">${others.map((o) => `<a href="/services/${o.slug}/"><b>${esc(o.name)}</b><span>${esc(o.short)}</span></a>`).join("")}</div></div></section>
 ${talk(`service-${s.slug}`, { pre: s.slug, title: `Let's talk ${lc(s.name)}` })}` }));
 });
 
@@ -582,7 +601,7 @@ markets.forEach((m) => {
     desc: `AI-first growth agency for brands in ${m.name}: performance marketing, social, SEO and AI search, websites and AI automation, in ${m.name} working hours, invoiced in ${m.cur}.`,
     crumbs: trail,
     ld: [crumbsLd(trail), faqLd(mfaq), { "@context": "https://schema.org", "@type": "Service", name: `Digital marketing for brands in ${m.country}`, serviceType: "Digital marketing", provider: { "@id": abs("/#org") }, areaServed: { "@type": "Country", name: m.country }, availableChannel: { "@type": "ServiceChannel", serviceUrl: abs(`/markets/${m.slug}/`) }, offers: { "@type": "Offer", priceCurrency: m.cur, description: `Fixed quotations in ${m.cur}` } }],
-    body: `${phero({ h: `Marketing for brands in ${m.name}`, lead: `Performance marketing, search, content, websites and automation for brands in ${m.name}, delivered in your working hours and invoiced in ${m.cur}.`, trail: [["Markets", "/markets/"], [m.country]], btns: `<a class="btn" href="#talk">Talk to us</a><a class="btn ghost" href="/free-audit/">Free growth audit</a>` })}
+    body: `${phero({ h: `Marketing for brands in ${m.name}`, lead: `Ads, social media, Google and AI search, websites and AI assistants for businesses in ${m.name}, in your working hours and invoiced in ${m.cur}.`, trail: [["Markets", "/markets/"], [m.country]], btns: `<a class="btn" href="#talk">Talk to us</a><a class="btn ghost" href="/free-audit/">Free growth audit</a>` })}
 <section class="sec tight"><div class="wrap two">
 <div data-reveal>${H2("Your hours, our hours")}<p class="lead" style="margin-top:20px">${esc(m.overlap)}</p>
 <div class="clocks" style="grid-template-columns:1fr 1fr;max-width:480px;margin-top:28px"><div class="clock" data-tz="${m.tz}"><b>--:--</b><span><i></i>${esc(m.city)}</span></div><div class="clock" data-tz="Asia/Kolkata"><b>--:--</b><span><i></i>India (HQ)</span></div></div></div>
@@ -716,7 +735,7 @@ writeFileSync(join(OUT, "sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\
   const ai = ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"];
   writeFileSync(join(OUT, "robots.txt"), `User-agent: *\n${rules}\n# AI assistants are welcome. Start at /llms.txt\n${ai.map((b) => `User-agent: ${b}\n`).join("")}${rules}\nSitemap: ${abs("/sitemap.xml")}\n`);
 }
-const LLMS = `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first growth agency headquartered in India that works with brands worldwide. Services: ${services.map((s) => s.name.toLowerCase()).join(", ")}. Quotes and invoices in ${curList}. Contact: ${C.email}.${locations.length ? ` Offices: ${locations.map((l) => [l.name, l.city].filter((v, i, a) => v && a.indexOf(v) === i).join(", ")).join("; ")}.` : ""}\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [Clients](${abs("/clients/")}): who we work with${clients.length ? " (" + clients.map((c) => c.name).join(", ") + ")" : ""}\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Markets\n${markets.map((m) => `- [${m.country}](${abs(`/markets/${m.slug}/`)}): marketing for brands in ${m.name}, invoiced in ${m.cur}`).join("\n")}\n\n## Free tools\n- [Website speed test](${abs("/speed-test/")}): Google PageSpeed score and Core Web Vitals in about 30 seconds\n- [Marketing health check](${abs("/growth-score/")}): a 60-second marketing assessment\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n${JOBS && JOBS.length ? `\n## Careers\n${JOBS.map((j) => `- [${j.title}](${abs(`/careers/${j.slug}/`)}): ${jobFacts(j).join(", ")}`).join("\n")}\n` : ""}\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`;
+const LLMS = `# ${C.name}\n\n> ${C.name} (dotindot) is an AI-first growth agency headquartered in India that works with brands worldwide. Services: ${services.map((s) => `${lc(s.name)} (${s.aka})`).join(", ")}. Quotes and invoices in ${curList}. Contact: ${C.email}.${locations.length ? ` Offices: ${locations.map((l) => [l.name, l.city].filter((v, i, a) => v && a.indexOf(v) === i).join(", ")).join("; ")}.` : ""}\n\nHow it works: a free growth audit, a fixed quotation (never a percentage of ad spend), month-to-month retainers, a live client dashboard and a monthly review. AI handles drafting, monitoring and analysis; people make every client-facing decision.\n\n## Services\n${services.map((s) => `- [${s.name}](${abs(`/services/${s.slug}/`)}): ${s.short}`).join("\n")}\n\n## Company\n- [About](${abs("/about/")}): who we are and how we're set up\n- [Clients](${abs("/clients/")}): who we work with${clients.length ? " (" + clients.map((c) => c.name).join(", ") + ")" : ""}\n- [How we work](${abs("/process/")}): audit, plan, build, grow\n- [Free growth audit](${abs("/free-audit/")}): what's included and how to request one\n- [Contact](${abs("/contact/")})\n- [Careers](${abs("/careers/")})\n\n## Markets\n${markets.map((m) => `- [${m.country}](${abs(`/markets/${m.slug}/`)}): marketing for brands in ${m.name}, invoiced in ${m.cur}`).join("\n")}\n\n## Free tools\n- [Website speed test](${abs("/speed-test/")}): Google PageSpeed score and Core Web Vitals in about 30 seconds\n- [Marketing health check](${abs("/growth-score/")}): a 60-second marketing assessment\n\n## Insights\n${insights.map((a) => `- [${a.title}](${abs(`/insights/${a.slug}/`)}): ${a.summary}`).join("\n")}\n${JOBS && JOBS.length ? `\n## Careers\n${JOBS.map((j) => `- [${j.title}](${abs(`/careers/${j.slug}/`)}): ${jobFacts(j).join(", ")}`).join("\n")}\n` : ""}\n## Optional\n- [Full text of the site](${abs("/llms-full.txt")})\n`;
 writeFileSync(join(OUT, "llms.txt"), (PG.llms || "").trim() ? PG.llms.trim() + "\n" : LLMS);
 const strip = (h) => h.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<header[\s\S]*?<\/header>|<footer[\s\S]*?<\/footer>|<svg[\s\S]*?<\/svg>|<template[\s\S]*?<\/template>|<span aria-hidden="true">[\s\S]*?<\/span><\/h[12]>/g, (m) => (m.startsWith("<span aria-hidden") ? "" : "")).replace(/<div class="mnav"[\s\S]*?<\/nav>/g, "").replace(/<h([1-3])[^>]*>/g, (m, n) => `\n${"#".repeat(+n)} `).replace(/<li[^>]*>/g, "\n- ").replace(/<\/p>|<\/h[1-3]>|<br\s*\/?>|<\/summary>/g, "\n").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/[ \t]+/g, " ").replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
 writeFileSync(join(OUT, "llms-full.txt"), `# ${C.name} — full site text\n` + pages.filter(([p]) => live.includes(p)).map(([p, h]) => `\n\n---\nURL: ${abs(p)}\n\n${strip(h)}`).join(""));
@@ -729,7 +748,9 @@ if (!PREVIEW) writeFileSync(join(ROOT, "site-index.json"), JSON.stringify({
   knowledge: {
     name: C.name, domain: C.domain, tagline: "Marketing that performs. Technology that scales.",
     about: "AI-first growth agency headquartered in India, working with brands worldwide. One team plans and runs paid media, search, content, websites and automation together, measured on qualified leads, sales and cost per customer.",
-    services: services.map((x) => ({ name: x.name, tagline: x.tagline, short: x.short, highlights: x.highlights, url: abs(`/services/${x.slug}/`) })),
+    services: services.map((x) => ({ name: x.name, also_called: x.aka, in_simple_words: x.plain, short: x.short, you_get: x.gets, we_need_from_you: x.needs, url: abs(`/services/${x.slug}/`) })),
+    needs_to_service: needs.map(([q, slug]) => ({ customer_says: q, service: svcBy[slug]?.name })),
+    words_explained: Object.fromEntries(glossary),
     how_we_work: steps.map((x) => `${x.title} (${x.when}): ${x.text}`), why_us: whyUs.map(([h, t]) => `${h}: ${t}`), faqs,
     markets: markets.map((m) => ({ country: m.country, city: m.city, currency: m.cur, url: abs(`/markets/${m.slug}/`) })), currencies: CURS,
     industries, clients: clients.map((c) => [c.name, c.industry].filter(Boolean).join(" — ")),
