@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError, daysUntil } from "@/lib/api";
+import { Missing } from "@/components/kit";
 import { ClientStatusBadge, HealthBadge, ProjectStatusBadge, labelize, CHART_COLORS } from "@/components/Badges";
 import ClientFormDialog from "@/components/ClientFormDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,6 +70,7 @@ export default function ClientDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [client, setClient] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [newCred, setNewCred] = useState({ label: "", username: "", secret: "" });
   const [showCredForm, setShowCredForm] = useState(false);
@@ -79,7 +81,7 @@ export default function ClientDetailPage() {
   const canDelete = ["super_admin", "admin", "pm"].includes(user.role);
 
   const load = useCallback(() => {
-    api.get(`/clients/${id}`).then((res) => setClient(res.data)).catch((e) => toast.error(apiError(e)));
+    api.get(`/clients/${id}`).then((res) => setClient(res.data)).catch((e) => { setLoadErr(apiError(e)); toast.error(apiError(e)); });
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -96,7 +98,7 @@ export default function ClientDetailPage() {
   }, [client]);
 
   if (!client)
-    return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+    return loadErr ? <Missing error={loadErr} back="/clients" backLabel="Back to clients" /> : <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
   const totalBudget = (client.projects || []).reduce((s, p) => s + (p.budget || 0), 0);
 

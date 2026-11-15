@@ -114,7 +114,7 @@ class TestPermanentDelete:
 
     def test_workspace_lists_every_collection_and_wipe_needs_typed_confirm(self, sa, ceo, emp):
         keys = {c["key"] for c in requests.get(f"{API}/workspace/collections", headers=sa).json()}
-        for k in ("tickets", "payslips", "loans", "investors", "ai_tokens", "client_leads", "hr_kt"):
+        for k in ("tickets", "payslips", "loans", "investors", "client_leads", "hr_kt"):
             assert k in keys
         assert requests.post(f"{API}/workspace/hr_skill_plans/wipe", headers=sa, json={"confirm": "delete all"}).status_code == 400
         assert requests.post(f"{API}/workspace/hr_skill_plans/wipe", headers=ceo, json={"confirm": "DELETE ALL"}).status_code == 403
@@ -381,56 +381,65 @@ class TestInvestors:
         assert requests.get(f"{API}/investors", headers=emp["h"]).status_code == 403
 
 
-# ------------------------------------------------------------------ 10. AI settings + agent access
+# ------------------------------------------------------------------ 10. AI providers + AI connections (v3.4: ai_connector.py)
 class TestAI:
     @pytest.fixture(scope="class")
     @classmethod
-    def token(cls, sa):
-        s = requests.put(f"{API}/ai-settings", headers=sa, json={"enabled": True, "access": {"clients": "read", "leads": "write", "employees": "read"}})
-        assert s.status_code == 200, s.text
-        r = requests.post(f"{API}/ai-settings/tokens", headers=sa, json={"name": f"T30 agent {TAG}", "access": {"clients": "read", "leads": "write", "employees": "read"},
-                                                                       "expires_days": 1})
+    def conn(cls, sa):
+        before = requests.get(f"{API}/ai-connections", headers=sa).json()
+        requests.put(f"{API}/ai-connections/settings", headers=sa, json={"enabled": True})
+        r = requests.post(f"{API}/ai-connections", headers=sa, json={"name": f"T30 reader {TAG}", "access": "read"})
         assert r.status_code == 200, r.text
         yield r.json()
-        requests.post(f"{API}/ai-settings/tokens/{r.json()['id']}/revoke", headers=sa)
+        requests.delete(f"{API}/ai-connections/{r.json()['connection']['id']}", headers=sa)
+        requests.put(f"{API}/ai-connections/settings", headers=sa, json={"enabled": before["enabled"]})
 
-    def test_rest_api_respects_token_scope(self, token):
-        h = _bearer(token["token"])
-        mods = requests.get(f"{API}/ai/v1/modules", headers=h).json()["modules"]
-        assert {m["module"] for m in mods} == {"clients", "leads", "employees"}
-        assert requests.get(f"{API}/ai/v1/records/clients", headers=h, params={"limit": 5}).status_code == 200
-        assert requests.get(f"{API}/ai/v1/records/payroll", headers=h).status_code == 403
-        assert requests.get(f"{API}/ai/v1/records/investors", headers=h).status_code == 403
-        people = requests.get(f"{API}/ai/v1/records/employees", headers=h, params={"limit": 50}).json()["records"]
-        assert people and all("password_hash" not in p and "hr" not in p for p in people)
+    def test_key_works_as_its_login_and_respects_access(self, conn):
+        h = _bearer(conn["key"])
+        assert conn["key"].startswith("dot_key_")
+        assert requests.get(f"{API}/clients", headers=h).status_code == 200
+        assert requests.post(f"{API}/clients", headers=h, json={"name": "x"}).status_code == 403
+        me = requests.get(f"{API}/auth/me", headers=h).json()
+        assert me["name"] == f"T30 reader {TAG} (AI)" and "password_hash" not in me and "hr" not in me
+        for m, p in (("GET", "/ai-connections"), ("POST", "/auth/change-password"), ("POST", "/logs/purge"), ("POST", "/workspace/clients/wipe")):
+            assert requests.request(m, f"{API}{p}", headers=h, json={}).status_code in (401, 403), p
 
-    def test_mcp_initialize_list_and_call(self, token):
-        h = {**_bearer(token["token"]), "Accept": "application/json, text/event-stream"}
-        init = requests.post(f"{API}/ai/mcp", headers=h, json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
-                                                             "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "pytest", "version": "1"}}}).json()
+    def test_mcp_initialize_list_and_call(self, conn):
+        h = {**_bearer(conn["key"]), "Accept": "application/json, text/event-stream"}
+        init = requests.post(f"{API}/mcp", headers=h, json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                                                          "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "pytest", "version": "1"}}}).json()
         assert init["result"]["protocolVersion"] == "2025-06-18" and "tools" in init["result"]["capabilities"]
-        assert requests.post(f"{API}/ai/mcp", headers=h, json={"jsonrpc": "2.0", "method": "notifications/initialized"}).status_code == 202
-        tools = {t["name"] for t in requests.post(f"{API}/ai/mcp", headers=h, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}).json()["result"]["tools"]}
-        assert {"list_modules", "query_records", "search", "business_summary", "create_record", "update_record"} <= tools
-        res = requests.post(f"{API}/ai/mcp", headers=h, json={"jsonrpc": "2.0", "id": 3, "method": "tools/call",
-                                                            "params": {"name": "create_record", "arguments": {"module": "leads", "data": {"name": f"AI lead {TAG}", "source": "website"}}}}).json()
+        assert requests.post(f"{API}/mcp", headers=h, json={"jsonrpc": "2.0", "method": "notifications/initialized"}).status_code == 202
+        tools = [t["name"] for t in requests.post(f"{API}/mcp", headers=h, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}).json()["result"]["tools"]]
+        assert tools == ["whoami", "app_map", "list_endpoints", "describe_endpoint", "call_api"]
+        res = requests.post(f"{API}/mcp", headers=h, json={"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                                                         "params": {"name": "call_api", "arguments": {"method": "GET", "path": "/api/clients"}}}).json()
         assert res["result"]["isError"] is False
-        denied = requests.post(f"{API}/ai/mcp", headers=h, json={"jsonrpc": "2.0", "id": 4, "method": "tools/call",
-                                                               "params": {"name": "create_record", "arguments": {"module": "clients", "data": {"name": "x"}}}}).json()
+        denied = requests.post(f"{API}/mcp", headers=h, json={"jsonrpc": "2.0", "id": 4, "method": "tools/call",
+                                                            "params": {"name": "call_api", "arguments": {"method": "POST", "path": "/api/clients", "body": {"name": "x"}}}}).json()
         assert denied["result"]["isError"] is True
 
-    def test_every_call_is_logged_and_revoke_works(self, sa):
-        r = requests.post(f"{API}/ai-settings/tokens", headers=sa, json={"name": f"T30 revoke {TAG}", "access": {"clients": "read"}, "expires_days": 1}).json()
-        h = _bearer(r["token"])
-        assert requests.get(f"{API}/ai/v1/summary", headers=h).status_code == 200
-        assert any(l["token_id"] == r["id"] for l in requests.get(f"{API}/ai-settings/log", headers=sa).json())
-        assert requests.post(f"{API}/ai-settings/tokens/{r['id']}/revoke", headers=sa).status_code == 200
-        assert requests.get(f"{API}/ai/v1/summary", headers=h).status_code == 401
-        assert requests.get(f"{API}/ai/v1/summary", headers=_bearer("dai_not_a_real_token")).status_code == 401
+    def test_every_call_is_logged_and_removing_stops_the_key(self, sa):
+        r = requests.post(f"{API}/ai-connections", headers=sa, json={"name": f"T30 temp {TAG}"}).json()
+        h, cid = _bearer(r["key"]), r["connection"]["id"]
+        assert requests.get(f"{API}/clients", headers=h).status_code == 200
+        rows = requests.get(f"{API}/ai-connections/activity", headers=sa, params={"connection_id": cid}).json()["rows"]
+        assert any(x["path"] == "/api/clients" for x in rows)
+        assert requests.delete(f"{API}/ai-connections/{cid}", headers=sa).status_code == 200
+        assert requests.get(f"{API}/clients", headers=h).status_code == 401
+        assert requests.get(f"{API}/clients", headers=_bearer("dai_not_a_real_token")).status_code == 401
 
-    def test_ceo_cannot_share_investor_data_with_ai(self, ceo):
-        assert requests.put(f"{API}/ai-settings", headers=ceo, json={"sensitive": {"investors": True}}).status_code == 403
-        assert requests.post(f"{API}/ai-settings/tokens", headers=ceo, json={"name": "sneaky", "access": {"investors": "read"}}).status_code == 403
+    def test_ceo_can_only_connect_as_self(self, ceo):
+        assert requests.post(f"{API}/ai-connections", headers=ceo, json={"name": "sneaky", "run_as_user_id": "user-admin"}).status_code in (400, 403)
+        assert requests.post(f"{API}/ai-connections", headers=ceo, json={"name": "sneaky", "read_secrets": True}).status_code == 403
+
+    def test_oauth_metadata(self):
+        prm = requests.get(f"{BASE_URL}/.well-known/oauth-protected-resource").json()
+        assert prm["resource"].endswith("/api/mcp")
+        asm = requests.get(f"{API}/.well-known/oauth-authorization-server").json()
+        assert asm["code_challenge_methods_supported"] == ["S256"]
+        r = requests.post(f"{API}/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize"})
+        assert r.status_code == 401 and "resource_metadata" in r.headers.get("WWW-Authenticate", "")
 
     def test_ai_settings_need_permission_and_keys_are_masked(self, sa, emp):
         assert requests.get(f"{API}/ai-settings", headers=emp["h"]).status_code == 403
@@ -476,24 +485,12 @@ class TestReviewFixes:
         finally:
             requests.delete(f"{API}/records/users/{fin['id']}", headers=sa, params={"permanent": True})
 
-    def test_ai_filters_and_hidden_fields(self, sa):
-        requests.put(f"{API}/ai-settings", headers=sa, json={"enabled": True, "access": {"employees": "read", "clients": "read", "hr": "read"}})
-        tok = requests.post(f"{API}/ai-settings/tokens", headers=sa, json={"name": f"T30 filters {TAG}", "access": {"employees": "read", "clients": "read", "hr": "read"},
-                                                                         "expires_days": 1}).json()
-        h = _bearer(tok["token"])
-        try:
-            assert requests.get(f"{API}/ai/v1/records/employees", headers=h, params={"filter[hr.date_of_birth]": "1998-12-02"}).status_code == 403
-            assert requests.get(f"{API}/ai/v1/records/employees", headers=h, params={"filter[deleted]": "true"}).status_code == 403
-            assert requests.get(f"{API}/ai/v1/records/employees", headers=h, params={"filter[role]": "employee"}).status_code == 200
-            c = requests.post(f"{API}/clients", headers=sa, json={"name": f"T30 Contacts {TAG}", "company": "c", "industry": "other", "status": "active",
-                                                                 "contacts": [{"name": "Ravi", "email": "ravi@c.example", "phone": "+91 90000 12345"}]}).json()
-            try:
-                rec = requests.get(f"{API}/ai/v1/records/clients/{c['id']}", headers=h).json()["record"]
-                assert "90000 12345" not in str(rec)
-            finally:
-                requests.delete(f"{API}/records/clients/{c['id']}", headers=sa, params={"permanent": True})
-        finally:
-            requests.post(f"{API}/ai-settings/tokens/{tok['id']}/revoke", headers=sa)
+    def test_directory_has_no_personal_hr_data(self, sa, emp):
+        for h in (emp["h"], sa):
+            rows = requests.get(f"{API}/employees", headers=h).json()
+            assert rows and all("hr" not in u and "password_hash" not in u for u in rows)
+        prof = requests.get(f"{API}/employees/{emp['id']}", headers=emp["h"]).json()
+        assert "hr" not in prof["user"]
 
     def test_exit_details_stay_with_hr(self, sa, hrm):
         leaver = _make_user(sa, "leaver")

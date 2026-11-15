@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from database import db
-from auth import get_current_user, log_activity, hash_password, verify_password
+from auth import get_current_user, log_activity, hash_password, verify_password, login_guard, login_failed, login_ok
 from permissions import has_permission, scoped_client_ids
 
 router = APIRouter()
@@ -548,10 +548,14 @@ async def get_portal_user(request: Request) -> dict:
 
 
 @router.post("/portal/login")
-async def portal_login(body: PortalLogin):
-    pu = await db.portal_users.find_one({"email": body.email.strip().lower()})
+async def portal_login(body: PortalLogin, request: Request):
+    email = body.email.strip().lower()
+    login_guard(request, email, "portal")
+    pu = await db.portal_users.find_one({"email": email})
     if not pu or not verify_password(body.password, pu["password_hash"]):
+        login_failed(request, email, "portal")
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    login_ok(request, email, "portal")
     if not pu.get("is_active", True):
         raise HTTPException(status_code=403, detail="This login has been disabled. Contact your account manager.")
     c = await db.clients.find_one({"id": pu["client_id"]}, {"_id": 0, "id": 1, "name": 1})

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError } from "@/lib/api";
+import { Missing } from "@/components/kit";
 import { BookingBadge, BOOKING_STATUSES, PLATFORM_ICONS, fmtFollowers } from "@/pages/InfluencersPage";
 import { labelize } from "@/components/Badges";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +27,7 @@ export default function InfluencerDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [inf, setInf] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
   const [clients, setClients] = useState([]);
   const [collabOpen, setCollabOpen] = useState(false);
   const [collab, setCollab] = useState(COLLAB_EMPTY);
@@ -34,7 +36,7 @@ export default function InfluencerDetailPage() {
   const canWrite = ["super_admin", "admin", "social_manager", "sales"].includes(user.role);
 
   const load = useCallback(() => {
-    api.get(`/influencers/${id}`).then((r) => setInf(r.data)).catch((e) => toast.error(apiError(e)));
+    api.get(`/influencers/${id}`).then((r) => setInf(r.data)).catch((e) => { setLoadErr(apiError(e)); toast.error(apiError(e)); });
   }, [id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function InfluencerDetailPage() {
   }, []);
 
   if (!inf)
-    return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+    return loadErr ? <Missing error={loadErr} back="/influencers" backLabel="Back to influencers" /> : <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
   const setStatus = async (v) => {
     try {

@@ -1,6 +1,6 @@
 import "@/App.css";
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -69,6 +69,7 @@ import LoansPage from "@/pages/finance/LoansPage";
 import InvestorsPage from "@/pages/investors/InvestorsPage";
 import { InvestorLoginPage, InvestorDashboardPage } from "@/pages/investors/InvestorPortalPages";
 import AiSettingsPage from "@/pages/settings/AiSettingsPage";
+import ConnectAiPage from "@/pages/ConnectAiPage";
 import { BASE } from "@/lib/base";
 
 const FIN_ANY = [
@@ -111,13 +112,14 @@ const ForbiddenGuard = () => {
 
 const Protected = ({ children, perm, roles, bare }) => {
   const { user, ready, hasPerm } = useAuth();
+  const location = useLocation();
   if (!ready)
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]" data-testid="app-loader">
         <div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" />
       </div>
     );
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace state={{ from: { pathname: location.pathname, search: location.search } }} />;
   const permOk = !perm || hasPerm(...(Array.isArray(perm) ? perm : [perm]));
   const roleOk = !roles || user.role === "super_admin" || roles.includes(user.role);
   if (!permOk || !roleOk) return <Navigate to="/dashboard" replace />;
@@ -209,6 +211,7 @@ function App() {
           <Route path="/reports" element={<Protected perm="reports"><ReportsPage /></Protected>} />
           <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
           <Route path="/settings/ai" element={<Protected perm="ai_settings"><AiSettingsPage /></Protected>} />
+          <Route path="/connect-ai" element={<Protected bare><ConnectAiPage /></Protected>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>

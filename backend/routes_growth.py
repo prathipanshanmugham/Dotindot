@@ -411,7 +411,7 @@ async def save_month(body: MonthIn, user: dict = Depends(get_current_user)):
     for a, vals, clear, note in todo:
         if not vals and clear and not await db.growth_months.find_one({"account_id": a["id"], "month": body.month}, {"_id": 0, "id": 1}):
             continue
-        await upsert_month(a, body.month, vals, "manual", user, note, clear=clear)
+        await upsert_month(a, body.month, vals, "ai" if user.get("is_agent") else "manual", user, note, clear=clear)
         saved += 1
     await log_activity(user, "growth_numbers_saved", "growth", None, f"{_label(body.month)} · {saved} account(s)")
     return {"ok": True, "saved": saved}

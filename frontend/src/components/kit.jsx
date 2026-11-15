@@ -1,6 +1,6 @@
 // v3.0 small shared building blocks for the new modules (HR, payroll, loans, investors, support, lead flow, AI).
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, Link } from "react-router-dom";
 import { SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError, formatINR } from "@/lib/api";
@@ -55,6 +55,18 @@ export const useLoad = (path, params, deps = []) => {
   }, [path, JSON.stringify(params || {})]);
   useEffect(() => { load(); }, [load, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
   return [data, load, setData, error];
+};
+
+/** A detail page whose record couldn't be loaded (deleted, wrong link, or outside your access). */
+export const Missing = ({ error, back, backLabel = "Go back" }) => {
+  const denied = /permission|access|assigned|branch|can't see|cannot|not allowed/i.test(error || "");
+  return (
+    <div className="max-w-md mx-auto py-16 px-4 text-center" data-testid="record-missing">
+      <div className="text-lg font-semibold text-gray-900">{denied ? "You can't open this" : "This isn't here any more"}</div>
+      <p className="text-sm text-gray-500 mt-1">{denied ? error : "It may have been deleted, or the link is wrong."}</p>
+      {back && <Link to={back} className="inline-block mt-4 text-sm font-semibold text-[#F26B21]">{backLabel}</Link>}
+    </div>
+  );
 };
 
 export const Spinner = ({ className = "h-64" }) => (

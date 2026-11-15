@@ -37,7 +37,6 @@ DELETE_KEYS = {
     "loans": "finance.delete",
     "investors": "investors.delete", "investments": "investors.delete", "investor_returns": "investors.delete",
     "investor_updates": "investors.delete", "investor_users": "investors.delete",
-    "ai_tokens": "ai_settings", "ai_access_log": "ai_settings",
     # v3.1
     "growth_accounts": "growth.delete", "growth_months": "growth.delete",
     # v3.2

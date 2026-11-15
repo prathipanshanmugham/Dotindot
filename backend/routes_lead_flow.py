@@ -43,9 +43,18 @@ def _now():
     return datetime.now(timezone.utc).isoformat()
 
 
+def _day(v: Optional[str], label: str) -> Optional[date]:
+    if not v:
+        return None
+    try:
+        return date.fromisoformat(str(v)[:10])
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"{label} date must look like 2026-01-31")
+
+
 def _period(start: Optional[str], end: Optional[str], days: int = 90):
-    e = date.fromisoformat(end) if end else date.today()
-    s = date.fromisoformat(start) if start else e - timedelta(days=days - 1)
+    e = _day(end, "End") or date.today()
+    s = _day(start, "Start") or e - timedelta(days=days - 1)
     if s > e:
         s, e = e, s
     return s.isoformat(), e.isoformat()
@@ -255,16 +264,18 @@ async def _check_client(user, client_id):
 
 
 def _clean_lead(d: dict) -> dict:
-    src = (d.get("source") or "other").strip().lower().replace(" ", "_")
+    if not isinstance(d, dict):
+        d = {}
+    src = (_txt(d.get("source"), 40) or "other").lower().replace(" ", "_")
     src = {"fb": "meta_ads", "facebook_ads": "meta_ads", "meta": "meta_ads", "ig": "instagram", "google": "google_ads", "adwords": "google_ads",
            "site": "website", "web": "website", "form": "website", "landing_page": "website", "wa": "whatsapp", "call": "walk_in",
            "phone": "walk_in", "justdial": "marketplace", "indiamart": "marketplace"}.get(src, src)
     if src not in SOURCES:
         src = "other"
-    stage = (d.get("stage") or "new").strip().lower()
+    stage = (_txt(d.get("stage"), 20) or "new").lower()
     if stage not in CLIENT_STAGES:
         stage = "new"
-    dt = (d.get("date") or "")[:10]
+    dt = _txt(d.get("date"), 10)
     try:
         date.fromisoformat(dt)
     except ValueError:
@@ -273,9 +284,18 @@ def _clean_lead(d: dict) -> dict:
         value = float(d.get("value") or 0)
     except (TypeError, ValueError):
         value = 0.0
-    return {"name": (d.get("name") or "").strip()[:120] or "Unnamed lead", "phone": str(d.get("phone") or "").strip()[:40],
-            "email": (d.get("email") or "").strip()[:120], "source": src, "campaign": (d.get("campaign") or "").strip()[:120],
-            "stage": stage, "value": value, "date": dt, "notes": (d.get("notes") or d.get("message") or "").strip()[:2000]}
+    if value != value or value in (float("inf"), float("-inf")) or value < 0:
+        value = 0.0
+    return {"name": _txt(d.get("name"), 120) or "Unnamed lead", "phone": _txt(d.get("phone"), 40),
+            "email": _txt(d.get("email"), 120), "source": src, "campaign": _txt(d.get("campaign"), 120),
+            "stage": stage, "value": value, "date": dt, "notes": _txt(d.get("notes") or d.get("message"), 2000)}
+
+
+def _txt(v, n: int) -> str:
+    """Plain text from whatever a form or webhook sent (numbers become text; lists and objects are ignored)."""
+    if v is None or isinstance(v, (dict, list, tuple, set)):
+        return ""
+    return str(v).strip()[:n]
 
 
 @router.get("/client-leads")
@@ -413,10 +433,10 @@ async def _save_internal_lead(data: dict, now: str, via: str = "intake") -> dict
     """A lead for our own pipeline (Sales → Pipeline)."""
     d = _clean_lead({"source": "website", **data})
     src = d["source"] if d["source"] in ("referral", "website", "ads", "linkedin", "cold_outreach", "event") else ("ads" if d["source"] in ("meta_ads", "google_ads") else "other")
-    lead = {"id": str(uuid.uuid4()), "name": d["name"], "company": str(data.get("company") or "")[:120], "contact_email": d["email"],
-            "contact_phone": d["phone"], "source": src, "service_interest": str(data.get("service") or "")[:80], "estimated_value": d["value"],
+    lead = {"id": str(uuid.uuid4()), "name": d["name"], "company": _txt(data.get("company"), 120), "contact_email": d["email"],
+            "contact_phone": d["phone"], "source": src, "service_interest": _txt(data.get("service"), 80), "estimated_value": d["value"],
             "stage": "new", "notes": d["notes"], "owner_id": None, "branch_id": None, "follow_up_date": None, "created_at": now, "updated_at": now,
-            "region": "", "state": "", "city": str(data.get("city") or "")[:80], "currency": "INR", "converted_client_id": None,
+            "region": "", "state": "", "city": _txt(data.get("city"), 80), "currency": "INR", "converted_client_id": None,
             "created_by": "intake", "stage_history": [{"stage": "new", "at": now, "by": "intake"}], "via": via}
     await db.leads.insert_one(dict(lead))
     return {"ok": True, "id": lead["id"]}

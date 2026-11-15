@@ -1,7 +1,6 @@
 """Optional demo data for v3.0 (support desk, lead flow, HR hub, payroll, loans, investors, AI tokens).
 NOT run at startup — call seed_v30() manually on a demo/staging database. Idempotent (guarded by seed flag "v30").
 All names, IDs and numbers below are made up for the demo."""
-import hashlib
 import random
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -487,21 +486,10 @@ async def seed_v30():
         await db.settings.update_one({"id": "investor_portal"}, {"$set": {"id": "investor_portal", "contact": "Arjun Mehta · founder@dotindot.in",
                                                                           "share": {"revenue": True, "profit": True, "clients": True, "team": True, "projects": True, "pipeline": False}}}, upsert=True)
 
-    # ---------------- AI settings + a token ----------------
-    if not await db.ai_tokens.find_one({"id": "seed-ai-01"}):
-        await db.settings.update_one({"id": "ai"}, {"$set": {"id": "ai", "enabled": True, "default_provider": "anthropic",
+    # ---------------- AI settings (no AI connection is seeded: each one is approved by a person) ----------------
+    if not await db.settings.find_one({"id": "ai"}):
+        await db.settings.update_one({"id": "ai"}, {"$set": {"id": "ai", "enabled": False, "default_provider": "anthropic",
                                                              "instructions": "Amounts are in Indian rupees. Our offices are in Erode, Coimbatore and Chennai.",
                                                              "updated_at": now, "updated_by": "Arjun Mehta"}}, upsert=True)
-        agent = await db.ai_agents.find_one({}, {"_id": 0, "id": 1})
-        await db.ai_tokens.insert_one({"id": "seed-ai-01", "name": "Claude — ops assistant", "agent_id": (agent or {}).get("id"),
-                                       "access": {"clients": "read", "projects": "read", "leads": "write", "client_leads": "read", "support": "write",
-                                                  "attendance": "read", "employees": "read", "finance": "read"},
-                                       "token_hash": hashlib.sha256(b"dai_demo_token_not_usable").hexdigest(), "prefix": "dai_7Hq2Lx", "expires_at": (datetime.now(timezone.utc) + timedelta(days=80)).isoformat(),
-                                       "revoked": False, "created_by": "user-admin", "created_by_name": "Arjun Mehta", "created_at": now,
-                                       "last_used_at": now, "calls": 37})
-        for i, (tool, mod, cnt) in enumerate([("business_summary", None, 1), ("query_records", "leads", 12), ("search", None, 4), ("get_record", "clients", 1),
-                                              ("update_record", "leads", 1), ("query_records", "support", 6)]):
-            await db.ai_access_log.insert_one({"id": str(uuid.uuid4()), "token_id": "seed-ai-01", "token_name": "Claude — ops assistant", "via": "mcp", "tool": tool,
-                                               "module": mod, "count": cnt, "ok": True, "detail": "", "at": (datetime.now(timezone.utc) - timedelta(hours=i * 5)).isoformat()})
 
     await db.seed_flags.insert_one({"id": "v30", "at": now})

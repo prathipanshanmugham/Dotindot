@@ -317,23 +317,23 @@ class TestPermissions:
 
 class TestAIAndCascade:
     def test_ai_can_read_and_write_growth(self, sa, accts):
-        before = requests.get(f"{API}/ai-settings", headers=sa).json()
-        was_on = before.get("enabled", before.get("settings", {}).get("enabled"))
-        was_level = (before.get("access") or before.get("settings", {}).get("access") or {}).get("growth", "read")
-        assert requests.put(f"{API}/ai-settings", headers=sa, json={"enabled": True, "access": {"growth": "write"}}).status_code == 200
-        r = requests.post(f"{API}/ai-settings/tokens", headers=sa, json={"name": f"T31 growth {TAG}", "access": {"growth": "write"}, "expires_days": 1})
+        before = requests.get(f"{API}/ai-connections", headers=sa).json()["enabled"]
+        requests.put(f"{API}/ai-connections/settings", headers=sa, json={"enabled": True})
+        r = requests.post(f"{API}/ai-connections", headers=sa, json={"name": f"T31 growth {TAG}", "access": "write"})
         assert r.status_code == 200, r.text
-        h = _bearer(r.json()["token"])
-        recs = requests.get(f"{API}/ai/v1/records/growth", headers=h, params={"limit": 200, "q": accts["ig"]["handle"]}).json()["records"]
-        assert recs and all("token_enc" not in str(x) for x in recs)
-        c = requests.post(f"{API}/ai/v1/records/growth", headers=h, json={"account_id": accts["ig"]["id"], "month": LAST, "values": {"profile_visits": 321}})
-        assert c.status_code == 200, c.text
-        rec = requests.get(f"{API}/growth/months", headers=sa, params={"account_id": accts["ig"]["id"], "month": LAST}).json()[0]
-        assert rec["values"]["profile_visits"] == 321 and rec["values"]["followers"] == 1500 and rec["source"] == "ai"
-        bad = requests.post(f"{API}/ai/v1/records/growth", headers=h, json={"account_id": "nope", "month": LAST, "values": {"followers": 1}})
-        assert bad.status_code == 400
-        requests.post(f"{API}/ai-settings/tokens/{r.json()['id']}/revoke", headers=sa)
-        requests.put(f"{API}/ai-settings", headers=sa, json={"access": {"growth": was_level}, **({"enabled": was_on} if was_on is not None else {})})
+        h, cid = _bearer(r.json()["key"]), r.json()["connection"]["id"]
+        try:
+            recs = requests.get(f"{API}/growth/accounts", headers=h).json()
+            assert recs and all("token_enc" not in str(x) for x in recs)
+            c = requests.put(f"{API}/growth/months", headers=h, json={"month": LAST, "entries": [{"account_id": accts["ig"]["id"], "values": {"profile_visits": 321}}]})
+            assert c.status_code == 200, c.text
+            rec = requests.get(f"{API}/growth/months", headers=sa, params={"account_id": accts["ig"]["id"], "month": LAST}).json()[0]
+            assert rec["values"]["profile_visits"] == 321 and rec["values"]["followers"] == 1500 and rec["source"] == "ai"
+            bad = requests.put(f"{API}/growth/months", headers=h, json={"month": LAST, "entries": [{"account_id": "nope", "values": {"followers": 1}}]})
+            assert bad.status_code in (400, 404)
+        finally:
+            requests.delete(f"{API}/ai-connections/{cid}", headers=sa)
+            requests.put(f"{API}/ai-connections/settings", headers=sa, json={"enabled": before})
 
     def test_deleting_client_removes_growth(self, sa):
         c = requests.post(f"{API}/clients", headers=sa, json={"name": f"T31 Gone {TAG}", "company": "x", "industry": "other", "status": "active"}).json()
@@ -434,17 +434,24 @@ class TestReviewFixes:
         assert requests.get(f"{API}/reports/template/digital-growth", headers=_login(u["email"])).status_code == 200
 
     def test_ai_write_needs_manage(self, sa, people):
-        u = people["sales"]   # sales can view growth but not manage it
+        u = people["sales"]   # sales can view growth but not manage it — an AI working as them can't either
         requests.put(f"{API}/access/users/{u['id']}/permissions", headers=sa, json={"overrides": {"ai_settings": True}})
         h = _login(u["email"])
+        before = requests.get(f"{API}/ai-connections", headers=sa).json()["enabled"]
+        requests.put(f"{API}/ai-connections/settings", headers=sa, json={"enabled": True})
         try:
-            assert requests.post(f"{API}/ai-settings/tokens", headers=h, json={"name": "x", "access": {"growth": "write"}}).status_code == 403
-            assert requests.put(f"{API}/ai-settings", headers=h, json={"access": {"growth": "write"}}).status_code == 403
-            ok_ = requests.post(f"{API}/ai-settings/tokens", headers=h, json={"name": f"T31 read {TAG}", "access": {"growth": "read"}, "expires_days": 1})
+            assert requests.post(f"{API}/ai-connections", headers=h, json={"name": "Sales bot", "run_as_user_id": "user-admin", "access": "write"}).status_code == 403
+            ok_ = requests.post(f"{API}/ai-connections", headers=h, json={"name": f"T31 sales {TAG}", "access": "write"})
             assert ok_.status_code == 200, ok_.text
-            requests.post(f"{API}/ai-settings/tokens/{ok_.json()['id']}/revoke", headers=sa)
+            k = _bearer(ok_.json()["key"])
+            accts = requests.get(f"{API}/growth/accounts", headers=k).json()
+            if accts:
+                r = requests.put(f"{API}/growth/months", headers=k, json={"month": LAST, "entries": [{"account_id": accts[0]["id"], "values": {"followers": 1}}]})
+                assert r.status_code == 403
+            requests.delete(f"{API}/ai-connections/{ok_.json()['connection']['id']}", headers=sa)
         finally:
             requests.put(f"{API}/access/users/{u['id']}/permissions", headers=sa, json={"overrides": {}})
+            requests.put(f"{API}/ai-connections/settings", headers=sa, json={"enabled": before})
 
     def test_unicode_client_names_download(self, sa):
         c = requests.post(f"{API}/clients", headers=sa, json={"name": f"ஈரோடு Ṭhe Āravind {TAG}", "company": "x", "industry": "other", "status": "active"}).json()

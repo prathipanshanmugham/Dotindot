@@ -84,7 +84,7 @@ async def registry(user: dict = Depends(get_current_user)):
 
 @router.get("/access/users")
 async def access_users(user: dict = Depends(get_current_user)):
-    users = await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "password_hash": 0}).sort("name", 1).to_list(500)
+    users = await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "password_hash": 0, "hr": 0}).sort("name", 1).to_list(500)
     for u in users:
         u["effective_permissions"] = effective_permissions(u)
         u["permission_overrides"] = u.get("permission_overrides") or {}
@@ -109,7 +109,7 @@ async def set_overrides(user_id: str, body: OverridesBody, user: dict = Depends(
     await db.users.update_one({"id": user_id}, {"$set": {"permission_overrides": body.overrides}})
     changed = ", ".join(f"{'+' if v else '-'}{k}" for k, v in body.overrides.items()) or "cleared"
     await log_activity(user, "permissions_updated", "user", user_id, f"{target['name']}: {changed}")
-    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0, "hr": 0})
     updated["effective_permissions"] = effective_permissions(updated)
     return updated
 
@@ -122,7 +122,7 @@ async def reset_overrides(user_id: str, user: dict = Depends(get_current_user)):
     _can_edit(user, target)
     await db.users.update_one({"id": user_id}, {"$unset": {"permission_overrides": ""}})
     await log_activity(user, "permissions_reset", "user", user_id, target["name"])
-    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0, "hr": 0})
     updated["effective_permissions"] = effective_permissions(updated)
     updated["permission_overrides"] = {}
     return updated

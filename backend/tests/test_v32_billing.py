@@ -317,14 +317,16 @@ class TestPdf:
 
 
 class TestAI:
-    def test_ai_reads_billing_without_tokens(self, sa, made):
-        before = requests.get(f"{API}/ai-settings", headers=sa).json()
-        lvl = (before.get("access") or {}).get("billing", "none")
-        assert requests.put(f"{API}/ai-settings", headers=sa, json={"enabled": True, "access": {"billing": "read"}}).status_code == 200
-        r = requests.post(f"{API}/ai-settings/tokens", headers=sa, json={"name": f"T32 {TAG}", "access": {"billing": "read"}, "expires_days": 1})
+    def test_ai_reads_billing_as_its_login(self, sa, made):
+        before = requests.get(f"{API}/ai-connections", headers=sa).json()["enabled"]
+        requests.put(f"{API}/ai-connections/settings", headers=sa, json={"enabled": True})
+        r = requests.post(f"{API}/ai-connections", headers=sa, json={"name": f"T32 {TAG}", "access": "read"})
         assert r.status_code == 200, r.text
-        h = {"Authorization": f"Bearer {r.json()['token']}"}
-        recs = requests.get(f"{API}/ai/v1/records/billing", headers=h, params={"limit": 50}).json()["records"]
-        assert recs and all("share_token" not in x for x in recs)
-        requests.post(f"{API}/ai-settings/tokens/{r.json()['id']}/revoke", headers=sa)
-        requests.put(f"{API}/ai-settings", headers=sa, json={"access": {"billing": lvl if lvl != "none" else "read"}})
+        h = {"Authorization": f"Bearer {r.json()['key']}"}
+        try:
+            docs = requests.get(f"{API}/billing/docs", headers=h)
+            assert docs.status_code == 200, docs.text
+            assert requests.post(f"{API}/billing/docs", headers=h, json={}).status_code == 403   # read only
+        finally:
+            requests.delete(f"{API}/ai-connections/{r.json()['connection']['id']}", headers=sa)
+            requests.put(f"{API}/ai-connections/settings", headers=sa, json={"enabled": before})

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import api, { apiError } from "@/lib/api";
-import { useLoad, Spinner, PageHead, Field, Pill, PhoneActionBar } from "@/components/kit";
+import { useLoad, Spinner, Missing, PageHead, Field, Pill, PhoneActionBar } from "@/components/kit";
 import { money, computeTotals, TYPE_LABEL } from "./billingKit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export default function BillingEditorPage() {
   const navigate = useNavigate();
   const [meta] = useLoad("/billing/meta");
   const [terms] = useLoad("/billing/terms");
-  const [existing] = useLoad(id ? `/billing/docs/${id}` : null);
+  const [existing, , , loadErr] = useLoad(id ? `/billing/docs/${id}` : null);
   const [f, setF] = useState(null);
   const [termsOpen, setTermsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -51,6 +51,7 @@ export default function BillingEditorPage() {
   }, [meta, existing, terms, id, sp, f]);
 
   const totals = useMemo(() => f && meta ? computeTotals(f.items, f.currency, f.tax_mode, f.discount_pct, f.discount_amount, f.round_off, Number(meta.company.defaults.tax_rate)) : null, [f, meta]);
+  if (id && !existing && loadErr) return <Missing error={loadErr} back="/finance/billing" backLabel="Back to billing" />;
   if (!meta || !f || (id && !existing)) return <Spinner />;
   const isGst = f.tax_mode === "gst_intra" || f.tax_mode === "gst_inter";
   const foreign = f.currency !== "INR";

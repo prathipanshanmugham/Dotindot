@@ -78,7 +78,7 @@ const NAV = [
       { name: "Access Control", path: "/access", icon: KeyRound, perm: ["access_control"] },
       { name: "Password Manager", path: "/passwords", icon: Lock, perm: ["password_manager"] },
       { name: "User Management", path: "/admin/users", icon: ShieldCheck, perm: ["user_management"] },
-      { name: "AI Settings", path: "/settings/ai", icon: BrainCircuit, perm: ["ai_settings"] },
+      { name: "AI", path: "/settings/ai", icon: BrainCircuit, perm: ["ai_settings"] },
       { name: "Settings", path: "/settings", icon: Settings, end: true },
     ],
   },

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError } from "@/lib/api";
+import { Missing } from "@/components/kit";
 import { CampaignFormDialog, AdStatusBadge, platformLabel } from "@/pages/ads/AdsPage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export default function AdCampaignDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [c, setC] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [snapOpen, setSnapOpen] = useState(false);
   const [snap, setSnap] = useState(SNAP_EMPTY);
@@ -33,12 +35,12 @@ export default function AdCampaignDetailPage() {
   const canWrite = ["super_admin", "admin", "ads_manager"].includes(user.role);
 
   const load = useCallback(() => {
-    api.get(`/ads/campaigns/${id}`).then((r) => setC(r.data)).catch((e) => toast.error(apiError(e)));
+    api.get(`/ads/campaigns/${id}`).then((r) => setC(r.data)).catch((e) => { setLoadErr(apiError(e)); toast.error(apiError(e)); });
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
   if (!c)
-    return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+    return loadErr ? <Missing error={loadErr} back="/ads" backLabel="Back to ads" /> : <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
   const m = c.metrics;
 

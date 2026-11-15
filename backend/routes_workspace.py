@@ -68,8 +68,6 @@ COLLECTIONS = {
     "investor_returns": {"label": "Investor Returns", "search": ["note", "kind"]},
     "investor_updates": {"label": "Investor Updates", "search": ["title"]},
     "investor_users": {"label": "Investor Logins", "search": ["name", "email"]},
-    "ai_tokens": {"label": "AI Access Tokens", "search": ["name"]},
-    "ai_access_log": {"label": "AI Access Log", "search": ["token_name", "tool"]},
     # v3.1
     "growth_accounts": {"label": "Digital Growth Accounts", "search": ["handle", "owner_name", "platform"]},
     "growth_months": {"label": "Digital Growth Numbers", "search": ["month", "platform"]},
@@ -133,7 +131,7 @@ DEPS = {
 # v3.0: people-linked HR / payroll records go with the person; client-linked leads & tickets go with the client.
 DEPS["users"] += [("salary_structures", "user_id", "delete"), ("payslips", "user_id", "delete"), ("pay_items", "user_id", "delete"),
                   ("hr_onboarding", "user_id", "delete"), ("hr_offboarding", "user_id", "delete"), ("hr_skill_plans", "user_id", "delete"),
-                  ("tickets", "assignee_id", "unset"), ("ai_tokens", "created_by", "unset")]
+                  ("tickets", "assignee_id", "unset")]
 DEPS["clients"] += [("client_leads", "client_id", "delete"), ("tickets", "client_id", "delete")]
 # v3.1: a client's growth accounts and their monthly numbers go with the client; numbers go with their account.
 DEPS["clients"] += [("growth_accounts", "client_id", "delete"), ("growth_months", "client_id", "delete")]

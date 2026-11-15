@@ -285,6 +285,7 @@ PATH_PERMISSIONS = [
     ("/api/hr", ("hr",)),
     ("/api/investors", ("investors",)),
     ("/api/ai-settings", ("ai_settings",)),
+    ("/api/ai-connections", ("ai_settings",)),
     ("/api/logs", ("logs",)),
     ("/api/reports", ("reports",)),
     ("/api/access", ("access_control",)),

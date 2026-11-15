@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import api, { apiError } from "@/lib/api";
+import { Missing } from "@/components/kit";
 import { useAuth } from "@/context/AuthContext";
 import { saveBlobResponse } from "@/components/ExportMenu";
 import ClientDashboardView, { PeriodBar, DEFAULT_PERIODS, blobErrorText } from "@/components/ClientDashboardView";
@@ -142,12 +143,13 @@ export default function ClientDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState({ period: "this_month" });
   const [d, setD] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
   const [downloading, setDownloading] = useState(false);
   const params = period.period === "custom" ? period : { period: period.period };
 
   useEffect(() => {
     if (period.period === "custom" && !(period.start && period.end)) return;
-    api.get(`/clients/${id}/dashboard`, { params }).then((r) => setD(r.data)).catch((e) => toast.error(apiError(e)));
+    api.get(`/clients/${id}/dashboard`, { params }).then((r) => setD(r.data)).catch((e) => { setLoadErr(apiError(e)); toast.error(apiError(e)); });
   }, [id, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const download = async () => {
@@ -158,7 +160,7 @@ export default function ClientDashboardPage() {
     } catch (e) { toast.error(await blobErrorText(e)); } finally { setDownloading(false); }
   };
 
-  if (!d) return <div className="h-64 flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+  if (!d) return loadErr ? <Missing error={loadErr} back="/clients" backLabel="Back to clients" /> : <div className="h-64 flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
   return (
     <div className="space-y-5 max-w-7xl" data-testid="client-dashboard-page">
       <button onClick={() => navigate(`/clients/${id}`)} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#F26B21]" data-testid="back-to-client">

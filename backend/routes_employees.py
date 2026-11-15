@@ -12,7 +12,9 @@ router = APIRouter()
 STAFF = ("admin", "finance", "sales", "pm")
 TRAIN_MANAGE = ("admin", "pm")
 
-PROFILE_FIELDS = {"_id": 0, "password_hash": 0}
+# Directory and profile pages show work details only. Personal HR data (address, date of birth, bank, ID numbers,
+# emergency contact) lives under "hr" and is read through the HR module, which has its own permission.
+PROFILE_FIELDS = {"_id": 0, "password_hash": 0, "hr": 0}
 
 
 def _now():

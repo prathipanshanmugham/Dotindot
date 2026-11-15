@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError } from "@/lib/api";
+import { Missing } from "@/components/kit";
 import { LEAD_STAGES, STAGE_STYLES, QUOTE_STATUS_STYLES } from "@/components/SalesLayout";
 import { labelize } from "@/components/Badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ export default function LeadDetailPage() {
   const navigate = useNavigate();
   const { user, hasPerm } = useAuth();
   const [lead, setLead] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
   const [delOpen, setDelOpen] = useState(false);
   const [activity, setActivity] = useState({ kind: "call", text: "", date: "", follow_up_date: "" });
   const [convertOpen, setConvertOpen] = useState(false);
@@ -44,7 +46,7 @@ export default function LeadDetailPage() {
         name: r.data.name, company: r.data.company, industry: "other", service_type: "web_dev",
         size: "small", status: "active", retainer: false, region: r.data.region, city: r.data.city,
       });
-    }).catch((e) => toast.error(apiError(e)));
+    }).catch((e) => { setLoadErr(apiError(e)); toast.error(apiError(e)); });
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -55,7 +57,7 @@ export default function LeadDetailPage() {
   }, [convertOpen]);
 
   if (!lead)
-    return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+    return loadErr ? <Missing error={loadErr} back="/sales/pipeline" backLabel="Back to the pipeline" /> : <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
   const changeStage = async (stage) => {
     try {

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { InternalBadge } from "@/components/ProjectKind";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError } from "@/lib/api";
+import { Missing } from "@/components/kit";
 import { ProjectStatusBadge, labelize, PROJECT_STATUSES } from "@/components/Badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const { user, hasPerm } = useAuth();
   const [project, setProject] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
   const [profit, setProfit] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
@@ -35,7 +37,7 @@ export default function ProjectDetailPage() {
   const canToggle = canWrite || isAssigned;
 
   const load = useCallback(() => {
-    api.get(`/projects/${id}`).then((r) => setProject(r.data)).catch((e) => toast.error(apiError(e)));
+    api.get(`/projects/${id}`).then((r) => setProject(r.data)).catch((e) => { setLoadErr(apiError(e)); toast.error(apiError(e)); });
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -47,7 +49,7 @@ export default function ProjectDetailPage() {
   }, [id, user.role]);
 
   if (!project)
-    return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+    return loadErr ? <Missing error={loadErr} back="/projects" backLabel="Back to projects" /> : <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
   const deliverables = project.deliverables || [];
   const doneCount = deliverables.filter((d) => d.done).length;

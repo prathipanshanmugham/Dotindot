@@ -1,18 +1,21 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from database import db
 from models import LoginRequest
-from auth import verify_password, hash_password, create_access_token, get_current_user, log_activity
+from auth import verify_password, hash_password, create_access_token, get_current_user, log_activity, login_guard, login_failed, login_ok
 
 router = APIRouter()
 
 
 @router.post("/auth/login")
-async def login(body: LoginRequest):
+async def login(body: LoginRequest, request: Request):
     email = body.email.strip().lower()
+    login_guard(request, email)
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(body.password, user["password_hash"]):
+        login_failed(request, email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    login_ok(request, email)
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Account deactivated. Contact your administrator.")
     token = create_access_token(user["id"], user["email"], user["role"])
@@ -23,7 +26,7 @@ async def login(body: LoginRequest):
 
 @router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
-    return user
+    return {k: v for k, v in user.items() if k != "hr"}   # personal HR record: HR → My profile
 
 
 @router.post("/auth/logout")

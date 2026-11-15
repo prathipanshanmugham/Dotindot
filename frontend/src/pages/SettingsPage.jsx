@@ -79,8 +79,8 @@ export default function SettingsPage() {
             <CardContent className="p-5 flex items-center gap-4">
               <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white flex items-center justify-center shrink-0"><Sparkles className="h-5 w-5" /></div>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-gray-900">AI settings</div>
-                <p className="text-xs text-gray-500 mt-0.5">Connect AI providers, choose which data AI agents can read or change, issue agent tokens and see every AI request.</p>
+                <div className="font-semibold text-gray-900">AI</div>
+                <p className="text-xs text-gray-500 mt-0.5">Connect Claude, ChatGPT or your own tools, choose what each can do, and see every call they make.</p>
               </div>
               <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-[#F26B21] shrink-0" />
             </CardContent>

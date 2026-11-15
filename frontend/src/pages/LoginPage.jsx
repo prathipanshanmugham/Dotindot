@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiError } from "@/lib/api";
 import { DotindotMark, DotindotWordmark } from "@/components/DotindotLogo";
@@ -12,6 +12,11 @@ import { toast } from "sonner";
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // sent here from a page that needs signing in (e.g. approving an AI connection) → go back there afterwards
+  const from = location.state?.from;
+  const back = from && typeof from.pathname === "string" && from.pathname.startsWith("/") && !from.pathname.startsWith("//") && from.pathname !== "/login"
+    ? `${from.pathname}${from.search || ""}` : "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -23,7 +28,7 @@ export default function LoginPage() {
     try {
       const user = await login(em, pw);
       toast.success(`Welcome back, ${user.name.split(" ")[0]}!`);
-      navigate("/dashboard");
+      navigate(back, { replace: true });
     } catch (e) {
       setError(apiError(e));
     } finally {

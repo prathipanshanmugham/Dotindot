@@ -27,7 +27,7 @@ async def team_members(user: dict = Depends(get_current_user)):
 
 @router.get("/users")
 async def list_users(user: dict = Depends(require_roles("admin"))):
-    rows = await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "password_hash": 0}).to_list(500)
+    rows = await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "password_hash": 0, "hr": 0}).to_list(500)
     logins = await db.activity_logs.aggregate([
         {"$match": {"action": "login"}},
         {"$group": {"_id": "$user_id", "last": {"$max": "$timestamp"}}},
@@ -91,7 +91,7 @@ async def update_user(user_id: str, body: UserUpdate, user: dict = Depends(requi
         await db.users.update_one({"id": user_id}, {"$set": updates})
     action = "user_deactivated" if body.is_active is False else "user_updated"
     await log_activity(user, action, "user", user_id, target["name"])
-    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0, "hr": 0})
     return updated
 
 

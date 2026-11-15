@@ -56,6 +56,7 @@ from routes_payroll import router as payroll_router
 from routes_loans import router as loans_router
 from routes_investors import router as investors_router
 from routes_ai import router as ai_router
+import ai_connector
 from routes_growth import router as growth_router
 from routes_billing import router as billing_router
 from routes_website import router as website_router
@@ -90,11 +91,14 @@ for r in (auth_router, users_router, clients_router, projects_router, misc_route
           access_router, assets_router, ads_router, social_router, influencers_router, hud_router, workspace_router,
           passwords_router, dashboard_router, records_router, agents_router, org_router,
           api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router,
-          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router, billing_router, website_router, chat_router, jobs_router):
+          support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router, billing_router, website_router, chat_router, jobs_router,
+          ai_connector.router):
     app.include_router(r, prefix="/api")
+app.include_router(ai_connector.root_router)   # /.well-known/oauth-* for Claude / ChatGPT connectors
 
 # Granular permission enforcement (registered before CORS so CORS stays outermost)
 app.middleware("http")(permission_middleware)
+app.add_middleware(ai_connector.ActivityMiddleware)   # every call made with an AI key, for Settings → AI → Activity
 
 app.add_middleware(
     CORSMiddleware,
@@ -183,8 +187,7 @@ async def startup():
     await db.investments.create_index("investor_id")
     await db.investor_returns.create_index("investor_id")
     await db.investor_users.create_index("email", unique=True)
-    await db.ai_tokens.create_index("token_hash", unique=True)
-    await db.ai_access_log.create_index("at")
+    await ai_connector.ensure_indexes()
     await db.growth_accounts.create_index("id", unique=True)
     await db.growth_accounts.create_index("owner")
     await db.growth_months.create_index("id", unique=True)
@@ -229,3 +232,4 @@ async def shutdown_db_client():
 # One web app: the website at /, the app at /app. Registered last so every /api route above wins.
 from web_static import router as web_router  # noqa: E402
 app.include_router(web_router)
+ai_connector.init(app)
