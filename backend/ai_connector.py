@@ -309,6 +309,7 @@ AREAS: Dict[str, Optional[tuple]] = {
     "lead-flow": ("lead_flow", "Client leads", "Leads we bring in for clients, by source and stage"),
     "client-leads": ("lead_flow", "Client leads", "Leads we bring in for clients, by source and stage"),
     "billing": ("billing", "Billing", "GST quotes, invoices, payments and credit notes"),
+    "revenue": ("revenue", "MRR & ARR", "Recurring revenue: MRR, ARR, trend, renewals and this month's recurring bills"),
     "finance": ("finance", "Finance", "Ledger, expenses, subscriptions, budgets, AI spend, API credits, loans, project profit"),
     "investors": ("investors", "Investors", "Investors, investments and company valuations"),
     "investors-settings": ("investors", "Investors", "Investors, investments and company valuations"),

@@ -102,7 +102,7 @@ export default function BillingEditorPage() {
             <Field label="Client" className="sm:col-span-2">
               <Select value={f.client_id || "none"} onValueChange={pickClient} disabled={editing}>
                 <SelectTrigger data-testid="billing-client"><SelectValue placeholder="Pick a client or bill a new contact" /></SelectTrigger>
-                <SelectContent><SelectItem value="none">New contact (not a client yet)</SelectItem><SelectSeparator />{meta.clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}{c.company && c.company !== c.name ? ` · ${c.company}` : ""}</SelectItem>)}</SelectContent>
+                <SelectContent><SelectItem value="none">New contact (not a client yet)</SelectItem><SelectSeparator />{meta.clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
             <Field label="Company"><Input value={f.bill_to.company} onChange={(e) => setBill("company", e.target.value)} data-testid="billing-bt-company" /></Field>
@@ -266,7 +266,8 @@ function partyFromClient(c, meta) {
   if (!c) return { ...EMPTY_PARTY, state_code: "" };
   const b = c.billing || {};
   const stateCode = b.state_code || Object.entries(meta.states).find(([, v]) => v.toLowerCase() === String(c.state || "").toLowerCase())?.[0] || "";
-  return { ...EMPTY_PARTY, name: b.name || "", company: b.company || c.company || c.name, email: b.email || c.email || "", phone: b.phone || c.phone || "", address: b.address || "",
+  const person = (c.contacts || []).find((x) => (x?.name || "").trim()) || {};   // the client's main contact
+  return { ...EMPTY_PARTY, name: b.name || person.name || "", company: b.company || c.name, email: b.email || person.email || "", phone: b.phone || person.phone || "", address: b.address || "",
     city: b.city || c.city || "", state_code: stateCode, country: b.country || "India", gstin: b.gstin || "", tax_id: b.tax_id || "" };
 }
 function guessTaxMode(c, meta) {

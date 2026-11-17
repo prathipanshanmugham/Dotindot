@@ -63,28 +63,6 @@ def sums_in(tx, start, end):
     return round(income, 2), round(expense, 2)
 
 
-def contract_monthly_value(c):
-    try:
-        s = date.fromisoformat(c["start_date"])
-        e = date.fromisoformat(c["expiry_date"])
-    except (TypeError, ValueError, KeyError):
-        return None
-    months = max(((e - s).days) / 30.44, 1)
-    return c.get("value", 0) / months, s, e
-
-
-def mrr_at(clients, at: date) -> float:
-    total = 0
-    for cl in clients:
-        if not (cl.get("retainer") and cl.get("status") == "active"):
-            continue
-        for c in cl.get("contracts", []):
-            r = contract_monthly_value(c)
-            if r and r[1] <= at <= r[2]:
-                total += r[0]
-    return round(total, 2)
-
-
 @router.get("/ceo/dashboard")
 async def ceo_dashboard(period: str = Query("this_month"), branch: str = Query(None), user: dict = Depends(require_roles("admin"))):
     start, end, prev_start, prev_end = ceo_ranges(period)
@@ -94,7 +72,8 @@ async def ceo_dashboard(period: str = Query("this_month"), branch: str = Query(N
     clients = await db.clients.find({}, {"_id": 0, "credentials": 0}).to_list(2000)
     leads = await db.leads.find({}, {"_id": 0}).to_list(2000)
     users = await db.users.find({"is_active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
-    projects = await db.projects.find({}, {"_id": 0, "id": 1, "status": 1, "team_member_ids": 1, "client_id": 1, "kind": 1, "branch_id": 1}).to_list(2000)
+    projects = await db.projects.find({}, {"_id": 0, "id": 1, "status": 1, "team_member_ids": 1, "client_id": 1, "kind": 1, "branch_id": 1,
+                                           "billing_type": 1, "recurring_amount": 1, "billing_cycle": 1, "start_date": 1, "end_date": 1}).to_list(5000)
 
     if branch:
         clients = [c for c in clients if c.get("branch_id") == branch]
@@ -106,10 +85,12 @@ async def ceo_dashboard(period: str = Query("this_month"), branch: str = Query(N
     income, expense = sums_in(tx, start, end)
     prev_income, prev_expense = sums_in(tx, prev_start, prev_end)
 
-    # 1. MRR / ARR + 6-month trend
-    mrr = mrr_at(clients, t)
+    # 1. MRR / ARR + 6-month trend — from recurring projects (the same numbers as Finance → MRR & ARR)
+    from revenue import mrr_in_month, ist_today
+    today_ist = ist_today()
     trend_months = [add_months(t.replace(day=1), -i) for i in range(5, -1, -1)]
-    mrr_trend = [{"month": m.isoformat()[:7], "value": mrr_at(clients, min(month_end(m), t))} for m in trend_months]
+    mrr_trend = [{"month": m.isoformat()[:7], "value": round(sum(mrr_in_month(p, m.year, m.month, today_ist) for p in projects), 2)} for m in trend_months]
+    mrr = mrr_trend[-1]["value"]
 
     # 2. CAC = marketing ledger spend in period / leads won in period
     def mkt_spend(s, e):
@@ -173,7 +154,7 @@ async def ceo_dashboard(period: str = Query("this_month"), branch: str = Query(N
         "prev_range": {"start": prev_start, "end": prev_end},
         "mrr": {
             "value": mrr, "arr": round(mrr * 12, 2), "trend": mrr_trend,
-            "formula": "Sum of (active contract value ÷ contract duration in months) across active retainer clients. ARR = MRR × 12.",
+            "formula": "Recurring projects live today, each turned into a monthly amount (a quarterly fee ÷ 3, a yearly fee ÷ 12). Projects on hold are left out. ARR = MRR × 12.",
         },
         "cac": {
             "value": cac, "prev": prev_cac, "change_pct": pct_change(cac, prev_cac) if cac is not None and prev_cac else None,

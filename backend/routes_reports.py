@@ -491,19 +491,20 @@ async def export_template(key: str, format: str = "pdf", date_from: Optional[str
 CUSTOM_MODULES = {
     "clients": {
         "name": "Clients", "roles": ("admin", "finance", "sales", "pm"), "date_field": "created_at",
-        "columns": [("name", "Client"), ("company", "Company"), ("industry", "Industry"), ("service_type", "Service"),
-                    ("size", "Size"), ("status", "Status"), ("retainer", "Retainer"), ("region", "Region"), ("city", "City")],
-        "money_cols": [],
+        "columns": [("name", "Client"), ("contact_name", "Main contact"), ("contact_phone", "Phone"), ("industry", "Industry"),
+                    ("status", "Status"), ("billing", "Billing"), ("mrr", "MRR"), ("arr", "ARR"), ("region", "Region"), ("city", "City")],
+        "money_cols": ["mrr", "arr"],
         "filters": [{"key": "status", "label": "Status", "options": ["active", "inactive", "churned"]},
                     {"key": "industry", "label": "Industry", "options": ["real-estate", "healthcare", "e-commerce", "restaurant", "fintech", "saas", "other"]},
                     {"key": "service_type", "label": "Service", "options": ["web_dev", "marketing", "ai", "retainer", "one_off"]}],
     },
     "projects": {
         "name": "Projects", "roles": ("admin", "finance", "sales", "pm"), "date_field": "start_date",
-        "columns": [("name", "Project"), ("client_name", "Client"), ("status", "Status"), ("budget", "Budget"),
-                    ("start_date", "Start"), ("end_date", "End"), ("location", "Location")],
-        "money_cols": ["budget"],
-        "filters": [{"key": "status", "label": "Status", "options": ["kickoff", "in_progress", "review", "completed", "on_hold"]}],
+        "columns": [("name", "Project"), ("client_name", "Client"), ("status", "Status"), ("billing", "Billing"), ("budget", "One-time value"),
+                    ("recurring_amount", "Recurring amount"), ("mrr", "MRR"), ("start_date", "Start"), ("end_date", "End"), ("location", "Location")],
+        "money_cols": ["budget", "recurring_amount", "mrr"],
+        "filters": [{"key": "status", "label": "Status", "options": ["kickoff", "in_progress", "review", "completed", "on_hold"]},
+                    {"key": "billing_type", "label": "Billing", "options": ["one_time", "recurring"]}],
     },
     "ledger": {
         "name": "Finance Ledger", "roles": ("admin", "finance"), "date_field": "date",
@@ -588,6 +589,23 @@ async def _run_custom(body: CustomReportRequest, user: dict):
                 r["client_name"] = cmap.get(r["client_id"], "")
             if r.get("project_id"):
                 r["project_name"] = pmap.get(r["project_id"], "")
+    if body.module == "projects":
+        from revenue import billing_summary
+        for r in rows:
+            r.update(billing_summary(r))
+            r["billing"] = r["billing_label"]
+    if body.module == "clients":
+        from revenue import client_mrr
+        from routes_clients import main_contact
+        ps: dict = {}
+        for pr in await db.projects.find({"client_id": {"$in": [r["id"] for r in rows]}, "kind": {"$ne": "internal"}}, {"_id": 0, "milestones": 0, "deliverables": 0}).to_list(10000):
+            ps.setdefault(pr["client_id"], []).append(pr)
+        for r in rows:
+            mc = main_contact(r)
+            r["contact_name"], r["contact_phone"] = mc.get("name", ""), mc.get("phone", "")
+            r["mrr"] = client_mrr(ps.get(r["id"], []))
+            r["arr"] = round(r["mrr"] * 12, 2)
+            r["billing"] = "Recurring" if r["mrr"] > 0 else "One-time"
     if body.module == "expenses":
         umap = await _umap()
         for r in rows:

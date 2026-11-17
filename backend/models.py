@@ -60,8 +60,8 @@ class Contract(BaseModel):
 
 
 class ClientCreate(BaseModel):
-    name: str
-    company: Optional[str] = ""
+    name: str                      # the company — what everyone calls this client
+    company: Optional[str] = ""    # kept equal to name (older callers sent the person in name and the company here)
     industry: Optional[str] = ""
     service_type: Optional[str] = "web_dev"  # web_dev | marketing | ai | retainer | one_off
     size: Optional[str] = "small"  # small | mid | large
@@ -127,6 +127,10 @@ class ProjectCreate(BaseModel):
     team_member_ids: List[str] = []
     location: Optional[str] = ""
     cost_allocation: float = 0
+    service: Optional[str] = ""            # web | software | social | ads | seo | branding | video | influencer | ai | other
+    billing_type: str = "one_time"         # one_time: `budget` is the project value · recurring: billed every cycle
+    recurring_amount: float = 0            # per billing cycle, before GST
+    billing_cycle: str = "monthly"         # monthly | quarterly | half_yearly | yearly
 
 
 class ProjectUpdate(BaseModel):
@@ -144,6 +148,10 @@ class ProjectUpdate(BaseModel):
     team_member_ids: Optional[List[str]] = None
     location: Optional[str] = None
     cost_allocation: Optional[float] = None
+    service: Optional[str] = None
+    billing_type: Optional[str] = None
+    recurring_amount: Optional[float] = None
+    billing_cycle: Optional[str] = None
 
 
 class ToggleRequest(BaseModel):

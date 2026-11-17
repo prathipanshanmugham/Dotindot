@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError, daysUntil } from "@/lib/api";
-import { Missing } from "@/components/kit";
-import { ClientStatusBadge, HealthBadge, ProjectStatusBadge, labelize, CHART_COLORS } from "@/components/Badges";
+import { Missing, Pill, fmtDate } from "@/components/kit";
+import { rupees } from "@/lib/revenue";
+import { BillingCell } from "@/components/ProjectBilling";
+import { ClientStatusBadge, HealthBadge, ProjectStatusBadge, labelize } from "@/components/Badges";
 import ClientFormDialog from "@/components/ClientFormDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, ExternalLink, Pencil, Trash2, Eye, EyeOff, Copy, MapPin, Plus, LayoutDashboard } from "lucide-react";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { ArrowLeft, ExternalLink, Pencil, Trash2, Eye, EyeOff, Copy, MapPin, Plus, LayoutDashboard, Phone, Mail, User, Repeat, Receipt, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 const CredentialRow = ({ clientId, cred, canReveal, onDeleted, canManage }) => {
@@ -68,13 +69,15 @@ const CredentialRow = ({ clientId, cred, canReveal, onDeleted, canManage }) => {
 export default function ClientDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasPerm } = useAuth();
   const [client, setClient] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [newCred, setNewCred] = useState({ label: "", username: "", secret: "" });
   const [showCredForm, setShowCredForm] = useState(false);
   const [rollup, setRollup] = useState(null);
+  const [docs, setDocs] = useState(null);
+  const canBilling = hasPerm("billing");
 
   const canWrite = ["super_admin", "admin", "pm", "sales"].includes(user.role);
   const canReveal = ["super_admin", "admin", "pm"].includes(user.role);
@@ -90,17 +93,18 @@ export default function ClientDetailPage() {
     api.get(`/clients/${id}/growth-rollup`).then((r) => setRollup(r.data)).catch(() => {});
   }, [id]);
 
-  const projectsByStatus = useMemo(() => {
-    if (!client) return [];
-    const m = {};
-    (client.projects || []).forEach((p) => (m[p.status] = (m[p.status] || 0) + 1));
-    return Object.entries(m).map(([name, value]) => ({ name: labelize(name), value }));
-  }, [client]);
+  useEffect(() => {
+    if (canBilling) api.get("/billing/docs", { params: { client_id: id } }).then((r) => setDocs(r.data)).catch(() => setDocs([]));
+  }, [id, canBilling]);
 
   if (!client)
     return loadErr ? <Missing error={loadErr} back="/clients" backLabel="Back to clients" /> : <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
 
-  const totalBudget = (client.projects || []).reduce((s, p) => s + (p.budget || 0), 0);
+  const rev = client.revenue || {};
+  const projects = client.projects || [];
+  const recurringProjects = projects.filter((p) => p.billing_type === "recurring");
+  const oneTimeProjects = projects.filter((p) => p.billing_type !== "recurring");
+  const openCount = projects.filter((p) => ["kickoff", "in_progress", "review"].includes(p.status)).length;
 
   const deleteClient = async () => {
     try {
@@ -151,10 +155,14 @@ export default function ClientDetailPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900" data-testid="client-name-heading">{client.name}</h1>
             <HealthBadge health={client.health} />
             <ClientStatusBadge status={client.status} />
+            {client.recurring && <Pill tone="orange"><Repeat className="h-3 w-3" />Retainer · {rupees(rev.mrr)}/mo</Pill>}
           </div>
-          <p className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
-            {client.company} · {labelize(client.industry)} · {labelize(client.service_type)}{client.retainer ? " · Retainer" : ""}
-            <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{client.city}, {client.region}</span>
+          <p className="text-sm text-gray-500 mt-1.5 flex items-center gap-x-3 gap-y-1 flex-wrap" data-testid="client-contact-line">
+            {client.contact_name ? <span className="inline-flex items-center gap-1 text-gray-700"><User className="h-3.5 w-3.5" />{client.contact_name}</span> : <span className="text-gray-400">No main contact yet</span>}
+            {client.contact_phone && <a href={`tel:${client.contact_phone.replace(/\s+/g, "")}`} className="inline-flex items-center gap-1 hover:text-[#F26B21]"><Phone className="h-3.5 w-3.5" />{client.contact_phone}</a>}
+            {client.contact_email && <a href={`mailto:${client.contact_email}`} className="inline-flex items-center gap-1 hover:text-[#F26B21] [overflow-wrap:anywhere]"><Mail className="h-3.5 w-3.5" />{client.contact_email}</a>}
+            <span>{labelize(client.industry)}</span>
+            {(client.city || client.state) && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{[client.city, client.state].filter(Boolean).join(", ")}</span>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -196,8 +204,8 @@ export default function ClientDetailPage() {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList className="bg-white border border-gray-200">
-          {["overview", "projects", "growth", "contacts", "contracts", "credentials", "details", "notes"].map((t) => (
+        <TabsList className="bg-white border border-gray-200 h-auto flex-wrap justify-start">
+          {["overview", "projects", ...(canBilling ? ["billing"] : []), "growth", "contacts", "contracts", "credentials", "details", "notes"].map((t) => (
             <TabsTrigger key={t} value={t} data-testid={`client-tab-${t}`} className="data-[state=active]:bg-[#FFF7ED] data-[state=active]:text-[#F26B21]">
               {labelize(t)}
             </TabsTrigger>
@@ -205,61 +213,58 @@ export default function ClientDetailPage() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
-            <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold">{(client.projects || []).length}</div><div className="text-xs text-gray-500">Projects</div></CardContent></Card>
-            <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold font-mono">{formatINR(totalBudget)}</div><div className="text-xs text-gray-500">Revenue billed (project budgets)</div></CardContent></Card>
-            <Card className="border-gray-200/80"><CardContent className="p-5"><div className="text-2xl font-bold">{(client.contracts || []).length}</div><div className="text-xs text-gray-500">Contracts</div></CardContent></Card>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="client-revenue">
+            <Card className="border-gray-200/80"><CardContent className="p-4 sm:p-5"><div className="text-xl sm:text-2xl font-bold font-mono" data-testid="client-mrr">{rupees(rev.mrr)}</div><div className="text-xs text-gray-500">MRR · {rupees(rev.arr)} a year</div></CardContent></Card>
+            <Card className="border-gray-200/80"><CardContent className="p-4 sm:p-5"><div className="text-xl sm:text-2xl font-bold font-mono">{rupees(rev.billed)}</div><div className="text-xs text-gray-500">Invoiced so far · {rev.invoices || 0} invoice{rev.invoices === 1 ? "" : "s"}</div></CardContent></Card>
+            <Card className={`border-gray-200/80 ${rev.outstanding > 0 ? "border-amber-200 bg-amber-50/40" : ""}`}><CardContent className="p-4 sm:p-5"><div className="text-xl sm:text-2xl font-bold font-mono">{rupees(rev.outstanding)}</div><div className="text-xs text-gray-500">Still to be paid</div></CardContent></Card>
+            <Card className="border-gray-200/80"><CardContent className="p-4 sm:p-5"><div className="text-xl sm:text-2xl font-bold font-mono">{openCount}</div><div className="text-xs text-gray-500">Open projects · {projects.length} total</div></CardContent></Card>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="border-gray-200/80">
-              <CardHeader className="pb-0"><CardTitle className="text-sm font-semibold text-gray-700">Project status breakdown</CardTitle></CardHeader>
-              <CardContent className="h-56">
-                {projectsByStatus.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={projectsByStatus} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>
-                        {projectsByStatus.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : <div className="h-full flex items-center justify-center text-sm text-gray-400">No projects yet</div>}
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Repeat className="h-4 w-4 text-[#F26B21]" />Recurring {rev.recurring_since && <span className="text-xs font-normal text-gray-400">· since {fmtDate(rev.recurring_since, { month: "short", year: "numeric" })}</span>}</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {recurringProjects.length === 0 && <p className="text-sm text-gray-400">No recurring projects. Edit a project and choose Recurring to bill it every month.</p>}
+                {recurringProjects.map((p) => (
+                  <Link key={p.id} to={`/projects/${p.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3.5 py-2.5 hover:border-orange-200" data-testid={`client-recurring-${p.id}`}>
+                    <div className="min-w-0"><div className="text-sm font-semibold text-gray-800 truncate">{p.name}</div><ProjectStatusBadge status={p.status} /></div>
+                    <div className="text-right shrink-0"><BillingCell p={p} /></div>
+                  </Link>
+                ))}
               </CardContent>
             </Card>
             <Card className="border-gray-200/80">
-              <CardHeader className="pb-0"><CardTitle className="text-sm font-semibold text-gray-700">Budget by project (₹)</CardTitle></CardHeader>
-              <CardContent className="h-56">
-                {(client.projects || []).length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={(client.projects || []).map((p) => ({ name: p.name.slice(0, 14), budget: p.budget }))}>
-                      <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6B7280" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: "#6B7280" }} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`} />
-                      <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: "#FFF7ED" }} />
-                      <Bar dataKey="budget" fill="#F26B21" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : <div className="h-full flex items-center justify-center text-sm text-gray-400">No projects yet</div>}
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Receipt className="h-4 w-4 text-gray-400" />One-time · {rupees(rev.one_time_value)}</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {oneTimeProjects.length === 0 && <p className="text-sm text-gray-400">No one-time projects.</p>}
+                {oneTimeProjects.slice(0, 6).map((p) => (
+                  <Link key={p.id} to={`/projects/${p.id}`} className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3.5 py-2.5 hover:border-orange-200">
+                    <div className="min-w-0"><div className="text-sm font-semibold text-gray-800 truncate">{p.name}</div><ProjectStatusBadge status={p.status} /></div>
+                    <span className="font-mono text-sm text-gray-900 shrink-0">{rupees(p.budget)}</span>
+                  </Link>
+                ))}
+                {oneTimeProjects.length > 6 && <p className="text-xs text-gray-400">+ {oneTimeProjects.length - 6} more in the Projects tab</p>}
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="projects" className="mt-4">
+        <TabsContent value="projects" className="mt-4 space-y-3">
+          {canWrite && <Button size="sm" variant="outline" onClick={() => navigate(`/projects/new?client=${client.id}`)} data-testid="client-new-project"><Plus className="h-3.5 w-3.5 mr-1" />New project for {client.name}</Button>}
           <Card className="border-gray-200/80 overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50/70"><TableHead>Project</TableHead><TableHead>Status</TableHead><TableHead>Budget</TableHead><TableHead>Timeline</TableHead></TableRow>
+                <TableRow className="bg-gray-50/70"><TableHead>Project</TableHead><TableHead>Billing</TableHead><TableHead className="hidden sm:table-cell">Status</TableHead><TableHead className="hidden md:table-cell">Dates</TableHead></TableRow>
               </TableHeader>
               <TableBody>
-                {(client.projects || []).length === 0 ? (
+                {projects.length === 0 ? (
                   <TableRow><TableCell colSpan={4} className="text-center py-8 text-sm text-gray-400">No projects for this client yet.</TableCell></TableRow>
                 ) : (
-                  client.projects.map((p) => (
+                  projects.map((p) => (
                     <TableRow key={p.id} className="cursor-pointer hover:bg-orange-50/40" onClick={() => navigate(`/projects/${p.id}`)} data-testid={`client-project-row-${p.id}`}>
-                      <TableCell className="font-semibold text-gray-900">{p.name}</TableCell>
-                      <TableCell><ProjectStatusBadge status={p.status} /></TableCell>
-                      <TableCell className="font-mono text-sm">{formatINR(p.budget)}</TableCell>
-                      <TableCell className="text-sm text-gray-500">{p.start_date} → {p.end_date}</TableCell>
+                      <TableCell className="font-semibold text-gray-900">{p.name}<div className="sm:hidden mt-1"><ProjectStatusBadge status={p.status} /></div></TableCell>
+                      <TableCell><BillingCell p={p} /></TableCell>
+                      <TableCell className="hidden sm:table-cell"><ProjectStatusBadge status={p.status} /></TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-gray-500 whitespace-nowrap">{p.start_date ? fmtDate(p.start_date) : "—"} → {p.end_date ? fmtDate(p.end_date) : p.billing_type === "recurring" ? "ongoing" : "—"}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -267,6 +272,30 @@ export default function ClientDetailPage() {
             </Table>
           </Card>
         </TabsContent>
+
+        {canBilling && (
+          <TabsContent value="billing" className="mt-4 space-y-3" data-testid="client-billing-tab">
+            {hasPerm("billing.manage") && <Button size="sm" variant="outline" onClick={() => navigate(`/finance/billing/new?type=invoice&client=${client.id}`)}><Plus className="h-3.5 w-3.5 mr-1" />New invoice</Button>}
+            {!docs ? <p className="text-sm text-gray-400">Loading…</p> : docs.length === 0 ? <p className="text-sm text-gray-400">No quotations or invoices for this client yet.</p> : (
+              <Card className="border-gray-200/80 overflow-hidden">
+                <Table>
+                  <TableHeader><TableRow className="bg-gray-50/70"><TableHead>Document</TableHead><TableHead className="hidden sm:table-cell">Date</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right hidden sm:table-cell">Balance</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {docs.map((d) => (
+                      <TableRow key={d.id} className="cursor-pointer hover:bg-orange-50/40" onClick={() => navigate(`/finance/billing/${d.id}`)}>
+                        <TableCell><div className="text-sm font-semibold text-gray-900 flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-gray-400" />{d.number}</div><div className="text-xs text-gray-500 truncate max-w-[220px]">{d.type_label}{d.title ? ` · ${d.title}` : ""}</div></TableCell>
+                        <TableCell className="hidden sm:table-cell text-xs text-gray-500">{fmtDate(d.date)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{d.currency === "INR" ? rupees(d.total) : `${d.currency} ${Number(d.total).toLocaleString("en-IN")}`}</TableCell>
+                        <TableCell className="text-right font-mono text-sm hidden sm:table-cell">{d.balance ? rupees(d.balance) : "—"}</TableCell>
+                        <TableCell><Pill tone={d.status === "paid" ? "green" : d.status === "overdue" ? "red" : d.status === "draft" ? "gray" : "blue"}>{labelize(d.status)}</Pill></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+          </TabsContent>
+        )}
 
         <TabsContent value="growth" className="mt-4 space-y-4" data-testid="client-growth-tab">
           {!rollup ? (

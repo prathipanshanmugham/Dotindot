@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { InternalBadge } from "@/components/ProjectKind";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR, apiError } from "@/lib/api";
-import { Missing } from "@/components/kit";
+import { Missing, fmtDate } from "@/components/kit";
+import { SERVICE_LABEL, CYCLE_WORD, rupees } from "@/lib/revenue";
 import { ProjectStatusBadge, labelize, PROJECT_STATUSES } from "@/components/Badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Trash2, MapPin, CalendarDays, IndianRupee, CheckCircle2, Circle, Pencil } from "lucide-react";
+import { ArrowLeft, Trash2, MapPin, CalendarDays, IndianRupee, CheckCircle2, Circle, Pencil, Repeat, User } from "lucide-react";
 import { toast } from "sonner";
 import ProjectEditDialog from "@/components/ProjectEditDialog";
 import { RecordDeleteDialog } from "@/components/RecordDelete";
@@ -68,8 +69,8 @@ export default function ProjectDetailPage() {
   const updateStatus = async (status) => {
     try {
       await api.put(`/projects/${id}`, { status });
-      setProject((p) => ({ ...p, status }));
-      toast.success(`Status → ${labelize(status)}`);
+      toast.success(project.billing_type === "recurring" && status === "completed" && !project.end_date ? "Completed — billing stops from today" : `Status → ${labelize(status)}`);
+      load();
     } catch (e) {
       toast.error(apiError(e));
     }
@@ -110,6 +111,8 @@ export default function ProjectDetailPage() {
             ) : (
               <span className="font-medium">{project.client_name}</span>
             )}
+            {project.client?.contacts?.[0]?.name && <span className="inline-flex items-center gap-1"><User className="h-3.5 w-3.5" />{project.client.contacts[0].name}{project.client.contacts[0].phone ? ` · ${project.client.contacts[0].phone}` : ""}</span>}
+            {project.service && SERVICE_LABEL[project.service] && <span>{SERVICE_LABEL[project.service]}</span>}
             <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.location || "—"}</span>
           </p>
         </div>
@@ -156,13 +159,24 @@ export default function ProjectDetailPage() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
-        <Card className="border-gray-200/80"><CardContent className="p-5 flex items-center gap-3">
-          <IndianRupee className="h-5 w-5 text-[#F26B21]" />
-          <div><div className="text-xl font-bold font-mono" data-testid="project-budget">{formatINR(project.budget)}</div><div className="text-xs text-gray-500">Budget (INR)</div></div>
-        </CardContent></Card>
+        {project.billing_type === "recurring" ? (
+          <Card className="border-orange-200 bg-[#FFF7ED]/50" data-testid="project-billing"><CardContent className="p-5 flex items-center gap-3">
+            <Repeat className="h-5 w-5 text-[#F26B21] shrink-0" />
+            <div className="min-w-0">
+              <div className="text-xl font-bold font-mono" data-testid="project-budget">{rupees(project.recurring_amount)}<span className="text-sm font-sans font-medium text-gray-500"> / {CYCLE_WORD[project.billing_cycle] || "month"}</span></div>
+              <div className="text-xs text-gray-600">{rupees(project.mrr)} MRR · {rupees(project.mrr * 12)} a year{project.budget ? ` · ${rupees(project.budget)} setup` : ""}</div>
+              <div className="text-xs text-gray-500">{project.live ? (project.next_bill_date ? `Next bill ${fmtDate(project.next_bill_date)}` : "Billing") : project.status === "on_hold" ? "Paused while on hold" : "Not billing now"}</div>
+            </div>
+          </CardContent></Card>
+        ) : (
+          <Card className="border-gray-200/80" data-testid="project-billing"><CardContent className="p-5 flex items-center gap-3">
+            <IndianRupee className="h-5 w-5 text-[#F26B21]" />
+            <div><div className="text-xl font-bold font-mono" data-testid="project-budget">{formatINR(project.budget)}</div><div className="text-xs text-gray-500">{project.kind === "internal" ? "Budget" : "One-time project value"}</div></div>
+          </CardContent></Card>
+        )}
         <Card className="border-gray-200/80"><CardContent className="p-5 flex items-center gap-3">
           <CalendarDays className="h-5 w-5 text-[#F26B21]" />
-          <div><div className="text-sm font-semibold">{project.start_date || "—"} → {project.end_date || "—"}</div><div className="text-xs text-gray-500">Timeline</div></div>
+          <div><div className="text-sm font-semibold">{project.start_date ? fmtDate(project.start_date) : "—"} → {project.end_date ? fmtDate(project.end_date) : project.billing_type === "recurring" ? "ongoing" : "—"}</div><div className="text-xs text-gray-500">{project.billing_type === "recurring" ? "Contract" : "Timeline"}</div></div>
         </CardContent></Card>
         <Card className="border-gray-200/80"><CardContent className="p-5">
           <div className="flex items-center justify-between mb-1.5">

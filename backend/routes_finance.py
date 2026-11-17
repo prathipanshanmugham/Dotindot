@@ -13,7 +13,7 @@ from storage import put_object, get_object, APP_NAME
 
 router = APIRouter()
 
-FIN = ("admin", "finance")
+FIN = ("super_admin", "admin", "finance")
 SUBMIT = ("admin", "finance", "pm")
 PROFIT = ("admin", "finance", "pm")
 

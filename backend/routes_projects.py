@@ -1,16 +1,18 @@
+import math
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from models import ProjectCreate, ProjectUpdate, ToggleRequest
 from auth import get_current_user, require_roles, log_activity
 from permissions import scoped_client_ids, check_branch_write, branch_scope
+from revenue import BILLING_TYPES, CYCLES, SERVICES, billing_summary, infer_service, ist_today
 
 router = APIRouter()
 
-WRITE_ROLES = ("admin", "pm", "sales")
+WRITE_ROLES = ("super_admin", "admin", "pm", "sales")
 
 
 KINDS = ("client", "internal")
@@ -24,6 +26,66 @@ async def client_name_map():
 
 def is_internal(p: dict) -> bool:
     return p.get("kind") == "internal"
+
+
+def _money(v, what: str) -> float:
+    try:
+        x = float(v or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail=f"{what} must be a number")
+    if not math.isfinite(x) or x < 0 or x > 1e10:
+        raise HTTPException(status_code=400, detail=f"{what} must be zero or more")
+    return round(x, 2)
+
+
+def _day(v, what: str):
+    if v in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(str(v)[:10]).isoformat()
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"{what} must look like 2026-11-30")
+
+
+def clean_billing(doc: dict, existing: dict = None) -> dict:
+    """Validate money, dates and billing for a new project (doc) or an update (doc = changed fields only)."""
+    existing = existing or {}
+    merged = {**existing, **doc}
+    for k, what in (("budget", "Project value"), ("cost_allocation", "Internal cost"), ("recurring_amount", "Recurring amount")):
+        if k in doc:
+            doc[k] = _money(doc[k], what)
+    for k, what in (("start_date", "Start date"), ("end_date", "End date")):
+        if k in doc:
+            doc[k] = _day(doc[k], what)
+    merged = {**existing, **doc}
+    if merged.get("start_date") and merged.get("end_date") and merged["end_date"] < merged["start_date"]:
+        raise HTTPException(status_code=400, detail="End date must be after the start date")
+    if "service" in doc:
+        if doc["service"] and doc["service"] not in SERVICES:
+            raise HTTPException(status_code=400, detail="Unknown service")
+        if not doc["service"] and merged.get("kind") != "internal":
+            doc["service"] = infer_service(merged.get("name", ""), merged.get("description", ""))
+    bt = merged.get("billing_type") or "one_time"
+    if merged.get("kind") == "internal":
+        if "billing_type" in doc or existing.get("billing_type") == "recurring":
+            doc.update(billing_type="one_time", recurring_amount=0)
+        return doc
+    if bt not in BILLING_TYPES:
+        raise HTTPException(status_code=400, detail="Billing is one_time or recurring")
+    if bt == "recurring":
+        if (merged.get("billing_cycle") or "monthly") not in CYCLES:
+            raise HTTPException(status_code=400, detail="Billing cycle is monthly, quarterly, half_yearly or yearly")
+        if not float(merged.get("recurring_amount") or 0) > 0:
+            raise HTTPException(status_code=400, detail="Add how much the client pays each cycle")
+        if not merged.get("start_date"):
+            raise HTTPException(status_code=400, detail="Add the date billing starts")
+        doc.setdefault("billing_cycle", merged.get("billing_cycle") or "monthly")
+        # finishing a recurring project stops its billing
+        if doc.get("status") == "completed" and not merged.get("end_date"):
+            doc["end_date"] = max(ist_today().isoformat(), merged["start_date"])
+    elif "billing_type" in doc:
+        doc["recurring_amount"] = 0
+    return doc
 
 
 async def project_scope(user: dict):
@@ -60,9 +122,17 @@ async def list_projects(
     search: Optional[str] = None,
     branch: Optional[str] = None,
     kind: Optional[str] = None,
+    billing_type: Optional[str] = None,
+    service: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
     q = {}
+    if billing_type == "recurring":
+        q["billing_type"] = "recurring"
+    elif billing_type == "one_time":
+        q["billing_type"] = {"$ne": "recurring"}
+    if service in SERVICES:
+        q["service"] = service
     if kind in KINDS:
         q["kind"] = "internal" if kind == "internal" else {"$ne": "internal"}
     if status:
@@ -72,7 +142,9 @@ async def list_projects(
     if team_member:
         q["team_member_ids"] = team_member
     if search:
-        q["name"] = {"$regex": re.escape(search), "$options": "i"}
+        rx = {"$regex": re.escape(search), "$options": "i"}
+        hit = [c["id"] for c in await db.clients.find({"name": rx}, {"_id": 0, "id": 1}).to_list(500)]
+        q["$or"] = [{"name": rx}, {"client_id": {"$in": hit}}]
     if user["role"] == "employee":
         q["team_member_ids"] = user["id"]
     ands = [q]
@@ -84,9 +156,11 @@ async def list_projects(
         ands.append({"$or": [{"client_id": {"$in": bset}}, {"kind": "internal", "branch_id": branch}]})
     projects = await db.projects.find({"$and": ands} if len(ands) > 1 else q, {"_id": 0}).sort("created_at", -1).to_list(500)
     names = await client_name_map()
+    today = ist_today()
     for p in projects:
         p["kind"] = p.get("kind") or "client"
         p["client_name"] = INTERNAL if is_internal(p) else names.get(p.get("client_id"), "Unknown")
+        p.update(billing_summary(p, today))
     return projects
 
 
@@ -107,9 +181,10 @@ async def get_project(project_id: str, user: dict = Depends(get_current_user)):
         b = await db.branches.find_one({"id": p.get("branch_id")}, {"_id": 0, "name": 1}) if p.get("branch_id") else None
         p["branch_name"] = (b or {}).get("name", "")
     else:
-        client = await db.clients.find_one({"id": p["client_id"]}, {"_id": 0, "id": 1, "name": 1, "company": 1})
+        client = await db.clients.find_one({"id": p["client_id"]}, {"_id": 0, "id": 1, "name": 1, "city": 1, "contacts": 1})
         p["client"] = client
         p["client_name"] = client["name"] if client else "Unknown"
+    p.update(billing_summary(p))
     team = await db.users.find(
         {"id": {"$in": p.get("team_member_ids", [])}},
         {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1},
@@ -125,7 +200,13 @@ async def create_project(body: ProjectCreate, user: dict = Depends(require_roles
     if not (body.name or "").strip():
         raise HTTPException(status_code=400, detail="Give the project a name")
     doc = body.model_dump()
-    doc["name"] = doc["name"].strip()
+    doc["name"] = doc["name"].strip()[:160]
+    for it in doc.get("milestones") or []:
+        it["title"] = (it.get("title") or "").strip()[:200]
+    for it in doc.get("deliverables") or []:
+        it["item"] = (it.get("item") or "").strip()[:200]
+    doc["milestones"] = [m for m in doc.get("milestones") or [] if m["title"]]
+    doc["deliverables"] = [d for d in doc.get("deliverables") or [] if d["item"]]
     if body.kind == "internal":
         doc["client_id"] = None
         doc["branch_id"] = await _internal_branch(user, body.branch_id)
@@ -142,12 +223,14 @@ async def create_project(body: ProjectCreate, user: dict = Depends(require_roles
         doc["branch_id"] = None
         if not doc.get("location"):
             doc["location"] = ", ".join(x for x in [client.get("city"), client.get("region")] if x)
+    clean_billing(doc)
     now = datetime.now(timezone.utc).isoformat()
     doc.update({"id": str(uuid.uuid4()), "created_at": now, "updated_at": now, "created_by": user["id"]})
     await db.projects.insert_one(doc)
     await log_activity(user, "project_created", "project", doc["id"], doc["name"])
     doc.pop("_id", None)
     doc["client_name"] = client["name"] if client else INTERNAL
+    doc.update(billing_summary(doc))
     return doc
 
 
@@ -182,8 +265,12 @@ async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depe
             updates["client_id"], updates["branch_id"] = new_id, None
         else:
             updates.pop("client_id", None)
-    if updates.get("start_date") and updates.get("end_date") and updates["end_date"] < updates["start_date"]:
-        raise HTTPException(status_code=400, detail="End date must be after the start date")
+    if "name" in updates:
+        updates["name"] = updates["name"].strip()[:160]
+    for field, key in (("milestones", "title"), ("deliverables", "item")):
+        if field in updates:
+            updates[field] = [{**it, key: (it.get(key) or "").strip()[:200]} for it in updates[field] or [] if (it.get(key) or "").strip()]
+    clean_billing(updates, {**existing, "kind": kind})
     restructured = bool({"milestones", "deliverables", "team_member_ids", "client_id"} & set(updates)) or kind != (existing.get("kind") or "client")
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.projects.update_one({"id": project_id}, {"$set": updates})
@@ -214,7 +301,7 @@ async def toggle_item(project_id: str, body: ToggleRequest, user: dict = Depends
     items = p.get(field, [])
     found = False
     for item in items:
-        if item["id"] == body.item_id:
+        if item.get("id") == body.item_id:
             item["done"] = not item.get("done", False)
             found = True
             break

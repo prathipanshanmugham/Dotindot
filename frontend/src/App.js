@@ -25,6 +25,7 @@ import ApiCreditsPage from "@/pages/finance/ApiCreditsPage";
 import MarketingPage from "@/pages/finance/MarketingPage";
 import ProjectProfitPage from "@/pages/finance/ProjectProfitPage";
 import EmployeeRevenuePage from "@/pages/finance/EmployeeRevenuePage";
+import RevenuePage from "@/pages/finance/RevenuePage";
 import CeoDashboard from "@/pages/CeoDashboard";
 import SalesOverview from "@/pages/sales/SalesOverview";
 import PipelinePage from "@/pages/sales/PipelinePage";
@@ -74,7 +75,7 @@ import { BASE } from "@/lib/base";
 
 const FIN_ANY = [
   "finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
-  "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue", "finance.loans",
+  "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue", "finance.loans", "finance.revenue",
 ];
 const SALES_ANY = ["sales.pipeline", "sales.quotes", "sales.targets"];
 
@@ -153,6 +154,7 @@ function App() {
           <Route path="/access" element={<Protected perm="access_control"><AccessControlPage /></Protected>} />
           <Route path="/passwords" element={<Protected perm="password_manager"><PasswordManagerPage /></Protected>} />
           <Route path="/finance" element={<Protected perm={FIN_ANY}><FinanceOverview /></Protected>} />
+          <Route path="/finance/revenue" element={<Protected perm="finance.revenue"><RevenuePage /></Protected>} />
           <Route path="/finance/ledger" element={<Protected perm="finance.ledger"><LedgerPage /></Protected>} />
           <Route path="/finance/expenses" element={<Protected perm="finance.expenses"><ExpensesPage /></Protected>} />
           <Route path="/finance/subscriptions" element={<Protected perm="finance.subscriptions"><SubscriptionsPage /></Protected>} />

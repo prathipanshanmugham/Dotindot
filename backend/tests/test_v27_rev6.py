@@ -254,7 +254,7 @@ class TestClientDashboard:
     def test_internal_pdf(self, ah, client_rec):
         r = requests.get(f"{API}/clients/{client_rec['id']}/dashboard/report", headers=ah, params={"period": "last_3_months"})
         assert r.status_code == 200 and r.content[:4] == b"%PDF"
-        assert "t27-client" in r.headers["content-disposition"].lower()
+        assert "t27-pvt-ltd" in r.headers["content-disposition"].lower()   # a client is shown by its company name
 
     def test_payload_has_no_internal_secrets(self, ah, client_rec):
         s = str(requests.get(f"{API}/clients/{client_rec['id']}/dashboard", headers=ah).json()).lower()

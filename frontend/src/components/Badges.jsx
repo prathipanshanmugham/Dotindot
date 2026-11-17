@@ -43,19 +43,19 @@ const healthStyles = {
 const healthDot = { healthy: "bg-emerald-500", watch: "bg-amber-500", at_risk: "bg-red-500" };
 
 export const ProjectStatusBadge = ({ status }) => (
-  <Badge variant="outline" className={`${projectStatusStyles[status] || ""} font-medium`} data-testid={`project-status-badge-${status}`}>
+  <Badge variant="outline" className={`${projectStatusStyles[status] || ""} font-medium whitespace-nowrap`} data-testid={`project-status-badge-${status}`}>
     {labelize(status)}
   </Badge>
 );
 
 export const ClientStatusBadge = ({ status }) => (
-  <Badge variant="outline" className={`${clientStatusStyles[status] || ""} font-medium`} data-testid={`client-status-badge-${status}`}>
+  <Badge variant="outline" className={`${clientStatusStyles[status] || ""} font-medium whitespace-nowrap`} data-testid={`client-status-badge-${status}`}>
     {labelize(status)}
   </Badge>
 );
 
 export const HealthBadge = ({ health }) => (
-  <Badge variant="outline" className={`${healthStyles[health] || ""} font-medium gap-1.5`} data-testid={`health-badge-${health}`}>
+  <Badge variant="outline" className={`${healthStyles[health] || ""} font-medium gap-1.5 whitespace-nowrap`} data-testid={`health-badge-${health}`}>
     <span className={`h-1.5 w-1.5 rounded-full ${healthDot[health] || "bg-gray-400"} animate-pulse`} />
     {health === "at_risk" ? "At Risk" : labelize(health)}
   </Badge>

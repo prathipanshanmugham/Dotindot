@@ -227,7 +227,11 @@ async def convert_lead(lead_id: str, body: ConvertRequest, user: dict = Depends(
                 cdoc.setdefault("contacts", [])
                 if not cdoc["contacts"]:
                     cdoc["contacts"] = [{"name": lead["name"], "email": lead.get("contact_email", ""),
-                                         "phone": lead.get("contact_phone", ""), "role": "Primary contact"}]
+                                         "phone": lead.get("contact_phone", ""), "role": "Main contact"}]
+            from routes_clients import normalize_client   # the client is the company; the lead's person is its contact
+            cdoc = normalize_client(cdoc)
+            if len(cdoc["name"]) < 2:
+                raise HTTPException(status_code=400, detail="Add the company name")
             cdoc.update({"id": str(uuid.uuid4()), "created_at": now, "updated_at": now, "created_by": user["id"]})
             await db.clients.insert_one(cdoc)
             client_id, client_name = cdoc["id"], cdoc["name"]

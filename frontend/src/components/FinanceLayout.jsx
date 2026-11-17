@@ -9,6 +9,7 @@ export const PAYMENT_METHODS = ["bank_transfer", "upi", "credit_card", "cash", "
 
 const TABS = [
   { name: "Overview", path: "/finance", exact: true, roles: ["super_admin", "admin", "finance"] },
+  { name: "MRR & ARR", path: "/finance/revenue", perm: "finance.revenue" },
   { name: "Ledger", path: "/finance/ledger", roles: ["super_admin", "admin", "finance"] },
   { name: "Expenses", path: "/finance/expenses", roles: ["super_admin", "admin", "finance"] },
   { name: "Subscriptions", path: "/finance/subscriptions", roles: ["super_admin", "admin", "finance"] },

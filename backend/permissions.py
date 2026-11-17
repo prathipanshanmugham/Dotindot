@@ -19,7 +19,7 @@ PERMISSION_GROUPS = {
              "support", "support.manage", "support.delete"],
     "Finance": ["finance.ledger", "finance.expenses", "finance.subscriptions", "finance.budgets",
                 "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.project_profit", "finance.employee_revenue",
-                "finance.loans", "finance.delete", "billing", "billing.manage", "billing.delete"],
+                "finance.loans", "finance.revenue", "finance.delete", "billing", "billing.manage", "billing.delete"],
     "Investors": ["investors", "investors.manage", "investors.delete"],
     "Sales": ["sales.pipeline", "sales.quotes", "sales.targets", "sales.hud", "lead_flow", "lead_flow.manage", "sales.delete"],
     "HR": ["hr", "hr.manage", "hr.delete", "payroll", "payroll.manage", "payroll.delete", "hiring", "hiring.manage", "hiring.delete"],
@@ -107,9 +107,13 @@ V34_NEW_KEYS = {role: (keys & _V34) for role, keys in ROLE_DEFAULTS.items()}
 for _r in (V26_NEW_KEYS, V27_NEW_KEYS, V28_NEW_KEYS, V30_NEW_KEYS, V31_NEW_KEYS, V32_NEW_KEYS, V33_NEW_KEYS):
     for _k in _r:
         _r[_k] = _r[_k] - _V34
+# v3.5: MRR & ARR (recurring revenue)
+_V35 = {"finance.revenue"}
+V35_NEW_KEYS = {role: (keys & _V35) for role, keys in ROLE_DEFAULTS.items()}
 ROLE_MIGRATIONS = [("role_defaults_v26", V26_NEW_KEYS), ("role_defaults_v27", V27_NEW_KEYS), ("role_defaults_v28", V28_NEW_KEYS),
                    ("role_defaults_v30", V30_NEW_KEYS), ("role_defaults_v31", V31_NEW_KEYS), ("role_defaults_v32", V32_NEW_KEYS),
-                   ("role_defaults_v33", V33_NEW_KEYS), ("role_defaults_v34", V34_NEW_KEYS)]
+                   ("role_defaults_v33", V33_NEW_KEYS), ("role_defaults_v34", V34_NEW_KEYS),
+                   ("role_defaults_v35", V35_NEW_KEYS)]
 
 VALID_ROLES = set(ROLE_DEFAULTS.keys())
 
@@ -248,6 +252,7 @@ PATH_PERMISSIONS = [
     ("/api/finance/project-profit", ("finance.project_profit",)),
     ("/api/finance/employee-revenue", ("finance.employee_revenue",)),
     ("/api/finance/loans", ("finance.loans",)),
+    ("/api/revenue", ("finance.revenue",)),
     # NOTE: /api/finance/expenses intentionally NOT gated — all roles may submit/view own (v1 behavior);
     # approval actions remain role-guarded in the route.
     ("/api/sales/hud", ("sales.hud",)),

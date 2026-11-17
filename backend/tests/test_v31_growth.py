@@ -71,7 +71,7 @@ def branch(sa):
 def clients(sa, branch):
     out = []
     for i, bid in enumerate((branch["id"], None)):
-        r = requests.post(f"{API}/clients", headers=sa, json={"name": f"T31 Client {i} {TAG}", "company": "T31 Co", "industry": "other", "status": "active"})
+        r = requests.post(f"{API}/clients", headers=sa, json={"name": f"T31 Client {i} {TAG}", "company": f"T31 Co {i} {TAG}", "industry": "other", "status": "active"})
         assert r.status_code in (200, 201), r.text
         c = r.json()
         if bid:  # place the client in the test branch (workspace editor — the client form takes the creator's branch)

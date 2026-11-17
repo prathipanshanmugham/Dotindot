@@ -465,7 +465,9 @@ class TestReviewFixes:
         assert requests.get(f"{API}/investors", headers=emp["h"]).status_code == 403
 
     def test_uan_masked_outside_the_pf_return(self, sa, emp3):
-        requests.put(f"{API}/hr/people/{emp3['id']}", headers=sa, json={"uan": "101299887766"})
+        requests.put(f"{API}/hr/people/{emp3['id']}", headers=sa, json={"uan": "101299887766", "join_date": "2025-01-01"})  # on the rolls in Oct 2025
+        requests.put(f"{API}/hr/payroll/structures", headers=sa, json={"user_id": emp3["id"], "effective_from": "2025-04-01",
+                                                                        "monthly": {"basic": 10000, "hra": 4000, "special": 6000}})  # self-contained: paid that month
         fin = _make_user(sa, "fin", "finance")
         try:
             r = requests.post(f"{API}/hr/payroll/runs", headers=sa, json={"month": "2025-10"})

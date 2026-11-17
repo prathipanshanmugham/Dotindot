@@ -10,7 +10,7 @@ from auth import get_current_user, require_roles, log_activity
 router = APIRouter()
 
 STAFF = ("admin", "finance", "sales", "pm")
-TRAIN_MANAGE = ("admin", "pm")
+TRAIN_MANAGE = ("super_admin", "admin", "pm")
 
 # Directory and profile pages show work details only. Personal HR data (address, date of birth, bank, ID numbers,
 # emergency contact) lives under "hr" and is read through the HR module, which has its own permission.

@@ -226,7 +226,7 @@ def build_client_report_pdf(d: dict, prepared_by: str = "") -> bytes:
             return "—"
 
     story = [Paragraph(esc(c["name"]), H1),
-             Paragraph(f"Client report · {esc(per['label'])} ({dd(per['start'])} – {dd(per['end'])})" + (f" · {esc(c.get('company'))}" if c.get("company") else ""), SUB),
+             Paragraph(f"Client report · {esc(per['label'])} ({dd(per['start'])} – {dd(per['end'])})", SUB),
              Spacer(1, 8)]
 
     tiles = [("Active projects", str(k["active_projects"])),

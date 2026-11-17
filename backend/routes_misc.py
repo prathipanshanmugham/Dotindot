@@ -13,16 +13,15 @@ async def global_search(q: str = Query(..., min_length=1), user: dict = Depends(
     results = {"clients": [], "projects": []}
     branches = branch_scope(user)
     if user["role"] != "employee":
-        cq = {"$or": [
-            {"name": {"$regex": re.escape(q), "$options": "i"}},
-            {"company": {"$regex": re.escape(q), "$options": "i"}},
-        ]}
+        rx = {"$regex": re.escape(q), "$options": "i"}
+        cq = {"$or": [{"name": rx}, {"contacts.name": rx}, {"contacts.phone": rx}, {"contacts.email": rx}]}   # company, or someone there
         if branches is not None:
             cq["branch_id"] = {"$in": branches}
-        results["clients"] = await db.clients.find(
-            cq,
-            {"_id": 0, "id": 1, "name": 1, "company": 1, "status": 1},
-        ).limit(6).to_list(6)
+        rows = await db.clients.find(cq, {"_id": 0, "id": 1, "name": 1, "status": 1, "city": 1, "contacts": 1}).sort("name", 1).limit(6).to_list(6)
+        for c in rows:
+            first = next((x for x in c.pop("contacts", None) or [] if isinstance(x, dict) and x.get("name")), {})
+            c["contact_name"] = first.get("name", "")
+        results["clients"] = rows
     pq = {"name": {"$regex": re.escape(q), "$options": "i"}}
     if user["role"] == "employee":
         pq["team_member_ids"] = user["id"]

@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Phone, Mail, Users2, StickyNote, Sparkles, ExternalLink, FileText, Plus, Trash2 } from "lucide-react";
@@ -20,7 +19,6 @@ import { toast } from "sonner";
 
 const KIND_ICONS = { call: Phone, email: Mail, meeting: Users2, note: StickyNote };
 const INDUSTRIES = ["real-estate", "healthcare", "e-commerce", "restaurant", "fintech", "saas", "other"];
-const SERVICES = ["web_dev", "marketing", "ai", "retainer", "one_off"];
 
 export default function LeadDetailPage() {
   const { id } = useParams();
@@ -42,8 +40,8 @@ export default function LeadDetailPage() {
   const load = useCallback(() => {
     api.get(`/sales/leads/${id}`).then((r) => {
       setLead(r.data);
-      setNewClient({
-        name: r.data.name, company: r.data.company, industry: "other", service_type: "web_dev",
+      setNewClient({   // the client is the company; the lead's person becomes its main contact
+        name: r.data.company || r.data.name, company: r.data.company || r.data.name, contact: r.data.name, industry: "other", service_type: "web_dev",
         size: "small", status: "active", retainer: false, region: r.data.region, city: r.data.city,
       });
     }).catch((e) => { setLoadErr(apiError(e)); toast.error(apiError(e)); });
@@ -86,7 +84,11 @@ export default function LeadDetailPage() {
     try {
       const payload = convertMode === "existing_client"
         ? { mode: "existing_client", client_id: existingClientId }
-        : { mode: "new_client", client: newClient };
+        : (() => {
+          const { contact, ...c } = newClient;
+          const person = (contact || "").trim();
+          return { mode: "new_client", client: { ...c, contacts: person ? [{ name: person, email: lead.contact_email || "", phone: lead.contact_phone || "", role: "Main contact" }] : [] } };
+        })();
       const { data } = await api.post(`/sales/leads/${id}/convert`, payload);
       toast.success(`Converted to client: ${data.client_name}`);
       setConvertOpen(false);
@@ -278,8 +280,8 @@ export default function LeadDetailPage() {
             </div>
             {convertMode === "new_client" ? (
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1 col-span-2"><Label>Client name</Label><Input data-testid="convert-client-name" value={newClient.name || ""} onChange={(e) => setNewClient((p) => ({ ...p, name: e.target.value }))} /></div>
-                <div className="space-y-1"><Label>Company</Label><Input value={newClient.company || ""} onChange={(e) => setNewClient((p) => ({ ...p, company: e.target.value }))} /></div>
+                <div className="space-y-1 col-span-2"><Label>Company name</Label><Input data-testid="convert-client-name" value={newClient.name || ""} onChange={(e) => setNewClient((p) => ({ ...p, name: e.target.value, company: e.target.value }))} /></div>
+                <div className="space-y-1"><Label>Main contact</Label><Input value={newClient.contact || ""} onChange={(e) => setNewClient((p) => ({ ...p, contact: e.target.value }))} /></div>
                 <div className="space-y-1">
                   <Label>Industry</Label>
                   <Select value={newClient.industry} onValueChange={(v) => setNewClient((p) => ({ ...p, industry: v }))}>
@@ -287,17 +289,7 @@ export default function LeadDetailPage() {
                     <SelectContent>{INDUSTRIES.map((i) => <SelectItem key={i} value={i}>{labelize(i)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1">
-                  <Label>Service type</Label>
-                  <Select value={newClient.service_type} onValueChange={(v) => setNewClient((p) => ({ ...p, service_type: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{SERVICES.map((s) => <SelectItem key={s} value={s}>{labelize(s)}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2 pt-5">
-                  <Switch checked={!!newClient.retainer} onCheckedChange={(v) => setNewClient((p) => ({ ...p, retainer: v }))} />
-                  <Label className="text-sm">Retainer</Label>
-                </div>
+                <p className="col-span-2 text-xs text-gray-400">Next, “Convert + start project” lets you choose one-time or recurring billing.</p>
               </div>
             ) : (
               <div className="space-y-1">

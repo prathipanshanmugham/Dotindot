@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { format } from "date-fns";
 import api, { formatINR, apiError } from "@/lib/api";
 import { labelize, PROJECT_STATUSES } from "@/components/Badges";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,36 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, CalendarIcon, Plus, Trash2, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 import ProjectKindField from "@/components/ProjectKind";
+import ProjectBillingFields, { billingProblem } from "@/components/ProjectBilling";
+import { billingText, SERVICE_LABEL } from "@/lib/revenue";
 
-const STEPS = ["Basics", "Timeline & Milestones", "Budget", "Team & Deliverables", "Review"];
-
-const DatePickerField = ({ label, value, onChange, testid }) => (
-  <div className="space-y-1.5">
-    <Label>{label}</Label>
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full justify-start font-normal" data-testid={testid}>
-          <CalendarIcon className="h-4 w-4 mr-2 text-gray-400" />
-          {value ? value : <span className="text-gray-400">Pick a date</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value ? new Date(value + "T00:00:00") : undefined}
-          onSelect={(d) => d && onChange(format(d, "yyyy-MM-dd"))}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
-  </div>
-);
+const STEPS = ["Basics", "Billing & dates", "Milestones", "Team & Deliverables", "Review"];
 
 export default function NewProjectWizard() {
   const navigate = useNavigate();
@@ -57,6 +34,10 @@ export default function NewProjectWizard() {
     start_date: "",
     end_date: "",
     budget: searchParams.get("budget") || "",
+    billing_type: searchParams.get("recurring") ? "recurring" : "one_time",
+    recurring_amount: "",
+    billing_cycle: "monthly",
+    service: "",
     milestones: [],
     deliverables: [],
     team_member_ids: [],
@@ -71,20 +52,25 @@ export default function NewProjectWizard() {
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const selectedClient = clients.find((c) => c.id === form.client_id);
 
+  const internal = form.kind === "internal";
+  const problem = billingProblem({ ...form, billing_type: internal ? "one_time" : form.billing_type });
   const canNext = () => {
-    if (step === 0) return (form.kind === "internal" || form.client_id) && form.name.trim();
-    if (step === 2) return form.budget !== "" && Number(form.budget) >= 0;
+    if (step === 0) return (internal || form.client_id) && form.name.trim();
+    if (step === 1) return !problem;
     return true;
   };
 
   const submit = async () => {
     setBusy(true);
     try {
+      const recurring = !internal && form.billing_type === "recurring";
       const payload = {
         ...form,
-        client_id: form.kind === "internal" ? null : form.client_id,
-        branch_id: form.kind === "internal" ? form.branch_id : null,
+        client_id: internal ? null : form.client_id,
+        branch_id: internal ? form.branch_id : null,
         budget: Number(form.budget) || 0,
+        billing_type: recurring ? "recurring" : "one_time",
+        recurring_amount: recurring ? Number(form.recurring_amount) || 0 : 0,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
         milestones: form.milestones.filter((m) => m.title.trim()).map((m) => ({ title: m.title, due_date: m.due_date || null, done: false })),
@@ -159,12 +145,12 @@ export default function NewProjectWizard() {
           )}
 
           {step === 1 && (
+            <ProjectBillingFields value={form} onChange={(patch) => setForm((p) => ({ ...p, ...patch }))} internal={internal} testid="wizard-billing" />
+          )}
+
+          {step === 2 && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <DatePickerField label="Start date" value={form.start_date} onChange={(v) => set("start_date", v)} testid="wizard-start-date" />
-                <DatePickerField label="End date" value={form.end_date} onChange={(v) => set("end_date", v)} testid="wizard-end-date" />
-              </div>
-              <div className="pt-2">
+              <div>
                 <Label className="text-sm font-semibold">Milestones</Label>
                 <div className="space-y-2 mt-2">
                   {form.milestones.map((m, i) => (
@@ -180,22 +166,6 @@ export default function NewProjectWizard() {
                 </div>
               </div>
             </>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Project budget (₹) *</Label>
-                <Input data-testid="wizard-budget-input" type="number" min="0" value={form.budget} onChange={(e) => set("budget", e.target.value)} placeholder="e.g. 350000" />
-              </div>
-              {form.budget !== "" && (
-                <div className="rounded-xl bg-[#FFF7ED] border border-orange-200 px-4 py-3">
-                  <div className="text-xs text-gray-500">Budget preview</div>
-                  <div className="text-2xl font-bold font-mono text-[#F26B21]">{formatINR(Number(form.budget))}</div>
-                  <div className="text-xs text-gray-400 mt-1">Currency: INR (multi-currency coming later)</div>
-                </div>
-              )}
-            </div>
           )}
 
           {step === 3 && (
@@ -241,11 +211,11 @@ export default function NewProjectWizard() {
             <div className="space-y-3" data-testid="wizard-review">
               <h3 className="text-lg font-semibold text-gray-900">Review & create</h3>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <div><div className="text-xs text-gray-400 uppercase tracking-wide">Client</div>{form.kind === "internal" ? "Internal project" : selectedClient?.name || "—"}</div>
+                <div><div className="text-xs text-gray-400 uppercase tracking-wide">Client</div>{internal ? "Internal project" : selectedClient?.name || "—"}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Project</div>{form.name}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Status</div>{labelize(form.status)}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Timeline</div>{form.start_date || "—"} → {form.end_date || "—"}</div>
-                <div><div className="text-xs text-gray-400 uppercase tracking-wide">Budget</div><span className="font-mono font-semibold">{formatINR(Number(form.budget) || 0)}</span></div>
+                <div><div className="text-xs text-gray-400 uppercase tracking-wide">Billing</div><span className="font-mono font-semibold">{internal ? `${formatINR(Number(form.budget) || 0)} budget` : billingText(form)}</span>{!internal && form.service && <div className="text-xs text-gray-500">{SERVICE_LABEL[form.service]}</div>}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Team</div>{form.team_member_ids.length ? team.filter((u) => form.team_member_ids.includes(u.id)).map((u) => u.name).join(", ") : "—"}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Milestones</div>{form.milestones.filter((m) => m.title.trim()).length}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Deliverables</div>{form.deliverables.filter((d) => d.item.trim()).length}</div>
@@ -262,9 +232,12 @@ export default function NewProjectWizard() {
           <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
         </Button>
         {step < STEPS.length - 1 ? (
-          <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext()} data-testid="wizard-next-btn" className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold">
-            Next <ArrowRight className="h-4 w-4 ml-1.5" />
-          </Button>
+          <div className="flex items-center gap-3">
+            {step === 1 && problem && <span className="text-xs text-gray-500 hidden sm:inline">{problem}</span>}
+            <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext()} data-testid="wizard-next-btn" className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold">
+              Next <ArrowRight className="h-4 w-4 ml-1.5" />
+            </Button>
+          </div>
         ) : (
           <Button onClick={submit} disabled={busy} data-testid="create-project-submit-btn" className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold">
             {busy ? "Creating..." : "Create project"}

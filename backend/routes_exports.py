@@ -14,7 +14,7 @@ from routes_logs import _build_query as logs_query
 router = APIRouter()
 
 STAFF = ("admin", "finance", "sales", "pm")
-FIN = ("admin", "finance")
+FIN = ("super_admin", "admin", "finance")
 SALES_READ = ("admin", "sales", "pm", "finance")
 ALL = ("admin", "finance", "sales", "pm", "employee")
 
@@ -30,20 +30,21 @@ async def _umap():
 
 # ---------- dataset fetchers: return (title, columns, rows, summary|None) ----------
 async def fetch_clients(p, user):
-    q = {}
-    for k in ("industry", "service_type", "size", "status", "region"):
-        if p.get(k):
-            q[k] = p[k]
-    if p.get("retainer") is not None and p.get("retainer") != "":
-        q["retainer"] = str(p["retainer"]).lower() == "true"
-    if p.get("search"):
-        q["$or"] = [{"name": {"$regex": re.escape(p["search"]), "$options": "i"}}, {"company": {"$regex": re.escape(p["search"]), "$options": "i"}}]
-    rows = await db.clients.find(q, {"_id": 0, "credentials": 0}).sort("name", 1).to_list(1000)
-    cols = [("name", "Client", "text"), ("company", "Company", "text"), ("industry", "Industry", "text"),
-            ("service_type", "Service", "text"), ("size", "Size", "text"), ("status", "Status", "text"),
-            ("retainer", "Retainer", "text"), ("region", "Region", "text"), ("city", "City", "text")]
+    from routes_clients import list_clients
+    ret = p.get("retainer")
+    rows = await list_clients(industry=p.get("industry") or None, service_type=p.get("service_type") or None, size=p.get("size") or None,
+                              status=p.get("status") or None, retainer=(str(ret).lower() == "true") if ret not in (None, "") else None,
+                              region=p.get("region") or None, search=p.get("search") or None, branch=p.get("branch") or None,
+                              billing=p.get("billing") or None, user=user)
+    for r in rows:
+        r["billing"] = "Recurring" if r.get("recurring") else "One-time"
+    cols = [("name", "Client", "text"), ("contact_name", "Main contact", "text"), ("contact_phone", "Phone", "text"),
+            ("contact_email", "Email", "text"), ("industry", "Industry", "text"), ("status", "Status", "text"), ("billing", "Billing", "text"),
+            ("mrr", "MRR", "money"), ("arr", "ARR", "money"), ("one_time_value", "One-time project value", "money"),
+            ("active_projects", "Active projects", "num"), ("city", "City", "text"), ("state", "State", "text")]
     return "Clients", cols, rows, [{"label": "Clients in export", "value": len(rows)},
-                                   {"label": "Active", "value": sum(1 for r in rows if r.get("status") == "active")}]
+                                   {"label": "Active", "value": sum(1 for r in rows if r.get("status") == "active")},
+                                   {"label": "MRR", "value": round(sum(r.get("mrr", 0) for r in rows), 2), "money": True}]
 
 
 async def fetch_projects(p, user):
@@ -58,17 +59,29 @@ async def fetch_projects(p, user):
         q["team_member_ids"] = p["team_member"]
     if p.get("kind") in ("client", "internal"):
         q["kind"] = "internal" if p["kind"] == "internal" else {"$ne": "internal"}
+    if p.get("billing_type") == "recurring":
+        q["billing_type"] = "recurring"
+    elif p.get("billing_type") == "one_time":
+        q["billing_type"] = {"$ne": "recurring"}
     from routes_projects import project_scope
+    from revenue import billing_summary, SERVICES, CYCLE_LABEL
     scope = await project_scope(user)
     rows = await db.projects.find({"$and": [q, scope]} if scope else q, {"_id": 0}).sort("name", 1).to_list(1000)
     cmap, _ = await name_maps()
     for r in rows:
         r["client_name"] = "Internal" if r.get("kind") == "internal" else cmap.get(r.get("client_id"), "")
-    cols = [("name", "Project", "text"), ("client_name", "Client", "text"), ("status", "Status", "text"),
-            ("budget", "Budget", "money"), ("start_date", "Start", "text"), ("end_date", "End", "text"),
+        r.update(billing_summary(r))
+        r["billing"] = "Recurring" if r["billing_type"] == "recurring" else "One-time"
+        r["cycle"] = CYCLE_LABEL.get(r.get("billing_cycle") or "", "") if r["billing_type"] == "recurring" else ""
+        r["service_label"] = SERVICES.get(r.get("service") or "", "")
+        r["recurring_amount"] = r.get("recurring_amount") if r["billing_type"] == "recurring" else None
+    cols = [("name", "Project", "text"), ("client_name", "Client", "text"), ("service_label", "Service", "text"), ("status", "Status", "text"),
+            ("billing", "Billing", "text"), ("budget", "One-time value", "money"), ("recurring_amount", "Recurring amount", "money"),
+            ("cycle", "Every", "text"), ("mrr", "MRR", "money"), ("start_date", "Start", "text"), ("end_date", "End", "text"),
             ("location", "Location", "text")]
     return "Projects", cols, rows, [{"label": "Projects", "value": len(rows)},
-                                    {"label": "Total budget", "value": sum(r.get("budget", 0) for r in rows), "money": True}]
+                                    {"label": "One-time value", "value": sum(r.get("budget", 0) for r in rows if r["billing_type"] != "recurring"), "money": True},
+                                    {"label": "MRR", "value": round(sum(r.get("mrr", 0) for r in rows), 2), "money": True}]
 
 
 async def fetch_ledger(p, user):

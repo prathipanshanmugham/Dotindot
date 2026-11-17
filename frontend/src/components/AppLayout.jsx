@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import {
   LayoutDashboard, Users, FolderKanban, IndianRupee, TrendingUp, UserCheck,
   Handshake, BarChart3, ScrollText, Settings, ShieldCheck, LogOut, Search, ChevronDown,
@@ -48,7 +49,7 @@ const NAV = [
     items: [
       {
         name: "Finance", path: "/finance", icon: IndianRupee,
-        perm: ["finance.ledger", "finance.subscriptions", "finance.budgets", "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.employee_revenue", "finance.loans"],
+        perm: ["finance.ledger", "finance.subscriptions", "finance.budgets", "finance.ai_spend", "finance.api_credits", "finance.marketing", "finance.employee_revenue", "finance.loans", "finance.revenue"],
       },
       { name: "Investors", path: "/investors", icon: Landmark, perm: ["investors"] },
       { name: "Project Profit", path: "/finance/profit", icon: PieChart, perm: ["finance.project_profit"], when: (u, hasPerm) => !hasPerm("finance.ledger") },
@@ -155,7 +156,7 @@ const GlobalSearch = ({ autoFocus = false }) => {
                   className="w-full text-left px-4 py-2 hover:bg-orange-50 flex items-center justify-between transition-colors"
                 >
                   <span className="text-sm font-medium text-gray-800">{c.name}</span>
-                  <span className="text-xs text-gray-400">{c.company}</span>
+                  <span className="text-xs text-gray-400">{[c.contact_name, c.city].filter(Boolean).join(" · ")}</span>
                 </button>
               ))}
             </div>
@@ -370,7 +371,7 @@ export default function AppLayout({ children }) {
           </div>
         )}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-md:pb-[calc(5.5rem+env(safe-area-inset-bottom))] animate-fadein min-w-0" key={location.pathname}>
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
       <BottomNav user={user} hasPerm={hasPerm} menuOpen={mobileOpen} onMenu={() => setMobileOpen(true)} />
