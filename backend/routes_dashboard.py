@@ -39,6 +39,8 @@ def managed_branches(user: dict):
 def resolve_dashboard(user: dict) -> str:
     if user.get("role") == "super_admin":
         return "ceo"
+    if user.get("ceo_of") and has_permission(user, "ceo_dashboard"):
+        return "ceo"
     mb = managed_branches(user)
     if mb is None or mb:
         return "manager"
@@ -47,8 +49,15 @@ def resolve_dashboard(user: dict) -> str:
 
 @router.get("/dashboard/which")
 async def which_dashboard(user: dict = Depends(get_current_user)):
-    return {"dashboard": resolve_dashboard(user), "can_switch": user.get("role") == "super_admin",
-            "managed_branches": managed_branches(user)}
+    mine = resolve_dashboard(user)
+    if user.get("role") == "super_admin":
+        views = ["ceo", "manager", "staff"]
+    elif mine == "ceo":   # a location CEO can also open the manager view of their locations
+        mb = managed_branches(user)
+        views = ["ceo", "manager"] if (mb is None or mb) else ["ceo"]
+    else:
+        views = [mine]
+    return {"dashboard": mine, "can_switch": len(views) > 1, "views": views, "managed_branches": managed_branches(user)}
 
 
 async def _umap():
@@ -69,16 +78,29 @@ def _month_range():
 async def ceo_extras(user: dict = Depends(get_current_user)):
     if not has_permission(user, "ceo_dashboard"):
         raise HTTPException(status_code=403, detail="CEO dashboard is restricted")
+    from permissions import ceo_scope
+    scope = ceo_scope(user)   # a location CEO sees their locations only; company-wide panels are the founder's
     t = _today().isoformat()
     soon = (_today() + timedelta(days=30)).isoformat()
-    assets = await db.assets.find({}, {"_id": 0, "purchase_value": 1, "status": 1, "next_maintenance_date": 1}).to_list(5000)
+    assets = await db.assets.find({} if scope is None else {"branch_id": {"$in": scope}},
+                                  {"_id": 0, "purchase_value": 1, "status": 1, "next_maintenance_date": 1}).to_list(5000)
     users = await db.users.find({"is_active": True, "deleted": {"$ne": True}}, {"_id": 0, "branch_id": 1, "branch_assignments": 1}).to_list(1000)
     bmap = await _bmap()
     head = {}
     for u in users:
         bid = u.get("branch_id") or ((u.get("branch_assignments") or [{}])[0].get("branch_id"))
+        if scope is not None and bid not in scope:
+            continue
         key = bmap.get(bid, "Unassigned")
         head[key] = head.get(key, 0) + 1
+    if scope is not None:
+        return {
+            "assets": {"count": len(assets), "value": round(sum(a.get("purchase_value") or 0 for a in assets), 2),
+                       "maintenance_due": sum(1 for a in assets if a.get("next_maintenance_date") and a["next_maintenance_date"] <= soon and a.get("status") != "retired"),
+                       "in_use": sum(1 for a in assets if a.get("status") == "in_use")},
+            "employees": {"headcount": sum(head.values()), "by_branch": [{"branch": k, "count": v} for k, v in sorted(head.items(), key=lambda i: -i[1])]},
+            "security": None, "renewals": None, "critical_feed": None, "scoped": True,
+        }
     pw = await db.password_entries.find({}, {"_id": 0, "twofa_enabled": 1, "last_password_changed": 1, "change_interval_days": 1}).to_list(1000)
     overdue = 0
     for e in pw:

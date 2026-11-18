@@ -309,6 +309,13 @@ async def edit_record(coll: str, rid: str, body: dict = Body(...), user: dict = 
     updates = {k: v for k, v in (body or {}).items() if k not in ("_id", "id", "password_hash")}
     if not updates:
         raise HTTPException(status_code=400, detail="No editable fields provided")
+    if coll == "users":
+        from routes_users import guard_always_active, guard_last_super_admin
+        guard_always_active(existing, updates)
+        if "role" in updates:
+            await guard_last_super_admin(existing, updates["role"])
+        if updates.get("is_active") is False and rid == user["id"]:
+            raise HTTPException(status_code=400, detail="You can't deactivate your own login")
     await db[coll].update_one({"id": rid}, {"$set": updates})
     label = existing.get("name") or existing.get("title") or existing.get("number") or rid
     await log_activity(user, "workspace_edited", coll, rid, f"{label} ({len(updates)} fields)")

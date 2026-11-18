@@ -214,3 +214,15 @@ Internal web app (FARM: FastAPI + React + MongoDB) for Dotindot Creative, an AI-
 - Dropdowns: project/client/lead location, contact role, lead service, target period, HR department/designation/work location/
   blood group/gender/marital status/education/relation, hiring team/experience/location shown, course & partnership category,
   subscription owner, billing country & city, investor city. Leads export now respects location scope.
+
+## v3.7 (18 Nov 2026) — always-active super admins, full user editing, location CEO reports
+- Super admins are always active: no toggle in User Management; API, workspace edit and HR exit refuse to switch one off
+  (demote first); you can't switch off or demote yourself; the last super admin can't be demoted; startup reactivates any.
+- User Management → edit (pencil): name, email (login), phone, role, location, designation, department, join date, place,
+  skills, bio, new password, login on/off. Only a super admin edits admin / super admin accounts (also on profiles).
+- Location CEO = a person picked on each location (`branches.manager_id`; `users.ceo_of` kept in step; startup links a typed
+  head name to the one active person with that name). A location CEO gets `ceo_dashboard`, lands on the CEO report scoped to
+  their locations (can switch to the manager view); founder-only panels (security, renewals, critical feed) hidden for them.
+- CEO report: location picker, income/expenses by location (ledger entries can carry a location; else project → client →
+  company-wide), team cost from payslips, contribution; `GET /ceo/report.pdf?period=&branch=` downloads it.
+- `/locations/compare` now respects the viewer's locations.

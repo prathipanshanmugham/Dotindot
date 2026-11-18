@@ -40,7 +40,7 @@ const cityIcon = (clients, team) => {
   return L.divIcon({ className: "", html, iconSize: [0, 0], iconAnchor: [0, 0], popupAnchor: [0, -12] });
 };
 
-const EMPTY_BRANCH = { name: "", city: "", state: "", country: "India", address: "", head_name: "", contact_email: "", contact_phone: "", status: "active", lat: null, lng: null, pin_source: null };
+const EMPTY_BRANCH = { name: "", city: "", state: "", country: "India", address: "", head_name: "", manager_id: null, contact_email: "", contact_phone: "", status: "active", lat: null, lng: null, pin_source: null };
 
 const BranchManager = ({ onChanged, onLocate }) => {
   const { user } = useAuth();
@@ -49,6 +49,8 @@ const BranchManager = ({ onChanged, onLocate }) => {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_BRANCH);
+  const [people, setPeople] = useState([]);
+  useEffect(() => { if (open) api.get("/users/team").then((r) => setPeople(r.data)).catch(() => {}); }, [open]);
 
   const del = useRecordDelete({ coll: "branches", permKey: "locations.delete", rows: branches, onDeleted: () => { load(); onChanged && onChanged(); } });
   const load = useCallback(() => {
@@ -65,7 +67,7 @@ const BranchManager = ({ onChanged, onLocate }) => {
     setEditing(b);
     setForm({
       name: b.name || "", city: b.city || "", state: b.state || "", country: b.country || "India", address: b.address || "",
-      head_name: b.head_name || "", contact_email: b.contact_email || "", contact_phone: b.contact_phone || "",
+      head_name: b.head_name || "", manager_id: b.manager_id || null, contact_email: b.contact_email || "", contact_phone: b.contact_phone || "",
       status: b.status || "active", lat: b.lat ?? null, lng: b.lng ?? null, pin_source: b.pin_source || null,
     });
     setOpen(true);
@@ -115,7 +117,7 @@ const BranchManager = ({ onChanged, onLocate }) => {
               <TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
               <TableHead>Branch</TableHead>
               <TableHead>City</TableHead>
-              <TableHead>Manager / Head</TableHead>
+              <TableHead>Location CEO</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Status</TableHead>
               {isAdmin && <TableHead className="text-right">Actions</TableHead>}
@@ -190,8 +192,16 @@ const BranchManager = ({ onChanged, onLocate }) => {
               <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} data-testid="branch-form-address" />
             </div>
             <div className="space-y-1">
-              <Label>Head / Manager name</Label>
-              <Input value={form.head_name} onChange={(e) => setForm((f) => ({ ...f, head_name: e.target.value }))} data-testid="branch-form-head" />
+              <Label>Location CEO</Label>
+              <Select value={form.manager_id || "__none"} onValueChange={(v) => setForm((f) => ({ ...f, manager_id: v === "__none" ? "" : v }))}>
+                <SelectTrigger data-testid="branch-form-ceo"><SelectValue placeholder="Pick a person" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">No CEO yet{!form.manager_id && form.head_name ? ` (was “${form.head_name}”)` : ""}</SelectItem>
+                  {form.manager_id && !people.some((p) => p.id === form.manager_id) && <SelectItem value={form.manager_id}>{form.head_name || "Current CEO"}</SelectItem>}
+                  {people.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-400">Gets the CEO report for this location.</p>
             </div>
             <div className="space-y-1">
               <Label>Contact email</Label>

@@ -70,3 +70,45 @@ async def migrate_locations_v36():
             await db.leads.update_one({"id": l["id"]}, {"$set": {"branch_id": b}})
             m += 1
     await db.migrations.insert_one({"id": "locations_v36", "projects": n, "leads": m})
+
+
+def tx_location(x: dict, ploc: Dict[str, Optional[str]], client_branch: Dict[str, Optional[str]]) -> Optional[str]:
+    """The location a ledger entry belongs to: picked on the entry, else its project's, else its client's.
+    None = company-wide (rent, tools, salaries not tied to one location)."""
+    if x.get("branch_id"):
+        return x["branch_id"]
+    if x.get("project_id") and ploc.get(x["project_id"]):
+        return ploc[x["project_id"]]
+    return client_branch.get(x.get("client_id")) or None
+
+
+async def location_maps():
+    """(client → location, project → location) for attributing money to locations."""
+    cb = await client_branch_map()
+    ploc = {p["id"]: project_location(p, cb) for p in await db.projects.find({}, {"_id": 0, "id": 1, "client_id": 1, "kind": 1, "branch_id": 1}).to_list(20000)}
+    return cb, ploc
+
+
+async def sync_ceo_of():
+    """Each person's `ceo_of` = the locations they are CEO of (from branches.manager_id)."""
+    heads: Dict[str, list] = {}
+    for b in await db.branches.find({"manager_id": {"$nin": [None, ""]}}, {"_id": 0, "id": 1, "manager_id": 1}).to_list(500):
+        heads.setdefault(b["manager_id"], []).append(b["id"])
+    await db.users.update_many({"ceo_of": {"$exists": True}, "id": {"$nin": list(heads)}}, {"$unset": {"ceo_of": ""}})
+    for uid, ids in heads.items():
+        await db.users.update_one({"id": uid}, {"$set": {"ceo_of": sorted(ids)}})
+
+
+async def migrate_location_ceos_v37():
+    """Turn a location's typed head name into its CEO when exactly one active person has that name."""
+    if not await db.migrations.find_one({"id": "location_ceos_v37"}):
+        people = await db.users.find({"is_active": True, "deleted": {"$ne": True}}, {"_id": 0, "id": 1, "name": 1}).to_list(5000)
+        linked = 0
+        for b in await db.branches.find({"$or": [{"manager_id": None}, {"manager_id": ""}, {"manager_id": {"$exists": False}}],
+                                         "head_name": {"$nin": [None, ""]}}, {"_id": 0, "id": 1, "head_name": 1}).to_list(500):
+            match = [u for u in people if (u.get("name") or "").strip().lower() == b["head_name"].strip().lower()]
+            if len(match) == 1:
+                await db.branches.update_one({"id": b["id"]}, {"$set": {"manager_id": match[0]["id"]}})
+                linked += 1
+        await db.migrations.insert_one({"id": "location_ceos_v37", "linked": linked})
+    await sync_ceo_of()

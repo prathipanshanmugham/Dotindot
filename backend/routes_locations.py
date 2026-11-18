@@ -6,8 +6,8 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from database import db
 from auth import get_current_user, require_roles, log_activity
-from permissions import branch_scope
-from locations_util import project_location
+from permissions import branch_scope, ceo_scope
+from locations_util import project_location, tx_location, sync_ceo_of
 from india_locations import INDIA_STATES, INDIA_CITY_COORDS, COUNTRIES
 
 router = APIRouter()
@@ -228,15 +228,31 @@ async def branches(user: dict = Depends(get_current_user)):
     return rows
 
 
+async def _location_ceo(manager_id):
+    """Validate the person picked as a location's CEO; returns (id, name) or (None, None)."""
+    if not manager_id:
+        return None, None
+    u = await db.users.find_one({"id": manager_id, "deleted": {"$ne": True}}, {"_id": 0, "id": 1, "name": 1, "is_active": 1})
+    if not u:
+        raise HTTPException(status_code=404, detail="That person doesn't exist")
+    if u.get("is_active") is False:
+        raise HTTPException(status_code=400, detail="That person's login is switched off. Pick someone active as the location CEO.")
+    return u["id"], u["name"]
+
+
 @router.post("/locations/branches")
 async def create_branch(body: BranchIn, user: dict = Depends(require_roles("admin"))):
     doc = {"id": str(uuid.uuid4()), **body.dict(), "established": datetime.now(timezone.utc).date().isoformat(),
            "created_at": datetime.now(timezone.utc).isoformat()}
+    doc["manager_id"], ceo_name = await _location_ceo(doc.get("manager_id"))
+    if ceo_name:
+        doc["head_name"] = ceo_name
     doc["lat"], doc["lng"] = resolve_coords(doc.get("city"), doc.get("state"), doc.get("lat"), doc.get("lng"))
     doc["pin_source"] = pin_source_of({**doc, "pin_source": doc.get("pin_source") if doc.get("pin_source") in ("exact", "city") else None})
     await db.branches.insert_one(dict(doc))
     await log_activity(user, "branch_created", "branch", doc["id"], doc["name"])
     doc.pop("_id", None)
+    await sync_ceo_of()
     return doc
 
 
@@ -248,6 +264,10 @@ async def update_branch(branch_id: str, body: BranchUpdate, user: dict = Depends
     updates = {k: v for k, v in body.dict().items() if v is not None}
     if updates.get("status") and updates["status"] not in ("active", "inactive"):
         raise HTTPException(status_code=400, detail="Invalid status")
+    if "manager_id" in body.model_dump(exclude_unset=True):   # "" or null clears the location CEO
+        updates["manager_id"], ceo_name = await _location_ceo(body.manager_id)
+        if ceo_name:
+            updates["head_name"] = ceo_name
     merged = {**b, **updates}
     city_changed = "city" in updates and updates["city"] != b.get("city")
     if city_changed and "lat" not in updates:
@@ -259,6 +279,7 @@ async def update_branch(branch_id: str, body: BranchUpdate, user: dict = Depends
     await db.branches.update_one({"id": branch_id}, {"$set": updates})
     action = "branch_deactivated" if updates.get("status") == "inactive" else "branch_updated"
     await log_activity(user, action, "branch", branch_id, b["name"])
+    await sync_ceo_of()
     return await db.branches.find_one({"id": branch_id}, {"_id": 0})
 
 
@@ -275,18 +296,20 @@ async def delete_branch(branch_id: str, user: dict = Depends(require_roles("admi
             detail=f"Cannot delete: {linked_clients} client(s)/project(s) and {linked_users} user(s) are linked to this location. Deactivate it instead.")
     await db.branches.delete_one({"id": branch_id})
     await log_activity(user, "branch_deleted", "branch", branch_id, b["name"])
+    await sync_ceo_of()
     return {"ok": True}
 
 
 @router.get("/locations/compare")
 async def compare_branches(user: dict = Depends(get_current_user)):
-    """Branch roll-up: revenue, clients, projects, pipeline, headcount, assets per branch."""
-    branches = await db.branches.find({}, {"_id": 0}).sort("name", 1).to_list(50)
+    """Location roll-up: revenue, clients, projects, pipeline, headcount, assets — for the locations this person covers."""
+    scope = ceo_scope(user)
+    branches = await db.branches.find({} if scope is None else {"id": {"$in": scope}}, {"_id": 0}).sort("name", 1).to_list(50)
     clients = await db.clients.find({}, {"_id": 0, "id": 1, "branch_id": 1, "status": 1}).to_list(2000)
     cb = {c["id"]: c.get("branch_id") for c in clients}
     projects = await db.projects.find({}, {"_id": 0, "id": 1, "client_id": 1, "status": 1, "budget": 1, "kind": 1, "branch_id": 1}).to_list(2000)
-    tx = await db.transactions.find({"type": "income", "client_id": {"$nin": [None, ""]}},
-                                    {"_id": 0, "client_id": 1, "amount": 1}).to_list(20000)
+    tx = await db.transactions.find({"type": "income"}, {"_id": 0, "client_id": 1, "project_id": 1, "branch_id": 1, "amount": 1}).to_list(20000)
+    ploc = {p["id"]: project_location(p, cb) for p in projects}
     leads = await db.leads.find({}, {"_id": 0, "branch_id": 1, "stage": 1, "estimated_value": 1}).to_list(2000)
     users = await db.users.find({"is_active": True}, {"_id": 0, "branch_id": 1}).to_list(500)
     assets = await db.assets.find({}, {"_id": 0, "branch_id": 1, "purchase_value": 1}).to_list(2000)
@@ -300,7 +323,7 @@ async def compare_branches(user: dict = Depends(get_current_user)):
         rows.append({
             "id": bid, "name": b["name"], "city": b.get("city"), "country": b.get("country"),
             "status": b.get("status", "active"),
-            "revenue": round(sum(x["amount"] for x in tx if cb.get(x["client_id"]) == bid), 2),
+            "revenue": round(sum(x["amount"] for x in tx if tx_location(x, ploc, cb) == bid), 2),
             "clients_total": len(b_clients),
             "clients_active": sum(1 for c in b_clients if c.get("status") == "active"),
             "projects_active": sum(1 for p in b_projects if p["status"] in ("kickoff", "in_progress", "review")),

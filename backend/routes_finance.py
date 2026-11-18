@@ -71,8 +71,9 @@ def enrich(rows, cmap, pmap):
 async def finance_overview(branch: Optional[str] = None, user: dict = Depends(require_roles(*FIN))):
     tx = await db.transactions.find({}, {"_id": 0}).to_list(10000)
     if branch:
-        _bc = {c["id"] for c in await db.clients.find({"branch_id": branch}, {"_id": 0, "id": 1}).to_list(2000)}
-        tx = [x for x in tx if x.get("client_id") in _bc]
+        from locations_util import location_maps, tx_location
+        _cb, _pl = await location_maps()
+        tx = [x for x in tx if tx_location(x, _pl, _cb) == branch]
     t = _today()
     this_month = t.isoformat()[:7]
     year = t.isoformat()[:4]
@@ -136,14 +137,17 @@ async def list_transactions(
         q["project_id"] = project_id
     from permissions import scoped_client_ids
     ids = await scoped_client_ids(user)
-    if branch:
-        bc = [c["id"] for c in await db.clients.find({"branch_id": branch}, {"_id": 0, "id": 1}).to_list(2000)]
-        if ids is not None:
-            bc = [i for i in bc if i in set(ids)]
-        q["client_id"] = {"$in": bc}
-    elif ids is not None:
+    if ids is not None:
         q["$or"] = [{"client_id": {"$in": ids}}, {"client_id": {"$in": [None, ""]}}]
     rows = await db.transactions.find(q, {"_id": 0}).sort("date", -1).to_list(5000)
+    from locations_util import location_maps, tx_location, branch_names
+    _cb, _pl = await location_maps()
+    if branch:
+        rows = [r for r in rows if (tx_location(r, _pl, _cb) or "none") == branch]
+    _bn = await branch_names()
+    for r in rows:
+        loc = tx_location(r, _pl, _cb)
+        r["location_id"], r["location_name"] = loc, _bn.get(loc, "") if loc else ""
     cmap, pmap = await name_maps()
     enrich(rows, cmap, pmap)
     income = sum(r["amount"] for r in rows if r["type"] == "income")
@@ -156,6 +160,8 @@ async def create_transaction(body: TransactionCreate, user: dict = Depends(requi
     if body.type not in ("income", "expense"):
         raise HTTPException(status_code=400, detail="type must be income or expense")
     doc = body.model_dump()
+    from locations_util import valid_branch
+    doc["branch_id"] = await valid_branch(doc.get("branch_id"))
     doc.update({"id": str(uuid.uuid4()), "created_by": user["id"], "created_at": _now()})
     await db.transactions.insert_one(doc)
     await log_activity(user, "transaction_created", "transaction", doc["id"], f"{doc['type']} ₹{doc['amount']}")
@@ -169,6 +175,9 @@ async def update_transaction(tx_id: str, body: TransactionUpdate, user: dict = D
     if not existing:
         raise HTTPException(status_code=404, detail="Transaction not found")
     updates = body.model_dump(exclude_unset=True)
+    if "branch_id" in updates:
+        from locations_util import valid_branch
+        updates["branch_id"] = await valid_branch(updates["branch_id"])
     if updates:
         await db.transactions.update_one({"id": tx_id}, {"$set": updates})
     await log_activity(user, "transaction_updated", "transaction", tx_id, existing.get("description", ""))
@@ -237,6 +246,10 @@ async def approve_expense(expense_id: str, user: dict = Depends(require_roles(*F
         "source": "expense_workflow", "currency": "INR", "expense_id": expense_id,
         "created_by": user["id"], "created_at": _now(),
     }
+    if not e.get("client_id") and not e.get("project_id"):   # a claim for no client/project sits with the claimant's location
+        claimant = await db.users.find_one({"id": e.get("submitted_by")}, {"_id": 0, "branch_id": 1}) or {}
+        if claimant.get("branch_id") and await db.branches.find_one({"id": claimant["branch_id"]}, {"_id": 0, "id": 1}):
+            tx["branch_id"] = claimant["branch_id"]
     await db.transactions.insert_one(tx)
     await log_activity(user, "expense_approved", "expense", expense_id, f"{e['category']} ₹{e['amount']}")
     return {"ok": True, "status": "approved", "transaction_id": tx["id"]}

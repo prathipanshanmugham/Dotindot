@@ -45,7 +45,8 @@ def _visible_branches(user: dict) -> Optional[List[str]]:
     """None = every location; else the ones this person may see a score for."""
     from routes_dashboard import managed_branches
     if has_permission(user, "ceo_dashboard"):
-        return branch_scope(user)
+        from permissions import ceo_scope
+        return ceo_scope(user)
     mb = managed_branches(user)
     if mb is None:
         return branch_scope(user)

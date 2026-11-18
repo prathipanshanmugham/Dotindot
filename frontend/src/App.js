@@ -86,10 +86,10 @@ const HomeDashboard = () => {
   return <StaffDashboard />;
 };
 
-// Only super_admin may view another role's dashboard; everyone else is sent to their own.
+// The founder may view any dashboard, a location CEO the CEO and manager ones; everyone else is sent to their own.
 const DashboardRoute = ({ kind }) => {
-  const { user, landing } = useAuth();
-  if (user?.role !== "super_admin" && landing !== kind) return <Navigate to="/dashboard" replace />;
+  const { views = [] } = useAuth();
+  if (!views.includes(kind)) return <Navigate to="/dashboard" replace />;
   if (kind === "ceo") return <CeoDashboard />;
   if (kind === "manager") return <ManagerDashboard />;
   return <StaffDashboard />;

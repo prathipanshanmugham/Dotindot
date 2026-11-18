@@ -1,5 +1,6 @@
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends
 from database import db
 from models import UserCreate, UserUpdate
@@ -69,28 +70,89 @@ async def create_user(body: UserCreate, user: dict = Depends(require_roles("admi
     return {k: v for k, v in doc.items() if k not in ("password_hash", "_id")}
 
 
+EMAIL_RX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+TEXT_FIELDS = {"name": 80, "phone": 30, "designation": 80, "department": 60, "country": 60, "state": 60, "city": 60, "bio": 1000}
+
+
+async def ensure_super_admin_active():
+    """A super admin is always active (run at startup)."""
+    await db.users.update_many({"role": "super_admin", "is_active": {"$ne": True}}, {"$set": {"is_active": True}})
+
+
+def guard_always_active(target: dict, updates: dict):
+    """Super admins can't be switched off; demote them first. And the last super admin stays one."""
+    role_after = updates.get("role", target.get("role"))
+    if role_after == "super_admin" and updates.get("is_active") is False:
+        raise HTTPException(status_code=400, detail="A super admin is always active. Change their role first if they should lose access.")
+
+
+async def guard_last_super_admin(target: dict, new_role):
+    if target.get("role") == "super_admin" and new_role and new_role != "super_admin":
+        others = await db.users.count_documents({"role": "super_admin", "id": {"$ne": target["id"]}, "deleted": {"$ne": True}})
+        if not others:
+            raise HTTPException(status_code=400, detail="This is the only super admin. Make someone else super admin first.")
+
+
 @router.put("/users/{user_id}")
 async def update_user(user_id: str, body: UserUpdate, user: dict = Depends(require_roles("admin"))):
     target = await db.users.find_one({"id": user_id})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
     _can_manage(user, target["role"])
+    data = body.model_dump(exclude_unset=True)
     updates = {}
-    if body.name is not None:
-        updates["name"] = body.name
-    if body.role is not None:
+    for k, limit in TEXT_FIELDS.items():
+        if k in data and data[k] is not None:
+            v = str(data[k]).strip()
+            if k == "name" and not v:
+                raise HTTPException(status_code=400, detail="Name can't be empty")
+            if len(v) > limit:
+                raise HTTPException(status_code=400, detail=f"{k.replace('_', ' ').capitalize()} is too long (max {limit} characters)")
+            updates[k] = v
+    if data.get("email") is not None:
+        email = data["email"].strip().lower()
+        if not EMAIL_RX.match(email):
+            raise HTTPException(status_code=400, detail="That email doesn't look right")
+        if email != target.get("email") and await db.users.find_one({"email": email, "id": {"$ne": user_id}}):
+            raise HTTPException(status_code=400, detail="Another user already has this email")
+        updates["email"] = email
+    if "join_date" in data:
+        jd = (data["join_date"] or "").strip()
+        if jd:
+            try:
+                date.fromisoformat(jd[:10])
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Join date should be a date like 2026-04-01")
+        updates["join_date"] = jd[:10] or None
+    if "branch_id" in data:
+        from locations_util import valid_branch
+        updates["branch_id"] = await valid_branch(data["branch_id"])
+    if data.get("skills") is not None:
+        updates["skills"] = [str(x).strip()[:40] for x in data["skills"] if str(x).strip()][:30]
+    if body.role is not None and body.role != target["role"]:
         if body.role not in VALID_ROLES:
             raise HTTPException(status_code=400, detail="Invalid role")
         _can_manage(user, body.role)
+        if user_id == user["id"]:
+            raise HTTPException(status_code=400, detail="You can't change your own role")
+        await guard_last_super_admin(target, body.role)
         updates["role"] = body.role
     if body.is_active is not None:
+        if body.is_active is False and user_id == user["id"]:
+            raise HTTPException(status_code=400, detail="You can't deactivate your own login")
         updates["is_active"] = body.is_active
+    guard_always_active(target, updates)
     if body.password:
+        if len(body.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
         updates["password_hash"] = hash_password(body.password)
     if updates:
         await db.users.update_one({"id": user_id}, {"$set": updates})
-    action = "user_deactivated" if body.is_active is False else "user_updated"
-    await log_activity(user, action, "user", user_id, target["name"])
+    if updates.get("role") == "super_admin" and target.get("is_active") is False:
+        await db.users.update_one({"id": user_id}, {"$set": {"is_active": True}})
+    action = "user_deactivated" if updates.get("is_active") is False else "user_updated"
+    changed = ", ".join(sorted(k if k != "password_hash" else "password" for k in updates))
+    await log_activity(user, action, "user", user_id, f"{updates.get('name', target['name'])}" + (f" ({changed})" if changed else ""))
     updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0, "hr": 0})
     return updated
 

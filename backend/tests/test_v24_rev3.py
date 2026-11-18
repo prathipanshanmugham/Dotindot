@@ -61,7 +61,8 @@ class TestDashboards:
     def test_which_midhun_manager(self, tokens):
         r = requests.get(f"{API}/dashboard/which", headers=H(tokens["midhun"]))
         assert r.status_code == 200
-        assert r.json()["dashboard"] == "manager"
+        # v3.7: Midhun is CEO of his locations, so he lands on their CEO report and can switch to the manager view
+        assert r.json()["dashboard"] == "ceo" and r.json()["views"] == ["ceo", "manager"]
 
     def test_which_employee_staff(self, tokens):
         for k in ("employee", "sales", "finance"):

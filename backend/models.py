@@ -25,6 +25,18 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
+    # everything else about a person, editable from User Management (v3.7)
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    designation: Optional[str] = None
+    department: Optional[str] = None
+    join_date: Optional[str] = None
+    branch_id: Optional[str] = None     # home location; "" clears it
+    country: Optional[str] = None
+    state: Optional[str] = None
+    city: Optional[str] = None
+    bio: Optional[str] = None
+    skills: Optional[List[str]] = None
 
 
 # ---------- Clients ----------
@@ -176,6 +188,7 @@ class TransactionCreate(BaseModel):
     ai_tool: Optional[str] = None
     source: Optional[str] = None
     currency: str = "INR"
+    branch_id: Optional[str] = None   # the location it belongs to; blank = from the project / client, else company-wide
 
 
 class TransactionUpdate(BaseModel):
@@ -191,6 +204,7 @@ class TransactionUpdate(BaseModel):
     campaign_id: Optional[str] = None
     ai_tool: Optional[str] = None
     source: Optional[str] = None
+    branch_id: Optional[str] = None
 
 
 class ExpenseCreate(BaseModel):

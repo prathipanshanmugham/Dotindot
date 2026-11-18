@@ -157,6 +157,8 @@ def effective_permissions(user: dict) -> list:
     if user.get("role") == "super_admin":
         return sorted(ALL_KEYS)
     base = set(ROLE_DEFAULTS.get(user.get("role"), set()))
+    if user.get("ceo_of"):   # a location's CEO gets the CEO report for their locations (an explicit "off" below still wins)
+        base.add("ceo_dashboard")
     for key, granted in (user.get("permission_overrides") or {}).items():
         if key not in ALL_KEYS:
             continue
@@ -194,6 +196,16 @@ def branch_scope(user: dict):
         return [a["branch_id"] for a in assigns if a.get("branch_id")]
     branches = user.get("assigned_branches") or []
     return branches if branches else None
+
+
+def ceo_scope(user: dict):
+    """Locations a CEO report covers for this person: None = every location (the founder / company-wide CEOs),
+    else the locations they are CEO of (or, failing that, their location access)."""
+    if user.get("role") == "super_admin":
+        return None
+    if user.get("ceo_of"):
+        return list(user["ceo_of"])
+    return branch_scope(user)
 
 
 def user_branch_role(user: dict, branch_id):

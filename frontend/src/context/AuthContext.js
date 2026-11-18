@@ -9,11 +9,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [landing, setLanding] = useState("staff");
+  const [views, setViews] = useState(["staff"]);
 
   const loadPerms = async () => {
     const [p, w] = await Promise.all([api.get("/me/permissions"), api.get("/dashboard/which")]);
     setPerms(p.data.permissions || []);
     setLanding(w.data.dashboard || "staff");
+    setViews(w.data.views || [w.data.dashboard || "staff"]);
   };
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, perms, hasPerm, loading, ready, landing, refreshPerms: loadPerms, login, logout }}>
+    <AuthContext.Provider value={{ user, perms, hasPerm, loading, ready, landing, views, refreshPerms: loadPerms, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

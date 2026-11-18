@@ -179,10 +179,16 @@ def test_branch_role_assignments(admin_tok):
 
 
 def test_branch_filter_param(admin_tok):
-    endpoints = ["/clients", "/projects", "/ceo/dashboard", "/finance/overview", "/sales/overview"]
+    endpoints = ["/clients", "/projects", "/finance/overview", "/sales/overview"]
     for ep in endpoints:
         r = requests.get(f"{API}{ep}?branch=seed-branch-01", headers=_h(admin_tok), timeout=30)
         assert r.status_code == 200, f"{ep} => {r.status_code} {r.text[:200]}"
+    # v3.7: Midhun is a location CEO, so his CEO report covers his own locations only
+    mine = requests.get(f"{API}/auth/me", headers=_h(admin_tok), timeout=30).json().get("ceo_of") or []
+    assert mine, "Midhun should be CEO of his seeded locations"
+    assert requests.get(f"{API}/ceo/dashboard?branch={mine[0]}", headers=_h(admin_tok), timeout=30).status_code == 200
+    if "seed-branch-01" not in mine:
+        assert requests.get(f"{API}/ceo/dashboard?branch=seed-branch-01", headers=_h(admin_tok), timeout=30).status_code == 403
 
 
 # ---------- 5. Password Manager ----------

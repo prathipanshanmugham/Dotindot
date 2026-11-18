@@ -16,9 +16,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, AlertTriangle, History } from "lucide-react";
+import { Plus, Trash2, AlertTriangle, History, Pencil, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { LoginHistoryDialog, fmtWhen } from "@/pages/users/LoginHistoryDialog";
+import UserEditDialog from "@/pages/users/UserEditDialog";
 
 const ROLES = ["super_admin", "admin", "finance", "sales", "pm", "employee", "ads_manager", "social_manager", "hr"];
 
@@ -32,6 +33,7 @@ export default function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [assignments, setAssignments] = useState(null);
   const [historyUser, setHistoryUser] = useState(null);
+  const [editing, setEditing] = useState(null);
 
   const load = useCallback(() => {
     api.get("/users").then((r) => setUsers(r.data)).catch((e) => toast.error(apiError(e)));
@@ -96,7 +98,7 @@ export default function UsersPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">User Management</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Create team accounts, assign roles, deactivate access.</p>
+          <p className="text-sm text-gray-500 mt-0.5">Create accounts and edit anyone's details, role, location and login.</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -150,39 +152,49 @@ export default function UsersPage() {
                     <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FE7A18] to-[#FFAD42] text-white text-xs font-bold flex items-center justify-center">
                       {u.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="font-semibold text-gray-900">{u.name}</div>
-                      <div className="text-xs text-gray-400">{u.email}</div>
+                      <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                      {(u.designation || u.department) && <div className="text-[11px] text-gray-500 truncate">{[u.designation, u.department].filter(Boolean).join(" · ")}</div>}
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Select value={u.role} disabled={lockedRow} onValueChange={(v) => updateUser(u.id, { role: v }, `Role updated to ${ROLE_LABELS[v]}`)}>
+                  <Select value={u.role} disabled={lockedRow || u.id === me?.id} onValueChange={(v) => updateUser(u.id, { role: v }, `Role updated to ${ROLE_LABELS[v]}`)}>
                     <SelectTrigger className="w-[170px]" data-testid={`user-role-select-${u.id}`}><SelectValue /></SelectTrigger>
                     <SelectContent>{ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}</SelectContent>
                   </Select>
                 </TableCell>
                 <TableCell>
-                  {u.is_active ? (
+                  {u.is_active || u.role === "super_admin" ? (
                     <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Active</Badge>
                   ) : (
                     <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200">Deactivated</Badge>
                   )}
                 </TableCell>
                 <TableCell>
-                  <Switch
-                    checked={u.is_active}
-                    disabled={lockedRow}
-                    onCheckedChange={(v) => updateUser(u.id, { is_active: v }, v ? "User activated" : "User deactivated")}
-                    data-testid={`user-active-switch-${u.id}`}
-                  />
+                  {u.role === "super_admin" ? (
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-600" title="Super admins are always active" data-testid={`user-always-active-${u.id}`}><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Always</span>
+                  ) : (
+                    <Switch
+                      checked={u.is_active}
+                      disabled={lockedRow || u.id === me?.id}
+                      onCheckedChange={(v) => updateUser(u.id, { is_active: v }, v ? "User activated" : "User deactivated")}
+                      data-testid={`user-active-switch-${u.id}`}
+                    />
+                  )}
                 </TableCell>
                 <TableCell>
                   <button onClick={() => setHistoryUser(u)} className="text-left group" data-testid={`user-last-active-${u.id}`} title="View login history">
                     <span className="text-sm text-gray-700 group-hover:text-[#F26B21] flex items-center gap-1.5"><History className="h-3.5 w-3.5 text-gray-400" />{fmtWhen(u.last_login)}</span>
                   </button>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right whitespace-nowrap">
+                  {!lockedRow && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-[#F26B21]" onClick={() => setEditing(u)} data-testid={`edit-user-btn-${u.id}`} aria-label={`Edit ${u.name}`}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                   {isSuper && u.id !== me.id && (
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600" onClick={() => openDelete(u)} data-testid={`delete-user-btn-${u.id}`}>
                       <Trash2 className="h-4 w-4" />
@@ -241,6 +253,7 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
       {historyUser && <LoginHistoryDialog user={historyUser} onClose={() => setHistoryUser(null)} />}
+      {editing && <UserEditDialog person={editing} roles={isSuper ? ROLES : ROLES.filter((r) => !["admin", "super_admin"].includes(r))} onClose={() => setEditing(null)} onSaved={load} />}
     </div>
   );
 }

@@ -6,11 +6,14 @@ import { labelize, CHART_COLORS } from "@/components/Badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BranchFilter } from "@/components/BranchFilter";
+import { useBranchOptions } from "@/components/BranchFilter";
+import { saveBlobResponse } from "@/components/ExportMenu";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { DashboardSwitcher } from "@/components/DashboardSwitcher";
 import { CeoExtras } from "@/components/CeoExtras";
 import LocationScores from "@/components/LocationScores";
-import { ArrowUpRight, ArrowDownRight, Info, ArrowRight, Globe2, Building2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Info, ArrowRight, Globe2, Building2, Download } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line, ComposedChart, Cell,
@@ -61,6 +64,19 @@ export default function CeoDashboard() {
   const [d, setD] = useState(null);
   const [branches, setBranches] = useState([]);
   const [branch, setBranch] = useState("all");
+  const [busy, setBusy] = useState(false);
+  const allLocations = useBranchOptions();
+  // a location CEO picks between their own locations; the founder between all of them
+  const mine = user?.role === "super_admin" || !(user?.ceo_of || []).length ? allLocations : allLocations.filter((b) => user.ceo_of.includes(b.id));
+  const downloadReport = async () => {
+    setBusy(true);
+    try {
+      const res = await api.get("/ceo/report.pdf", { params: { period, ...(branch !== "all" ? { branch } : {}) }, responseType: "blob" });
+      saveBlobResponse(res, "ceo-report.pdf");
+      toast.success("CEO report downloaded");
+    } catch { toast.error("Couldn't make the report. Try again."); }
+    setBusy(false);
+  };
 
   useEffect(() => {
     setD(null);
@@ -78,19 +94,36 @@ export default function CeoDashboard() {
     <div className="space-y-6 max-w-7xl" data-testid="ceo-dashboard">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-[#F26B21]">CEO Dashboard</div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[#F26B21]">CEO report · {d.scope?.label || "All locations"}</div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Good to see you, {user.name.split(" ")[0]}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{d.range.start} → {d.range.end} · compared with {d.prev_range.start} → {d.prev_range.end}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DashboardSwitcher current="ceo" />
-          <BranchFilter value={branch} onChange={setBranch} testid="ceo-branch-filter" />
+          <Select value={branch} onValueChange={setBranch}>
+            <SelectTrigger className="w-[190px]" data-testid="ceo-branch-filter"><Building2 className="h-3.5 w-3.5 text-[#F26B21] mr-1.5 shrink-0" /><span className="flex-1 text-left truncate"><SelectValue /></span></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{user?.role === "super_admin" || !(user?.ceo_of || []).length ? "All locations" : mine.length > 1 ? "All my locations" : mine[0]?.name || "My location"}</SelectItem>
+              {mine.length > 1 || user?.role === "super_admin" ? mine.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>) : null}
+            </SelectContent>
+          </Select>
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[170px]" data-testid="ceo-period-select"><SelectValue /></SelectTrigger>
             <SelectContent>{PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
           </Select>
+          <Button variant="outline" onClick={downloadReport} disabled={busy} data-testid="ceo-report-pdf">
+            <Download className="h-4 w-4 mr-1.5" /> {busy ? "Preparing…" : "Download report"}
+          </Button>
         </div>
       </div>
+      {d.team?.contribution !== null && d.team?.contribution !== undefined && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" data-testid="ceo-location-pnl">
+          <Metric label="Income" value={formatINR(d.margin.income)} link="/finance/ledger" linkLabel="Ledger" testid="ceo-loc-income" />
+          <Metric label="Location expenses" value={formatINR(d.margin.expense)} link="/finance/ledger" linkLabel="Ledger" testid="ceo-loc-expense" />
+          <Metric label="Team cost" value={formatINR(d.team.cost)} tooltip={d.team.formula} testid="ceo-loc-team" />
+          <Metric label="Contribution" value={formatINR(d.team.contribution)} tooltip={d.team.formula} testid="ceo-loc-contribution" />
+        </div>
+      )}
 
       {/* Row 1: headline */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

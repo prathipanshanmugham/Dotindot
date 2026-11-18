@@ -110,6 +110,8 @@ async def update_profile(user_id: str, body: ProfileUpdate, user: dict = Depends
     target = await db.users.find_one({"id": user_id})
     if not target:
         raise HTTPException(status_code=404, detail="Employee not found")
+    if user["id"] != user_id and target.get("role") in ("admin", "super_admin") and user["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only a super admin can edit an admin's profile")
     updates = {k: v for k, v in body.dict().items() if v is not None}
     if user["role"] not in ("admin", "super_admin"):
         updates.pop("name", None)  # only admin renames

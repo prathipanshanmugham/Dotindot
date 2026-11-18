@@ -8,14 +8,14 @@ const KINDS = [
   { key: "staff", label: "Staff", icon: User, path: "/dashboard/staff" },
 ];
 
-// super_admin only: preview any of the three role dashboards
+// The founder can preview all three dashboards; a location CEO switches between CEO and manager views.
 export const DashboardSwitcher = ({ current }) => {
-  const { user } = useAuth();
+  const { views = [] } = useAuth();
   const { pathname } = useLocation();
-  if (user?.role !== "super_admin") return null;
+  if (views.length < 2) return null;
   return (
     <div className="inline-flex rounded-full border border-gray-200 bg-white p-0.5 text-xs font-semibold" data-testid="dashboard-switcher">
-      {KINDS.map((k) => {
+      {KINDS.filter((k) => views.includes(k.key)).map((k) => {
         const active = current === k.key || pathname === k.path;
         return (
           <Link key={k.key} to={k.path} data-testid={`dashboard-switch-${k.key}`}

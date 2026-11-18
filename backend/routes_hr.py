@@ -738,6 +738,9 @@ async def complete_process(kind: str, pid: str, body: CompleteIn, user: dict = D
         if body.deactivate_login:
             if d["user_id"] == user["id"]:
                 raise HTTPException(status_code=400, detail="You can't deactivate your own login")
+            leaver = await db.users.find_one({"id": d["user_id"]}, {"_id": 0, "role": 1}) or {}
+            if leaver.get("role") == "super_admin":
+                raise HTTPException(status_code=400, detail="A super admin is always active. Change their role first, then close the exit.")
             sets["is_active"] = False
         await db.users.update_one({"id": d["user_id"]}, {"$set": sets})
     else:

@@ -15,6 +15,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { toast } from "sonner";
 import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
+import { BranchFilter, LocationSelect } from "@/components/BranchFilter";
 
 const iso = (d) => d.toISOString().slice(0, 10);
 
@@ -27,7 +28,7 @@ const PRESETS = {
 };
 
 const ALL_CATEGORIES = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES];
-const EMPTY_TX = { type: "income", date: iso(new Date()), amount: "", category: "project_income", description: "", client_id: "none", project_id: "none", invoice_ref: "", payment_method: "bank_transfer" };
+const EMPTY_TX = { type: "income", date: iso(new Date()), amount: "", category: "project_income", description: "", client_id: "none", project_id: "none", invoice_ref: "", payment_method: "bank_transfer", branch_id: null };
 
 export default function LedgerPage() {
   const [data, setData] = useState({ transactions: [], totals: { income: 0, expense: 0, net: 0 } });
@@ -40,6 +41,7 @@ export default function LedgerPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_TX);
   const [busy, setBusy] = useState(false);
+  const [loc, setLoc] = useState("all");
 
   useEffect(() => {
     api.get("/clients").then((r) => setClients(r.data)).catch(() => {});
@@ -52,9 +54,10 @@ export default function LedgerPage() {
     if (range[1]) params.end = range[1];
     if (type !== "all") params.type = type;
     if (category !== "all") params.category = category;
+    if (loc !== "all") params.branch = loc;
     const { data } = await api.get("/finance/transactions", { params });
     setData(data);
-  }, [range, type, category]);
+  }, [range, type, category, loc]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -86,6 +89,7 @@ export default function LedgerPage() {
         ...form, amount: Number(form.amount),
         client_id: form.client_id === "none" ? null : form.client_id,
         project_id: form.project_id === "none" ? null : form.project_id,
+        branch_id: form.branch_id || null,
       });
       toast.success("Transaction recorded");
       setDialogOpen(false);
@@ -184,6 +188,7 @@ export default function LedgerPage() {
               {ALL_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{labelize(c)}</SelectItem>)}
             </SelectContent>
           </Select>
+          <BranchFilter value={loc} onChange={setLoc} testid="ledger-branch-filter" />
         </CardContent>
       </Card>
 
@@ -209,7 +214,7 @@ export default function LedgerPage() {
                 </TableCell>
                 <TableCell className="text-sm text-gray-600">{labelize(x.category)}</TableCell>
                 <TableCell className="text-sm text-gray-800 max-w-[260px] truncate">{x.description}</TableCell>
-                <TableCell className="text-xs text-gray-500">{[x.client_name, x.project_name].filter(Boolean).join(" · ") || "—"}</TableCell>
+                <TableCell className="text-xs text-gray-500">{[x.client_name, x.project_name].filter(Boolean).join(" · ") || "—"}{x.location_name && <div className="text-[11px] text-gray-400">{x.location_name}</div>}</TableCell>
                 <TableCell className={`text-right font-mono text-sm font-semibold ${x.type === "income" ? "text-emerald-600" : "text-red-500"}`}>
                   {x.type === "income" ? "+" : "−"}{formatINR(x.amount)}
                 </TableCell>
@@ -258,6 +263,8 @@ export default function LedgerPage() {
                 <SelectContent><SelectItem value="none">None</SelectItem>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div className="space-y-1 col-span-2"><Label>Location</Label>
+              <LocationSelect value={form.branch_id} onChange={(v) => setF("branch_id", v)} none="From the project or client (else company-wide)" testid="tx-form-branch" /></div>
             <div className="space-y-1"><Label>Invoice ref</Label><Input data-testid="tx-form-invoice" value={form.invoice_ref} onChange={(e) => setF("invoice_ref", e.target.value)} /></div>
             <div className="space-y-1">
               <Label>Payment method</Label>

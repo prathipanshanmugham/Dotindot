@@ -207,6 +207,10 @@ async def startup():
     await migrate_clients_v35()   # client = company; recurring billing fields on projects
     from locations_util import migrate_locations_v36
     await migrate_locations_v36()  # every client project and lead gets a location
+    from routes_users import ensure_super_admin_active
+    await ensure_super_admin_active()  # a super admin is always active
+    from locations_util import migrate_location_ceos_v37
+    await migrate_location_ceos_v37()  # a location's head becomes its CEO (a person); ceo_of kept in step
     # Ignore-proof cleanup: remove any stale test users (test_*@dotindot.test) on every startup
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
     if removed.deleted_count:
