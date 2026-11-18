@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from database import db
 from auth import get_current_user, require_roles, log_activity
 from permissions import branch_scope
+from locations_util import project_location
 from india_locations import INDIA_STATES, INDIA_CITY_COORDS, COUNTRIES
 
 router = APIRouter()
@@ -266,12 +267,12 @@ async def delete_branch(branch_id: str, user: dict = Depends(require_roles("admi
     b = await db.branches.find_one({"id": branch_id})
     if not b:
         raise HTTPException(status_code=404, detail="Branch not found")
-    linked_clients = await db.clients.count_documents({"branch_id": branch_id})
+    linked_clients = await db.clients.count_documents({"branch_id": branch_id}) + await db.projects.count_documents({"branch_id": branch_id})
     linked_users = await db.users.count_documents({"branch_id": branch_id, "is_active": True})
     if linked_clients or linked_users:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot delete: {linked_clients} client(s) and {linked_users} user(s) are linked to this branch. Deactivate it instead.")
+            detail=f"Cannot delete: {linked_clients} client(s)/project(s) and {linked_users} user(s) are linked to this location. Deactivate it instead.")
     await db.branches.delete_one({"id": branch_id})
     await log_activity(user, "branch_deleted", "branch", branch_id, b["name"])
     return {"ok": True}
@@ -295,7 +296,7 @@ async def compare_branches(user: dict = Depends(get_current_user)):
         bid = b["id"]
         b_clients = [c for c in clients if c.get("branch_id") == bid]
         b_client_ids = {c["id"] for c in b_clients}
-        b_projects = [p for p in projects if p.get("client_id") in b_client_ids or (p.get("kind") == "internal" and p.get("branch_id") == bid)]
+        b_projects = [p for p in projects if project_location(p, cb) == bid]
         rows.append({
             "id": bid, "name": b["name"], "city": b.get("city"), "country": b.get("country"),
             "status": b.get("status", "active"),

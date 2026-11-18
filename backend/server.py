@@ -63,6 +63,7 @@ from routes_website import router as website_router
 from routes_chat import router as chat_router
 from routes_jobs import router as jobs_router
 from routes_revenue import router as revenue_router
+from routes_scores import router as scores_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -93,7 +94,7 @@ for r in (auth_router, users_router, clients_router, projects_router, misc_route
           passwords_router, dashboard_router, records_router, agents_router, org_router,
           api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router,
           support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router, billing_router, website_router, chat_router, jobs_router,
-          revenue_router, ai_connector.router):
+          revenue_router, scores_router, ai_connector.router):
     app.include_router(r, prefix="/api")
 app.include_router(ai_connector.root_router)   # /.well-known/oauth-* for Claude / ChatGPT connectors
 
@@ -204,6 +205,8 @@ async def startup():
     await migrate_old_quotes()
     from routes_clients import migrate_clients_v35
     await migrate_clients_v35()   # client = company; recurring billing fields on projects
+    from locations_util import migrate_locations_v36
+    await migrate_locations_v36()  # every client project and lead gets a location
     # Ignore-proof cleanup: remove any stale test users (test_*@dotindot.test) on every startup
     removed = await db.users.delete_many({"email": {"$regex": r"@dotindot\.test$"}})
     if removed.deleted_count:

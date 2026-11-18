@@ -221,3 +221,44 @@ async def dashboard_stats(user: dict = Depends(get_current_user)):
 
     return stats
 
+
+
+# ---------------- v3.6 pick-lists ----------------
+# Starting values for fields that are mostly one of a few answers; whatever the team has already typed is added,
+# so the dropdowns grow with use and an odd answer can still be typed in.
+LOOKUP_DEFAULTS = {
+    "departments": ["Leadership", "Operations", "Sales", "Marketing", "Social media", "Ads", "Content", "Design", "Video", "Development",
+                    "SEO", "Accounts & finance", "HR", "Support"],
+    "contact_roles": ["Owner", "Founder", "Managing director", "CEO", "Marketing head", "Manager", "Accounts", "Purchase", "IT"],
+    "course_categories": ["Marketing", "Social media", "Ads", "SEO", "Design", "Video", "Development", "AI", "Sales", "Soft skills", "Compliance"],
+    "partnership_categories": ["Advertising", "Cloud & hosting", "Software", "AI", "Payments", "Printing", "Media", "Agency", "Education"],
+    "education": ["10th", "12th / HSC", "Diploma", "ITI", "Bachelor's degree", "Master's degree", "Doctorate"],
+}
+
+
+def _merge(defaults, found):
+    seen, out = set(), []
+    for v in list(defaults) + sorted(found, key=lambda x: str(x).lower()):
+        v = str(v or "").strip()
+        if v and v.lower() not in seen and len(v) <= 80:
+            seen.add(v.lower())
+            out.append(v)
+    return out
+
+
+@router.get("/lookups")
+async def lookups(user: dict = Depends(get_current_user)):
+    users = await db.users.find({"deleted": {"$ne": True}}, {"_id": 0, "department": 1, "designation": 1}).to_list(5000)
+    depts = {u.get("department") for u in users} | set(await db.org_nodes.distinct("title", {"kind": "department"})) | set(await db.job_posts.distinct("department"))
+    roles = set()
+    async for c in db.clients.find({}, {"_id": 0, "contacts.role": 1}):
+        roles |= {x.get("role") for x in c.get("contacts") or [] if x.get("role") and x.get("role") != "Main contact"}
+    return {
+        "departments": _merge(LOOKUP_DEFAULTS["departments"], {d for d in depts if d}),
+        "designations": _merge([], {u.get("designation") for u in users if u.get("designation")}),
+        "contact_roles": _merge(LOOKUP_DEFAULTS["contact_roles"], roles),
+        "course_categories": _merge(LOOKUP_DEFAULTS["course_categories"], {x for x in await db.training_courses.distinct("category") if x}),
+        "partnership_categories": _merge(LOOKUP_DEFAULTS["partnership_categories"], {x for x in await db.partnerships.distinct("category") if x}),
+        "education": list(LOOKUP_DEFAULTS["education"]),   # never built from people's HR records
+        "subscription_owners": _merge(LOOKUP_DEFAULTS["departments"], {x for x in await db.subscriptions.distinct("owner") if x}),
+    }

@@ -11,8 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
+import { LocationSelect } from "@/components/BranchFilter";
+import { ChoiceSelect } from "@/components/Combo";
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 const currentQuarter = () => {
@@ -20,14 +23,41 @@ const currentQuarter = () => {
   return `${n.getFullYear()}-Q${Math.floor(n.getMonth() / 3) + 1}`;
 };
 
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const QLABEL = ["Jan–Mar", "Apr–Jun", "Jul–Sep", "Oct–Dec"];
+/** Months from 3 back to 6 ahead, then this quarter and the next three. */
+const periodChoices = () => {
+  const n = new Date();
+  const out = [];
+  for (let k = -3; k <= 6; k++) {
+    const d = new Date(n.getFullYear(), n.getMonth() + k, 1);
+    out.push([`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, `${MONTHS[d.getMonth()]} ${d.getFullYear()}`]);
+  }
+  for (let k = 0; k < 4; k++) {
+    const q0 = Math.floor(n.getMonth() / 3) + k;
+    const y = n.getFullYear() + Math.floor(q0 / 4), q = (q0 % 4) + 1;
+    out.push([`${y}-Q${q}`, `Q${q} ${y} (${QLABEL[q - 1]})`]);
+  }
+  return out;
+};
+const periodLabel = (p) => (periodChoices().find(([v]) => v === p) || [p, p])[1];
+
 export default function TargetsPage() {
   const { user } = useAuth();
   const [targets, setTargets] = useState([]);
   const [period, setPeriod] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [team, setTeam] = useState([]);
-  const [form, setForm] = useState({ scope: "user", user_id: "", period: currentMonth(), amount: "" });
+  const [form, setForm] = useState({ scope: "user", user_id: "", branch_id: null, period: currentMonth(), amount: "" });
   const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useSearchParams();
+  useEffect(() => {   // opened from a location scorecard: "Set a target" for that location
+    if (search.get("location")) {
+      setForm((p) => ({ ...p, scope: "branch", branch_id: search.get("location"), period: currentMonth() }));
+      setDialogOpen(true);
+      setSearch({}, { replace: true });
+    }
+  }, [search, setSearch]);
 
   const canWrite = ["super_admin", "admin", "sales"].includes(user.role);
 
@@ -49,10 +79,11 @@ export default function TargetsPage() {
   const submit = async () => {
     if (!form.amount || !form.period) { toast.error("Period and amount required"); return; }
     if (form.scope === "user" && !form.user_id) { toast.error("Pick a team member"); return; }
+    if (form.scope === "branch" && !form.branch_id) { toast.error("Pick the location"); return; }
     setBusy(true);
     try {
       await api.post("/sales/targets", {
-        scope: form.scope, user_id: form.scope === "user" ? form.user_id : null,
+        scope: form.scope, user_id: form.scope === "user" ? form.user_id : null, branch_id: form.scope === "branch" ? form.branch_id : null,
         period: form.period, amount: Number(form.amount),
       });
       toast.success("Target set");
@@ -88,7 +119,7 @@ export default function TargetsPage() {
           <SelectTrigger className="w-[160px]" data-testid="target-period-select"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All periods</SelectItem>
-            {periods.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            {periods.map((p) => <SelectItem key={p} value={p}>{periodLabel(p)}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -101,8 +132,9 @@ export default function TargetsPage() {
             <CardContent className="p-4">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
+                  {t.scope === "branch" && <Building2 className="h-3.5 w-3.5 text-[#F26B21]" aria-label="Location target" />}
                   <span className="text-sm font-semibold text-gray-800">{t.user_name}</span>
-                  <Badge variant="outline" className="bg-gray-50 border-gray-200 text-gray-500">{t.period}</Badge>
+                  <Badge variant="outline" className="bg-gray-50 border-gray-200 text-gray-500">{periodLabel(t.period)}</Badge>
                   {t.on_track ? (
                     <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200" data-testid={`target-ontrack-${t.id}`}>On track</Badge>
                   ) : (
@@ -138,9 +170,16 @@ export default function TargetsPage() {
               <Label>Scope</Label>
               <Select value={form.scope} onValueChange={(v) => setForm((p) => ({ ...p, scope: v }))}>
                 <SelectTrigger data-testid="target-form-scope"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="user">Individual</SelectItem><SelectItem value="team">Team</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="user">One person</SelectItem><SelectItem value="branch">A location</SelectItem><SelectItem value="team">Whole team</SelectItem></SelectContent>
               </Select>
             </div>
+            {form.scope === "branch" && (
+              <div className="space-y-1">
+                <Label>Location</Label>
+                <LocationSelect value={form.branch_id} onChange={(v) => setForm((p) => ({ ...p, branch_id: v }))} testid="target-form-branch" />
+                <p className="text-xs text-gray-400">Counts as the Sales part of the location's score.</p>
+              </div>
+            )}
             {form.scope === "user" && (
               <div className="space-y-1">
                 <Label>Team member</Label>
@@ -150,7 +189,7 @@ export default function TargetsPage() {
                 </Select>
               </div>
             )}
-            <div className="space-y-1"><Label>Period (YYYY-MM or YYYY-Qn)</Label><Input data-testid="target-form-period" value={form.period} onChange={(e) => setForm((p) => ({ ...p, period: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Period</Label><ChoiceSelect value={form.period} onChange={(v) => setForm((p) => ({ ...p, period: v }))} options={periodChoices()} testid="target-form-period" /></div>
             <div className="space-y-1"><Label>Target amount (₹)</Label><Input data-testid="target-form-amount" type="number" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} /></div>
           </div>
           <DialogFooter>

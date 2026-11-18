@@ -7,6 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Combo, ChoiceSelect, BLOOD_GROUPS } from "@/components/Combo";
+
+const RELATIONS = ["Father", "Mother", "Spouse", "Brother", "Sister", "Son", "Daughter", "Friend", "Guardian"];
 import { Download, FileText, Repeat2, LifeBuoy, ClipboardList, Wallet } from "lucide-react";
 
 export default function MyHRPage() {
@@ -64,10 +67,14 @@ export default function MyHRPage() {
             <div><div className="text-xs text-gray-400">UAN</div><div className="font-semibold font-mono">{f.uan_masked || "—"}</div></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {inp("phone", "Phone")}{inp("personal_email", "Personal email")}{inp("date_of_birth", "Date of birth", "date")}{inp("blood_group", "Blood group")}
+            {inp("phone", "Phone")}{inp("personal_email", "Personal email")}{inp("date_of_birth", "Date of birth", "date")}
+            <Field label="Blood group"><ChoiceSelect value={f.blood_group || ""} onChange={(v) => setF((x) => ({ ...x, blood_group: v }))} options={BLOOD_GROUPS} none="Not set" testid="me-blood_group" /></Field>
             <Field label="Current address" className="sm:col-span-2"><Textarea rows={2} value={f.address_current || ""} onChange={(e) => setF((x) => ({ ...x, address_current: e.target.value }))} /></Field>
             <div className="sm:col-span-2 text-xs font-bold uppercase tracking-widest text-gray-400 pt-1">Emergency contact</div>
-            {["name", "relation", "phone"].map((k) => <Field key={k} label={k[0].toUpperCase() + k.slice(1)}><Input value={f.emergency_contact?.[k] || ""} onChange={(e) => setF((x) => ({ ...x, emergency_contact: { ...(x.emergency_contact || {}), [k]: e.target.value } }))} data-testid={`me-ec-${k}`} /></Field>)}
+            {["name", "relation", "phone"].map((k) => <Field key={k} label={k[0].toUpperCase() + k.slice(1)}>{k === "relation" ? (
+              <Combo value={f.emergency_contact?.relation || ""} options={RELATIONS} allowCustom clearable testid="me-ec-relation"
+                onChange={(v) => setF((x) => ({ ...x, emergency_contact: { ...(x.emergency_contact || {}), relation: v } }))} />
+            ) : <Input value={f.emergency_contact?.[k] || ""} type={k === "phone" ? "tel" : "text"} onChange={(e) => setF((x) => ({ ...x, emergency_contact: { ...(x.emergency_contact || {}), [k]: e.target.value } }))} data-testid={`me-ec-${k}`} />}</Field>)}
           </div>
           <p className="text-xs text-gray-400">Bank, PAN and job details are updated by HR — raise a request if they're wrong.</p>
           <div className="flex justify-end"><Button onClick={save} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="me-save">Save my details</Button></div>

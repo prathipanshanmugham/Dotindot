@@ -41,7 +41,7 @@ async def fetch_clients(p, user):
     cols = [("name", "Client", "text"), ("contact_name", "Main contact", "text"), ("contact_phone", "Phone", "text"),
             ("contact_email", "Email", "text"), ("industry", "Industry", "text"), ("status", "Status", "text"), ("billing", "Billing", "text"),
             ("mrr", "MRR", "money"), ("arr", "ARR", "money"), ("one_time_value", "One-time project value", "money"),
-            ("active_projects", "Active projects", "num"), ("city", "City", "text"), ("state", "State", "text")]
+            ("active_projects", "Active projects", "num"), ("branch_name", "Location", "text"), ("city", "City", "text"), ("state", "State", "text")]
     return "Clients", cols, rows, [{"label": "Clients in export", "value": len(rows)},
                                    {"label": "Active", "value": sum(1 for r in rows if r.get("status") == "active")},
                                    {"label": "MRR", "value": round(sum(r.get("mrr", 0) for r in rows), 2), "money": True}]
@@ -63,10 +63,12 @@ async def fetch_projects(p, user):
         q["billing_type"] = "recurring"
     elif p.get("billing_type") == "one_time":
         q["billing_type"] = {"$ne": "recurring"}
-    from routes_projects import project_scope
+    from routes_projects import project_scope, _with_location
     from revenue import billing_summary, SERVICES, CYCLE_LABEL
     scope = await project_scope(user)
-    rows = await db.projects.find({"$and": [q, scope]} if scope else q, {"_id": 0}).sort("name", 1).to_list(1000)
+    rows = await _with_location(await db.projects.find({"$and": [q, scope]} if scope else q, {"_id": 0}).sort("name", 1).to_list(1000))
+    if p.get("branch") and p["branch"] != "all":
+        rows = [r for r in rows if (r.get("branch_id") or "none") == p["branch"]]
     cmap, _ = await name_maps()
     for r in rows:
         r["client_name"] = "Internal" if r.get("kind") == "internal" else cmap.get(r.get("client_id"), "")
@@ -78,7 +80,7 @@ async def fetch_projects(p, user):
     cols = [("name", "Project", "text"), ("client_name", "Client", "text"), ("service_label", "Service", "text"), ("status", "Status", "text"),
             ("billing", "Billing", "text"), ("budget", "One-time value", "money"), ("recurring_amount", "Recurring amount", "money"),
             ("cycle", "Every", "text"), ("mrr", "MRR", "money"), ("start_date", "Start", "text"), ("end_date", "End", "text"),
-            ("location", "Location", "text")]
+            ("branch_name", "Location", "text")]
     return "Projects", cols, rows, [{"label": "Projects", "value": len(rows)},
                                     {"label": "One-time value", "value": sum(r.get("budget", 0) for r in rows if r["billing_type"] != "recurring"), "money": True},
                                     {"label": "MRR", "value": round(sum(r.get("mrr", 0) for r in rows), 2), "money": True}]
@@ -242,14 +244,23 @@ async def fetch_leads(p, user):
         q["source"] = p["source"]
     if p.get("owner"):
         q["owner_id"] = p["owner"]
+    from permissions import branch_scope
+    from locations_util import branch_names
+    scope = branch_scope(user)   # leads outside the person's locations never leave in an export
+    if p.get("branch") and p["branch"] != "all" and (scope is None or p["branch"] in scope):
+        q["branch_id"] = p["branch"]
+    elif scope is not None:
+        q["branch_id"] = {"$in": scope}
     rows = await db.leads.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
     umap = await _umap()
+    bnames = await branch_names()
     for l in rows:
         l["owner_name"] = umap.get(l.get("owner_id"), "")
+        l["branch_name"] = bnames.get(l.get("branch_id"), "")
         l["created"] = (l.get("created_at") or "")[:10]
     cols = [("name", "Lead", "text"), ("company", "Company", "text"), ("stage", "Stage", "text"),
             ("source", "Source", "text"), ("estimated_value", "Est. value", "money"),
-            ("owner_name", "Owner", "text"), ("city", "City", "text"), ("follow_up_date", "Follow-up", "text"),
+            ("owner_name", "Owner", "text"), ("branch_name", "Location", "text"), ("city", "City", "text"), ("follow_up_date", "Follow-up", "text"),
             ("created", "Created", "text")]
     return "Sales Pipeline", cols, rows, [{"label": "Leads", "value": len(rows)},
                                           {"label": "Pipeline value", "value": sum(l.get("estimated_value", 0) for l in rows), "money": True},

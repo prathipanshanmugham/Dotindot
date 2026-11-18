@@ -39,8 +39,8 @@ export default function ProjectEditDialog({ open, onOpenChange, project, onSaved
     setOrig(project);
     setTab("details");
     setForm({
-      name: (project.name || "").trim(), kind: project.kind || "client", client_id: project.client_id || "", branch_id: project.branch_id || null, status: project.status || "kickoff",
-      description: project.description || "", location: project.location || "", service: project.service || "",
+      name: (project.name || "").trim(), kind: project.kind || "client", client_id: project.client_id || "", branch_id: project.branch_id || null, branch_name: project.branch_name || "", status: project.status || "kickoff",
+      description: project.description || "", service: project.service || "",
       start_date: project.start_date || "", end_date: project.end_date || "",
       billing_type: project.billing_type === "recurring" ? "recurring" : "one_time",
       budget: String(project.budget ?? 0), recurring_amount: project.recurring_amount ? String(project.recurring_amount) : "", billing_cycle: project.billing_cycle || "monthly",
@@ -67,7 +67,7 @@ export default function ProjectEditDialog({ open, onOpenChange, project, onSaved
     const clean = (x) => { const { id, ...rest } = x; return String(id || "").startsWith("new-") ? rest : x; };
     const recurring = !internal && form.billing_type === "recurring";
     const body = {
-      name: form.name.trim(), kind: form.kind, ...(internal ? { branch_id: form.branch_id } : { client_id: form.client_id }), status: form.status, description: form.description, location: form.location,
+      name: form.name.trim(), kind: form.kind, branch_id: form.branch_id || null, ...(internal ? {} : { client_id: form.client_id }), status: form.status, description: form.description,
       start_date: form.start_date || null, end_date: form.end_date || null,
       billing_type: recurring ? "recurring" : "one_time", budget: Number(form.budget) || 0,
       ...(recurring ? { recurring_amount: Number(form.recurring_amount) || 0, billing_cycle: form.billing_cycle } : {}),
@@ -122,14 +122,11 @@ export default function ProjectEditDialog({ open, onOpenChange, project, onSaved
           <TabsContent value="details" className="space-y-3 pt-2">
             <div className="space-y-1"><Label>Project name *</Label><Input value={form.name} onChange={(e) => set("name", e.target.value)} data-testid="project-edit-name" /></div>
             <ProjectKindField value={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} clients={clients} testid="project-edit-kind" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Status</Label>
-                <Select value={form.status} onValueChange={(v) => set("status", v)}>
-                  <SelectTrigger data-testid="project-edit-status"><SelectValue /></SelectTrigger>
-                  <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s}>{labelize(s)}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1"><Label>Location</Label><Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="City, region" /></div>
+            <div className="space-y-1"><Label>Status</Label>
+              <Select value={form.status} onValueChange={(v) => set("status", v)}>
+                <SelectTrigger data-testid="project-edit-status"><SelectValue /></SelectTrigger>
+                <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s}>{labelize(s)}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
             {!internal && orig.kind !== "internal" && form.client_id !== orig.client_id && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">This moves the project to a different client. Its ledger entries stay linked to the project.</p>}
             {internal && orig.kind !== "internal" && <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">The project leaves {orig.client_name || "the client"}'s portal and stops counting towards MRR. Its ledger entries stay linked to the project.</p>}

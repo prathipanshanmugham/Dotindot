@@ -17,11 +17,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Wallet, TrendingUp, HandCoins, PieChart, Plus, Eye, Download, KeyRound, Megaphone, Settings2, Building, Copy } from "lucide-react";
 import { appUrl } from "@/lib/base";
 import { CardTable } from "@/components/ui/table";
+import { Combo } from "@/components/Combo";
+import { useGeo } from "@/components/LocationFields";
 
 const num = (v) => (v === "" || v == null ? 0 : Number(v));
 const genPassword = () => `Inv-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
 
 function InvestorForm({ open, onClose, inv, meta, onSaved }) {
+  const geo = useGeo();
+  const cities = [...new Set(Object.values(geo?.india_states || {}).flat())].sort();
   const [f, setF] = useState({});
   useEffect(() => { if (open) setF(inv ? { ...inv } : { name: "", type: "individual", email: "", phone: "", city: "", joined_on: localISO(), notes: "", status: "active" }); }, [open, inv]);
   const save = async () => {
@@ -37,7 +41,7 @@ function InvestorForm({ open, onClose, inv, meta, onSaved }) {
           <Field label="Since"><Input type="date" value={f.joined_on || ""} onChange={(e) => setF((x) => ({ ...x, joined_on: e.target.value }))} /></Field>
           <Field label="Email"><Input value={f.email || ""} onChange={(e) => setF((x) => ({ ...x, email: e.target.value }))} /></Field>
           <Field label="Phone"><Input value={f.phone || ""} onChange={(e) => setF((x) => ({ ...x, phone: e.target.value }))} /></Field>
-          <Field label="City" className="col-span-2"><Input value={f.city || ""} onChange={(e) => setF((x) => ({ ...x, city: e.target.value }))} /></Field>
+          <Field label="City" className="col-span-2"><Combo value={f.city || ""} onChange={(v) => setF((x) => ({ ...x, city: v }))} options={cities} allowCustom clearable placeholder="Pick or type a city" testid="if-city" /></Field>
           <Field label="Notes (internal)" className="col-span-2"><Textarea rows={2} value={f.notes || ""} onChange={(e) => setF((x) => ({ ...x, notes: e.target.value }))} /></Field>
         </div>
         <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!f.name?.trim()} className="bg-[#F26B21] hover:bg-[#E05A10] text-white" data-testid="if-save">Save</Button></DialogFooter>

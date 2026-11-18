@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import api, { formatINR } from "@/lib/api";
 import { labelize } from "@/components/Badges";
+import LocationScores from "@/components/LocationScores";
 import { DashboardSwitcher } from "@/components/DashboardSwitcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +47,7 @@ export default function ManagerDashboard() {
           {d.branches.length > 1 && (
             <Select value={branch} onValueChange={setBranch}>
               <SelectTrigger className="w-[180px]" data-testid="manager-branch-filter"><Building2 className="h-3.5 w-3.5 text-[#F26B21] mr-1.5" /><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All my branches</SelectItem>{d.branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+              <SelectContent><SelectItem value="all">All my locations</SelectItem>{d.branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
             </Select>
           )}
         </div>
@@ -56,8 +57,10 @@ export default function ManagerDashboard() {
         <Stat icon={TrendingUp} label="Revenue (MTD)" value={formatINR(d.sales.revenue)} sub={`${d.sales.won_count} deals won · ${formatINR(d.sales.won_value)}`} link="/sales" testid="mgr-stat-revenue" />
         <Stat icon={TrendingUp} label="Open pipeline" value={formatINR(d.sales.open_pipeline)} sub={`${d.sales.open_leads} open leads`} link="/sales/pipeline" testid="mgr-stat-pipeline" />
         <Stat icon={FolderKanban} label="Active projects" value={d.projects.active} sub={`${d.clients.active} active clients`} link="/projects" testid="mgr-stat-projects" />
-        <Stat icon={Laptop} label="Branch assets" value={d.assets.count} sub={`${d.assets.in_use} in use · ${formatINR(d.assets.value)}`} link="/assets" testid="mgr-stat-assets" />
+        <Stat icon={Laptop} label="Location assets" value={d.assets.count} sub={`${d.assets.in_use} in use · ${formatINR(d.assets.value)}`} link="/assets" testid="mgr-stat-assets" />
       </div>
+
+      <LocationScores testid="mgr-location-scores" />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
         <Panel title="Team performance (won value this month)" icon={Users} testid="mgr-team">

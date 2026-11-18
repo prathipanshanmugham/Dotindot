@@ -6,6 +6,7 @@ import { labelize } from "@/components/Badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Combo, useLookups } from "@/components/Combo";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +25,7 @@ export default function SubscriptionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
+  const lookups = useLookups();
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -163,7 +165,7 @@ export default function SubscriptionsPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1 col-span-2"><Label>Name</Label><Input data-testid="sub-form-name" value={form.name} onChange={(e) => setF("name", e.target.value)} /></div>
             <div className="space-y-1"><Label>Vendor</Label><Input data-testid="sub-form-vendor" value={form.vendor} onChange={(e) => setF("vendor", e.target.value)} /></div>
-            <div className="space-y-1"><Label>Owner / team</Label><Input data-testid="sub-form-owner" value={form.owner} onChange={(e) => setF("owner", e.target.value)} /></div>
+            <div className="space-y-1"><Label>Owner / team</Label><Combo value={form.owner || ""} onChange={(v) => setF("owner", v)} options={lookups.subscription_owners || []} allowCustom clearable placeholder="Pick a team" testid="sub-form-owner" /></div>
             <div className="space-y-1"><Label>Cost (₹)</Label><Input data-testid="sub-form-cost" type="number" value={form.cost} onChange={(e) => setF("cost", e.target.value)} /></div>
             <div className="space-y-1">
               <Label>Billing cycle</Label>

@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from database import db
 from auth import get_current_user, log_activity
 from permissions import has_permission, branch_scope
+from locations_util import project_location
 from revenue import (ACTIVE_STATUSES, CYCLE_LABEL, SERVICES, SERVICE_TAG, add_months, bill_dates, is_recurring, ist_today, live_on, monthly,
                      months_back, movement, mrr_in_month, period_label, to_date, ym)
 
@@ -29,19 +30,28 @@ def _need(user: dict, manage: bool = False):
 
 
 async def _scope(user: dict, branch: Optional[str]):
-    """Client projects in this person's branches (and the chosen branch), with their clients."""
+    """Client projects this person can see (their clients, or run from their locations), optionally one location's,
+    with their clients. Each project gets `_loc`: the location it belongs to."""
     branches = branch_scope(user)
-    cq: Dict = {}
-    if branch and branch != "all":
-        if branches is not None and branch not in branches:
-            raise HTTPException(status_code=403, detail="That branch is outside your access")
-        cq["branch_id"] = branch
-    elif branches is not None:
-        cq["branch_id"] = {"$in": branches}
-    clients = {c["id"]: c for c in await db.clients.find(cq, {"_id": 0, "id": 1, "name": 1, "branch_id": 1, "status": 1, "billing": 1, "contacts": 1,
-                                                                "state": 1, "region": 1, "city": 1}).to_list(5000)}
-    projects = await db.projects.find({"client_id": {"$in": list(clients)}, "kind": {"$ne": "internal"}}, {"_id": 0, "milestones": 0, "deliverables": 0}).to_list(10000)
-    return clients, projects
+    if branch and branch not in ("all", "none") and branches is not None and branch not in branches:
+        raise HTTPException(status_code=403, detail="That location is outside your access")
+    clients = {c["id"]: c for c in await db.clients.find({}, {"_id": 0, "id": 1, "name": 1, "branch_id": 1, "status": 1, "billing": 1, "contacts": 1,
+                                                              "state": 1, "region": 1, "city": 1}).to_list(5000)}
+    cb = {cid: c.get("branch_id") for cid, c in clients.items()}
+    projects = []
+    for p in await db.projects.find({"client_id": {"$in": list(clients)}, "kind": {"$ne": "internal"}}, {"_id": 0, "milestones": 0, "deliverables": 0}).to_list(10000):
+        p["_loc"] = project_location(p, cb)
+        if branches is not None and cb.get(p["client_id"]) not in branches and p.get("branch_id") not in branches:
+            continue
+        if branch == "none" and p["_loc"]:
+            continue
+        if branch and branch not in ("all", "none") and p["_loc"] != branch:
+            continue
+        projects.append(p)
+    keep = {p["client_id"] for p in projects}
+    if branches is not None:
+        keep |= {cid for cid, b in cb.items() if b in branches}
+    return {cid: c for cid, c in clients.items() if cid in keep}, projects
 
 
 async def _invoiced(project_ids: List[str], month: str) -> Dict[str, dict]:
@@ -111,7 +121,7 @@ async def summary(branch: Optional[str] = None, months: int = 12, user: dict = D
         v = mrr_in_month(p, today.year, today.month, today)
         key = p.get("service") or "other"
         by_service[key] = by_service.get(key, 0.0) + v
-        b = (clients.get(p["client_id"]) or {}).get("branch_id") or ""
+        b = p.get("_loc") or ""
         by_branch[b] = by_branch.get(b, 0.0) + v
     bnames = {b["id"]: b["name"] for b in await db.branches.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(200)}
 
@@ -145,7 +155,7 @@ async def summary(branch: Optional[str] = None, months: int = 12, user: dict = D
         "trend": trend,
         "by_client": by_client,
         "by_service": [{"service": k, "label": SERVICES.get(k, k.title()), "mrr": round(v, 2)} for k, v in sorted(by_service.items(), key=lambda kv: -kv[1])],
-        "by_branch": [{"branch_id": k or None, "name": bnames.get(k, "No branch"), "mrr": round(v, 2)} for k, v in sorted(by_branch.items(), key=lambda kv: -kv[1])],
+        "by_branch": [{"branch_id": k or None, "name": bnames.get(k, "No location"), "mrr": round(v, 2)} for k, v in sorted(by_branch.items(), key=lambda kv: -kv[1])],
         "renewals": renewals,
         "bills": bills, "bills_total": round(sum(b["amount"] for b in bills), 2),
         "bills_open": sum(1 for b in bills if not b["invoice"]),

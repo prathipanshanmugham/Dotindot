@@ -8,6 +8,7 @@ from database import db
 from models import ProjectCreate, ProjectUpdate, ToggleRequest
 from auth import get_current_user, require_roles, log_activity
 from permissions import scoped_client_ids, check_branch_write, branch_scope
+from locations_util import valid_branch, branch_names, client_branch_map
 from revenue import BILLING_TYPES, CYCLES, SERVICES, billing_summary, infer_service, ist_today
 
 router = APIRouter()
@@ -89,19 +90,43 @@ def clean_billing(doc: dict, existing: dict = None) -> dict:
 
 
 async def project_scope(user: dict):
-    """Mongo filter for the projects this user's branches cover, or None when unrestricted.
-    Client projects follow their client's branch; internal projects carry their own."""
+    """Mongo filter for the projects this user's locations cover, or None when unrestricted:
+    projects of their clients, and projects run from their locations."""
     ids = await scoped_client_ids(user)
     if ids is None:
         return None
-    return {"$or": [{"client_id": {"$in": ids}}, {"kind": "internal", "branch_id": {"$in": branch_scope(user) or []}}]}
+    return {"$or": [{"client_id": {"$in": ids}}, {"branch_id": {"$in": branch_scope(user) or []}}]}
 
 
 async def project_branch(p: dict):
-    if is_internal(p):
+    """A project's location: its own, else (older client projects) its client's."""
+    if p.get("branch_id") or is_internal(p):
         return p.get("branch_id")
     c = await db.clients.find_one({"id": p.get("client_id")}, {"_id": 0, "branch_id": 1})
     return (c or {}).get("branch_id")
+
+
+async def _client_location(user: dict, picked, client: dict):
+    """Where a client project runs: the location picked, else the client's. Must be inside the person's access."""
+    if picked:
+        b = await valid_branch(picked)
+        check_branch_write(user, b)
+        return b
+    return client.get("branch_id") or None
+
+
+async def _with_location(rows: list):
+    names = await branch_names()
+    cb = None
+    for p in rows:
+        b = p.get("branch_id")
+        if not b and not is_internal(p):
+            if cb is None:
+                cb = await client_branch_map()
+            b = cb.get(p.get("client_id"))
+        p["branch_id"] = b or None
+        p["branch_name"] = names.get(b, "") if b else ""
+    return rows
 
 
 async def _internal_branch(user: dict, branch_id):
@@ -112,6 +137,13 @@ async def _internal_branch(user: dict, branch_id):
         return branch_id
     scope = branch_scope(user)
     return scope[0] if scope else None
+
+
+async def _set_location_text(doc: dict):
+    """Keep the old free-text `location` in step with the chosen location (exports, the AI and older screens read it)."""
+    b = await db.branches.find_one({"id": doc.get("branch_id")}, {"_id": 0, "name": 1, "city": 1}) if doc.get("branch_id") else None
+    if b:
+        doc["location"] = b.get("city") or b.get("name") or ""
 
 
 @router.get("/projects")
@@ -151,9 +183,12 @@ async def list_projects(
     scope = await project_scope(user)
     if scope:
         ands.append(scope)
-    if branch and not client_id:
-        bset = [c["id"] for c in await db.clients.find({"branch_id": branch}, {"_id": 0, "id": 1}).to_list(2000)]
-        ands.append({"$or": [{"client_id": {"$in": bset}}, {"kind": "internal", "branch_id": branch}]})
+    if branch and branch != "all" and not client_id:
+        if branch == "none":
+            ands.append({"$or": [{"branch_id": None}, {"branch_id": ""}, {"branch_id": {"$exists": False}}]})
+        else:
+            bset = [c["id"] for c in await db.clients.find({"branch_id": branch}, {"_id": 0, "id": 1}).to_list(2000)]
+            ands.append({"$or": [{"branch_id": branch}, {"branch_id": {"$in": [None, ""]}, "kind": {"$ne": "internal"}, "client_id": {"$in": bset}}]})
     projects = await db.projects.find({"$and": ands} if len(ands) > 1 else q, {"_id": 0}).sort("created_at", -1).to_list(500)
     names = await client_name_map()
     today = ist_today()
@@ -161,7 +196,7 @@ async def list_projects(
         p["kind"] = p.get("kind") or "client"
         p["client_name"] = INTERNAL if is_internal(p) else names.get(p.get("client_id"), "Unknown")
         p.update(billing_summary(p, today))
-    return projects
+    return await _with_location(projects)
 
 
 @router.get("/projects/{project_id}")
@@ -178,12 +213,11 @@ async def get_project(project_id: str, user: dict = Depends(get_current_user)):
     if is_internal(p):
         p["client"] = None
         p["client_name"] = INTERNAL
-        b = await db.branches.find_one({"id": p.get("branch_id")}, {"_id": 0, "name": 1}) if p.get("branch_id") else None
-        p["branch_name"] = (b or {}).get("name", "")
     else:
-        client = await db.clients.find_one({"id": p["client_id"]}, {"_id": 0, "id": 1, "name": 1, "city": 1, "contacts": 1})
+        client = await db.clients.find_one({"id": p["client_id"]}, {"_id": 0, "id": 1, "name": 1, "city": 1, "contacts": 1, "branch_id": 1})
         p["client"] = client
         p["client_name"] = client["name"] if client else "Unknown"
+    await _with_location([p])
     p.update(billing_summary(p))
     team = await db.users.find(
         {"id": {"$in": p.get("team_member_ids", [])}},
@@ -212,17 +246,13 @@ async def create_project(body: ProjectCreate, user: dict = Depends(require_roles
         doc["branch_id"] = await _internal_branch(user, body.branch_id)
         check_branch_write(user, doc["branch_id"])
         client = None
-        if not doc.get("location") and doc["branch_id"]:
-            b = await db.branches.find_one({"id": doc["branch_id"]}, {"_id": 0, "city": 1, "state": 1})
-            doc["location"] = ", ".join(x for x in [(b or {}).get("city"), (b or {}).get("state")] if x)
     else:
         client = await db.clients.find_one({"id": body.client_id}) if body.client_id else None
         if not client:
             raise HTTPException(status_code=404 if body.client_id else 400, detail="Client not found" if body.client_id else "Pick the client, or mark the project internal")
         check_branch_write(user, client.get("branch_id"))
-        doc["branch_id"] = None
-        if not doc.get("location"):
-            doc["location"] = ", ".join(x for x in [client.get("city"), client.get("region")] if x)
+        doc["branch_id"] = await _client_location(user, body.branch_id, client)
+    await _set_location_text(doc)
     clean_billing(doc)
     now = datetime.now(timezone.utc).isoformat()
     doc.update({"id": str(uuid.uuid4()), "created_at": now, "updated_at": now, "created_by": user["id"]})
@@ -231,6 +261,7 @@ async def create_project(body: ProjectCreate, user: dict = Depends(require_roles
     doc.pop("_id", None)
     doc["client_name"] = client["name"] if client else INTERNAL
     doc.update(billing_summary(doc))
+    await _with_location([doc])
     return doc
 
 
@@ -253,7 +284,7 @@ async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depe
             check_branch_write(user, updates["branch_id"])
     else:
         updates["kind"] = "client"
-        updates.pop("branch_id", None)
+        picked = updates.pop("branch_id", "__keep")
         new_id = updates.get("client_id") or (None if is_internal(existing) else existing.get("client_id"))
         if not new_id:
             raise HTTPException(status_code=400, detail="Pick the client, or mark the project internal")
@@ -262,15 +293,21 @@ async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depe
             if not new_client:
                 raise HTTPException(status_code=404, detail="Client not found")
             check_branch_write(user, new_client.get("branch_id"))
-            updates["client_id"], updates["branch_id"] = new_id, None
+            updates["client_id"] = new_id
+            updates["branch_id"] = await _client_location(user, None if picked == "__keep" else picked, new_client)
         else:
             updates.pop("client_id", None)
+            if picked != "__keep" and (picked or None) != (existing.get("branch_id") or None):
+                client = await db.clients.find_one({"id": new_id}, {"_id": 0, "branch_id": 1}) or {}
+                updates["branch_id"] = await _client_location(user, picked, client)
     if "name" in updates:
         updates["name"] = updates["name"].strip()[:160]
     for field, key in (("milestones", "title"), ("deliverables", "item")):
         if field in updates:
             updates[field] = [{**it, key: (it.get(key) or "").strip()[:200]} for it in updates[field] or [] if (it.get(key) or "").strip()]
     clean_billing(updates, {**existing, "kind": kind})
+    if "branch_id" in updates:
+        await _set_location_text(updates)
     restructured = bool({"milestones", "deliverables", "team_member_ids", "client_id"} & set(updates)) or kind != (existing.get("kind") or "client")
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.projects.update_one({"id": project_id}, {"$set": updates})

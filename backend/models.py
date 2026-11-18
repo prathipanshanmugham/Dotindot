@@ -77,6 +77,7 @@ class ClientCreate(BaseModel):
     credentials: List[CredentialIn] = []
     notes: Optional[str] = ""
     currency: str = "INR"
+    branch_id: Optional[str] = None   # the Dotindot location that looks after this client
 
 
 class ClientUpdate(BaseModel):
@@ -95,6 +96,7 @@ class ClientUpdate(BaseModel):
     domain_hosting: Optional[DomainHosting] = None
     contracts: Optional[List[Contract]] = None
     notes: Optional[str] = None
+    branch_id: Optional[str] = None
 
 
 # ---------- Projects ----------
@@ -114,7 +116,7 @@ class Deliverable(BaseModel):
 class ProjectCreate(BaseModel):
     kind: str = "client"  # client | internal (our own work: no client, kept out of the client portal)
     client_id: Optional[str] = None
-    branch_id: Optional[str] = None  # internal projects only; client projects follow the client's branch
+    branch_id: Optional[str] = None  # the location that runs it; client projects default to the client's location
     name: str
     description: Optional[str] = ""
     status: str = "kickoff"  # kickoff | in_progress | review | completed | on_hold
@@ -270,6 +272,7 @@ class LeadCreate(BaseModel):
     notes: Optional[str] = ""
     follow_up_date: Optional[str] = None
     currency: str = "INR"
+    branch_id: Optional[str] = None   # the Dotindot location working this lead (defaults to the owner's)
 
 
 class LeadUpdate(BaseModel):
@@ -286,6 +289,7 @@ class LeadUpdate(BaseModel):
     city: Optional[str] = None
     notes: Optional[str] = None
     follow_up_date: Optional[str] = None
+    branch_id: Optional[str] = None
 
 
 class StageChange(BaseModel):
@@ -337,8 +341,9 @@ class QuoteStatusChange(BaseModel):
 
 
 class TargetCreate(BaseModel):
-    scope: str = "user"  # user | team
+    scope: str = "user"  # user | team | branch (one location)
     user_id: Optional[str] = None
+    branch_id: Optional[str] = None
     period: str  # 2026-09 or 2026-Q3
     amount: float
     currency: str = "INR"

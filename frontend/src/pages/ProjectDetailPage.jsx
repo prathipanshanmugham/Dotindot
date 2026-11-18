@@ -103,7 +103,7 @@ export default function ProjectDetailPage() {
           </div>
           <p className="text-sm text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
             {project.kind === "internal" ? (
-              <><InternalBadge />{project.branch_name && <span className="font-medium">{project.branch_name}</span>}</>
+              <InternalBadge />
             ) : user.role !== "employee" ? (
               <Link to={`/clients/${project.client_id}`} className="text-[#F26B21] font-medium hover:underline" data-testid="project-client-link">
                 {project.client_name}
@@ -113,7 +113,7 @@ export default function ProjectDetailPage() {
             )}
             {project.client?.contacts?.[0]?.name && <span className="inline-flex items-center gap-1"><User className="h-3.5 w-3.5" />{project.client.contacts[0].name}{project.client.contacts[0].phone ? ` · ${project.client.contacts[0].phone}` : ""}</span>}
             {project.service && SERVICE_LABEL[project.service] && <span>{SERVICE_LABEL[project.service]}</span>}
-            <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.location || "—"}</span>
+            <span className="inline-flex items-center gap-1" data-testid="project-location"><MapPin className="h-3.5 w-3.5" />{project.branch_name || (project.kind === "internal" ? "Whole company" : "No location yet")}</span>
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

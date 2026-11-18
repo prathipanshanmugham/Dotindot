@@ -11,6 +11,7 @@ from database import db
 from auth import get_current_user
 from permissions import has_permission
 from routes_sales import won_at
+from locations_util import client_branch_map, project_location
 
 router = APIRouter()
 
@@ -118,8 +119,10 @@ async def manager_dashboard(branch: Optional[str] = Query(None), user: dict = De
     won = [l for l in leads if l["stage"] == "won" and (won_at(l) or "") >= start]
     open_leads = [l for l in leads if l["stage"] not in ("won", "lost")]
     tx = await db.transactions.find({"client_id": {"$in": cids}, "type": "income", "date": {"$gte": start, "$lte": end}}, {"_id": 0, "amount": 1}).to_list(5000)
-    projects = await db.projects.find({"$or": [{"client_id": {"$in": cids}}, {"kind": "internal", "branch_id": {"$in": ids}}]},
-                                      {"_id": 0, "id": 1, "name": 1, "status": 1, "team_member_ids": 1, "client_id": 1}).to_list(3000)
+    cb = await client_branch_map()
+    projects = [p for p in await db.projects.find({"$or": [{"client_id": {"$in": cids}}, {"branch_id": {"$in": ids}}]},
+                                                  {"_id": 0, "id": 1, "name": 1, "status": 1, "team_member_ids": 1, "client_id": 1, "kind": 1, "branch_id": 1}).to_list(3000)
+                if project_location(p, cb) in ids]
 
     team = {}
     for l in won:

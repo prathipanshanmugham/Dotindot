@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LocationFields } from "@/components/LocationFields";
+import { Combo, useLookups } from "@/components/Combo";
 import {
   Mail, Phone, MapPin, CalendarDays, Building2, Pencil, FolderKanban,
   IndianRupee, CheckCircle2, GraduationCap, Plus, Trash2, Boxes, Network, Bot, Target as TargetIcon,
@@ -56,6 +57,7 @@ export default function EmployeeProfilePage() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [courses, setCourses] = useState([]);
   const [form, setForm] = useState({});
+  const lookups = useLookups();
   const [assignForm, setAssignForm] = useState({ course_id: "", due_date: "" });
 
   const canManageTraining = ["super_admin", "admin", "pm"].includes(user?.role);
@@ -408,11 +410,11 @@ export default function EmployeeProfilePage() {
             )}
             <div>
               <Label>Designation</Label>
-              <Input className="mt-1" value={form.designation} onChange={(e) => setForm((f) => ({ ...f, designation: e.target.value }))} data-testid="profile-edit-designation" />
+              <div className="mt-1"><Combo value={form.designation || ""} onChange={(v) => setForm((f) => ({ ...f, designation: v }))} options={lookups.designations || []} allowCustom clearable testid="profile-edit-designation" /></div>
             </div>
             <div>
               <Label>Department</Label>
-              <Input className="mt-1" value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} />
+              <div className="mt-1"><Combo value={form.department || ""} onChange={(v) => setForm((f) => ({ ...f, department: v }))} options={lookups.departments || []} allowCustom clearable testid="profile-edit-department" /></div>
             </div>
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <LocationFields country={form.country || "India"} state={form.state} city={form.city} prefix="profile-edit" compact

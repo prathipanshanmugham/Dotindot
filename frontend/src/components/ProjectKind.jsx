@@ -1,15 +1,14 @@
-import { useEffect, useState } from "react";
-import api from "@/lib/api";
+import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Briefcase, Building2 } from "lucide-react";
+import { LocationSelect, useBranchOptions } from "@/components/BranchFilter";
 
 const KINDS = [
   ["client", "For a client", "Work we deliver and bill to a client", Briefcase],
   ["internal", "Internal", "Our own work: our website, marketing, tools or training", Building2],
 ];
-const WHOLE = "__company";
 
 /** True when the person only works in some branches (so an internal project must sit in one of them). */
 export const useBranchLimited = () => {
@@ -25,18 +24,21 @@ export const InternalBadge = ({ className = "" }) => (
 );
 
 /**
- * Client project or internal project, then the client (or, for internal work, the branch).
- * value: { kind, client_id, branch_id }; onChange(patch)
+ * Client project or internal project, then the client, then the location that runs it.
+ * value: { kind, client_id, branch_id, branch_name? }; onChange(patch)
  */
 export default function ProjectKindField({ value, onChange, clients, testid = "project-kind" }) {
   const limited = useBranchLimited();
-  const [branches, setBranches] = useState([]);
-  useEffect(() => { api.get("/locations/branch-options").then((r) => setBranches(r.data)).catch(() => {}); }, []);
+  const branches = useBranchOptions();
   const kind = value.kind || "client";
   const first = branches[0]?.id;
-  useEffect(() => {  // people limited to some branches always file internal work under one of them
-    if (limited && kind === "internal" && !value.branch_id && first) onChange({ branch_id: first });
-  }, [limited, kind, value.branch_id, first]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {  // people limited to some locations always file work under one of them
+    if (limited && !value.branch_id && first && (kind === "internal" || value.client_id)) onChange({ branch_id: first });
+  }, [limited, kind, value.branch_id, value.client_id, first]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pickClient = (id) => {
+    const c = clients.find((x) => x.id === id);
+    onChange({ client_id: id, branch_id: c?.branch_id || (limited ? first || null : null) });
+  };
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
@@ -51,27 +53,23 @@ export default function ProjectKindField({ value, onChange, clients, testid = "p
           ))}
         </div>
       </div>
-      {kind === "client" ? (
+      {kind === "client" && (
         <div className="space-y-1.5">
           <Label>Client *</Label>
-          <Select value={value.client_id || ""} onValueChange={(v) => onChange({ client_id: v })}>
+          <Select value={value.client_id || ""} onValueChange={pickClient}>
             <SelectTrigger data-testid={`${testid}-client`}><SelectValue placeholder="Select a client" /></SelectTrigger>
             <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}{c.city ? ` — ${c.city}` : ""}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-      ) : (
-        <div className="space-y-1.5">
-          <Label>Branch</Label>
-          <Select value={value.branch_id || (limited ? branches[0]?.id || "" : WHOLE)} onValueChange={(v) => onChange({ branch_id: v === WHOLE ? null : v })}>
-            <SelectTrigger data-testid={`${testid}-branch`}><SelectValue placeholder="Pick a branch" /></SelectTrigger>
-            <SelectContent>
-              {!limited && <SelectItem value={WHOLE}>Whole company</SelectItem>}
-              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-gray-500">Internal projects never appear in the client portal or on client invoices.</p>
-        </div>
       )}
+      <div className="space-y-1.5">
+        <Label>Location</Label>
+        <LocationSelect value={value.branch_id || null} onChange={(v) => onChange({ branch_id: v })} testid={`${testid}-branch`} fallbackName={value.branch_name}
+          none={limited ? undefined : kind === "internal" ? "Whole company" : "No location yet"} />
+        <p className="text-xs text-gray-500">
+          {kind === "internal" ? "Internal projects never appear in the client portal or on client invoices." : "The location that runs this project. It starts as the client's location."}
+        </p>
+      </div>
     </div>
   );
 }

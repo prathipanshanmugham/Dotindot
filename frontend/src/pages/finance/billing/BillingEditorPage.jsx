@@ -13,6 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Plus, Trash2, GripVertical, ListChecks, X, ChevronUp, ChevronDown, Sparkles } from "lucide-react";
+import { Combo } from "@/components/Combo";
+import { useGeo } from "@/components/LocationFields";
 
 const blankLine = (sac) => ({ key: Math.random().toString(36).slice(2), description: "", details: "", sac: sac || "", qty: 1, unit: "service", unit_price: "", discount_pct: "", tax_rate: "" });
 const EMPTY_PARTY = { name: "", company: "", email: "", phone: "", address: "", city: "", state_code: "", country: "India", gstin: "", tax_id: "" };
@@ -29,6 +31,7 @@ export default function BillingEditorPage() {
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const setBill = (k, v) => setF((x) => ({ ...x, bill_to: { ...x.bill_to, [k]: v } }));
+  const geo = useGeo();
 
   useEffect(() => {
     if (!meta || f) return;
@@ -56,6 +59,7 @@ export default function BillingEditorPage() {
   const isGst = f.tax_mode === "gst_intra" || f.tax_mode === "gst_inter";
   const foreign = f.currency !== "INR";
   const editing = !!id;
+  const billCities = f.bill_to.country === "India" && f.bill_to.state_code ? geo?.india_states?.[meta.states?.[f.bill_to.state_code]] || [] : [];
 
   const pickClient = (cid) => {
     const c = meta.clients.find((x) => x.id === cid);
@@ -110,8 +114,8 @@ export default function BillingEditorPage() {
             <Field label="Email"><Input value={f.bill_to.email} onChange={(e) => setBill("email", e.target.value)} /></Field>
             <Field label="Phone"><Input value={f.bill_to.phone} onChange={(e) => setBill("phone", e.target.value)} /></Field>
             <Field label="Address" className="sm:col-span-2"><Input value={f.bill_to.address} onChange={(e) => setBill("address", e.target.value)} placeholder="Street, area" /></Field>
-            <Field label="City"><Input value={f.bill_to.city} onChange={(e) => setBill("city", e.target.value)} /></Field>
-            <Field label="Country"><Input value={f.bill_to.country} onChange={(e) => setBill("country", e.target.value)} data-testid="billing-bt-country" /></Field>
+            <Field label="City"><Combo value={f.bill_to.city || ""} onChange={(v) => setBill("city", v)} options={billCities} allowCustom clearable placeholder="City" testid="billing-bt-city" /></Field>
+            <Field label="Country"><Combo value={f.bill_to.country || ""} onChange={(v) => setBill("country", v)} options={geo?.countries || ["India"]} placeholder="Country" testid="billing-bt-country" /></Field>
             {f.bill_to.country === "India" ? <>
               <Field label="State (place of supply)">
                 <Select value={f.bill_to.state_code || "none"} onValueChange={(v) => setBill("state_code", v === "none" ? "" : v)}>

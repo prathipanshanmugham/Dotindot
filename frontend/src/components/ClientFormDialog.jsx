@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { LocationFields } from "@/components/LocationFields";
+import { LocationSelect, useBranchOptions } from "@/components/BranchFilter";
+import { Combo, useLookups } from "@/components/Combo";
+import { useAuth } from "@/context/AuthContext";
 
 const NO_CONTACT = { name: "", email: "", phone: "", role: "" };
 const EMPTY = {
@@ -17,7 +20,7 @@ const EMPTY = {
   status: "active", region: "India", state: "", city: "", google_drive_link: "",
   main: { ...NO_CONTACT }, contacts: [], contracts: [], credentials: [],
   domain_hosting: { registrar: "", domain_expiry: "", host: "", hosting_expiry: "" },
-  notes: "",
+  notes: "", branch_id: null,
 };
 
 const SectionTitle = ({ children }) => (
@@ -28,6 +31,11 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSaved }
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
   const [names, setNames] = useState([]);
+  const { user } = useAuth();
+  const branches = useBranchOptions();
+  const lookups = useLookups();
+  const roles = lookups.contact_roles || [];
+  const limited = user?.role !== "super_admin" && ((user?.branch_assignments || []).length > 0 || (user?.assigned_branches || []).length > 0);
   const isEdit = !!client;
   useEffect(() => {
     if (open) api.get("/clients").then((r) => setNames(r.data.map((c) => ({ id: c.id, name: c.name })))).catch(() => setNames([]));
@@ -52,6 +60,11 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSaved }
       }
     }
   }, [open, client]);
+  useEffect(() => {  // a new client starts at the person's own location
+    if (!open || client || form.branch_id || !branches.length) return;
+    const home = branches.find((b) => b.id === user?.branch_id)?.id || (limited ? branches[0].id : null);
+    if (home) setForm((p) => ({ ...p, branch_id: home }));
+  }, [open, client, branches]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const setDH = (k, v) => setForm((p) => ({ ...p, domain_hosting: { ...p.domain_hosting, [k]: v } }));
@@ -88,6 +101,7 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSaved }
         delete payload.created_by;
         delete payload.currency;
         delete payload.project_count;
+        delete payload.branch_name;
         delete payload.active_projects;
         await api.put(`/clients/${client.id}`, payload);
         toast.success("Client updated");
@@ -139,6 +153,12 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSaved }
                 </Select>
               </div>
             </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Our location</Label>
+              <LocationSelect value={form.branch_id} onChange={(v) => set("branch_id", v)} none={limited ? undefined : "No location yet"} fallbackName={client?.branch_name}
+                testid="client-form-branch" />
+              <p className="text-xs text-gray-400">The Dotindot location that looks after this client. Its projects start here too.</p>
+            </div>
             <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <LocationFields country={form.region} state={form.state} city={form.city} prefix="client-form" compact
                 onChange={(v) => setForm((p) => ({ ...p, region: v.country, state: v.state, city: v.city }))} />
@@ -150,7 +170,7 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSaved }
           <SectionTitle>Main contact</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1"><Label>Name</Label><Input data-testid="client-form-contact-name" value={form.main.name} onChange={(e) => setMain("name", e.target.value)} placeholder="The person you deal with" /></div>
-            <div className="space-y-1"><Label>Role</Label><Input value={form.main.role} onChange={(e) => setMain("role", e.target.value)} placeholder="e.g. Founder, Marketing head" /></div>
+            <div className="space-y-1"><Label>Role</Label><Combo value={form.main.role} onChange={(v) => setMain("role", v)} options={roles} allowCustom clearable placeholder="e.g. Founder, Marketing head" testid="client-form-contact-role" /></div>
             <div className="space-y-1"><Label>Phone</Label><Input data-testid="client-form-contact-phone" type="tel" value={form.main.phone} onChange={(e) => setMain("phone", e.target.value)} /></div>
             <div className="space-y-1"><Label>Email</Label><Input data-testid="client-form-contact-email" type="email" value={form.main.email} onChange={(e) => setMain("email", e.target.value)} /></div>
           </div>
@@ -159,7 +179,7 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSaved }
           {form.contacts.map((c, i) => (
             <div key={i} className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-center">
               <Input placeholder="Name" value={c.name} onChange={(e) => setRow("contacts", i, "name", e.target.value)} />
-              <Input placeholder="Role" value={c.role} onChange={(e) => setRow("contacts", i, "role", e.target.value)} />
+              <Combo value={c.role} onChange={(v) => setRow("contacts", i, "role", v)} options={roles} allowCustom clearable placeholder="Role" />
               <Input placeholder="Phone" value={c.phone} onChange={(e) => setRow("contacts", i, "phone", e.target.value)} />
               <Input placeholder="Email" value={c.email} onChange={(e) => setRow("contacts", i, "email", e.target.value)} />
               <Button variant="ghost" size="icon" onClick={() => removeRow("contacts", i)} aria-label="Remove contact"><Trash2 className="h-4 w-4 text-gray-400" /></Button>

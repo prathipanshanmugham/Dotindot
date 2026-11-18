@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, ArrowRight, Plus, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 import ProjectKindField from "@/components/ProjectKind";
+import { useBranchOptions } from "@/components/BranchFilter";
 import ProjectBillingFields, { billingProblem } from "@/components/ProjectBilling";
 import { billingText, SERVICE_LABEL } from "@/lib/revenue";
 
@@ -41,14 +42,18 @@ export default function NewProjectWizard() {
     milestones: [],
     deliverables: [],
     team_member_ids: [],
-    location: "",
   });
 
   useEffect(() => {
-    api.get("/clients").then((r) => setClients(r.data)).catch(() => {});
+    api.get("/clients").then((r) => {
+      setClients(r.data);
+      // opened from a client's page: start at that client's location
+      setForm((f) => (f.client_id && !f.branch_id ? { ...f, branch_id: r.data.find((c) => c.id === f.client_id)?.branch_id || null } : f));
+    }).catch(() => {});
     api.get("/users/team").then((r) => setTeam(r.data)).catch(() => {});
   }, []);
 
+  const branches = useBranchOptions();
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const selectedClient = clients.find((c) => c.id === form.client_id);
 
@@ -67,7 +72,7 @@ export default function NewProjectWizard() {
       const payload = {
         ...form,
         client_id: internal ? null : form.client_id,
-        branch_id: internal ? form.branch_id : null,
+        branch_id: form.branch_id || null,
         budget: Number(form.budget) || 0,
         billing_type: recurring ? "recurring" : "one_time",
         recurring_amount: recurring ? Number(form.recurring_amount) || 0 : 0,
@@ -128,18 +133,12 @@ export default function NewProjectWizard() {
                 <Label>Scope / description</Label>
                 <Textarea data-testid="wizard-project-description" value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="What are we building?" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Initial status</Label>
-                  <Select value={form.status} onValueChange={(v) => set("status", v)}>
-                    <SelectTrigger data-testid="wizard-project-status"><SelectValue /></SelectTrigger>
-                    <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s}>{labelize(s)}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Location tag</Label>
-                  <Input data-testid="wizard-project-location" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder={form.kind === "internal" ? "e.g. Erode office" : selectedClient ? `${selectedClient.city}, ${selectedClient.region} (inherited)` : "Inherits client location"} />
-                </div>
+              <div className="space-y-1.5 sm:max-w-[50%]">
+                <Label>Initial status</Label>
+                <Select value={form.status} onValueChange={(v) => set("status", v)}>
+                  <SelectTrigger data-testid="wizard-project-status"><SelectValue /></SelectTrigger>
+                  <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s}>{labelize(s)}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
             </>
           )}
@@ -213,6 +212,7 @@ export default function NewProjectWizard() {
               <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Client</div>{internal ? "Internal project" : selectedClient?.name || "—"}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Project</div>{form.name}</div>
+                <div><div className="text-xs text-gray-400 uppercase tracking-wide">Location</div>{branches.find((b) => b.id === form.branch_id)?.name || (internal ? "Whole company" : "No location yet")}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Status</div>{labelize(form.status)}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Timeline</div>{form.start_date || "—"} → {form.end_date || "—"}</div>
                 <div><div className="text-xs text-gray-400 uppercase tracking-wide">Billing</div><span className="font-mono font-semibold">{internal ? `${formatINR(Number(form.budget) || 0)} budget` : billingText(form)}</span>{!internal && form.service && <div className="text-xs text-gray-500">{SERVICE_LABEL[form.service]}</div>}</div>

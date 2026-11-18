@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -10,6 +11,7 @@ from models import (
 )
 from auth import require_roles, log_activity
 from routes_finance import period_range
+from locations_util import valid_branch
 
 router = APIRouter()
 
@@ -79,11 +81,27 @@ async def list_leads(
     return leads
 
 
+async def _lead_location(user: dict, picked, owner_id):
+    """Where a new lead sits: the location picked, else the owner's own (inside the person's access)."""
+    from permissions import check_branch_write, branch_scope
+    if picked:
+        b = await valid_branch(picked)
+    else:
+        owner = await db.users.find_one({"id": owner_id}, {"_id": 0, "branch_id": 1, "branch_assignments": 1, "assigned_branches": 1, "role": 1}) or {}
+        scope = branch_scope(user)
+        b = owner.get("branch_id") if owner.get("branch_id") and (scope is None or owner.get("branch_id") in scope) else (scope[0] if scope else None)
+        if b and not await db.branches.find_one({"id": b}, {"_id": 0, "id": 1}):
+            b = scope[0] if scope else None
+    check_branch_write(user, b)
+    return b
+
+
 @router.post("/sales/leads")
 async def create_lead(body: LeadCreate, user: dict = Depends(require_roles(*WRITE))):
     if body.stage not in STAGES:
         raise HTTPException(status_code=400, detail="Invalid stage")
     doc = body.model_dump()
+    doc["branch_id"] = await _lead_location(user, doc.get("branch_id"), doc.get("owner_id") or user["id"])
     now = _now()
     doc.update({
         "id": str(uuid.uuid4()), "owner_id": doc.get("owner_id") or user["id"],
@@ -104,6 +122,8 @@ async def get_lead(lead_id: str, user: dict = Depends(require_roles(*READ))):
     umap = await user_map()
     lead["owner_name"] = umap.get(lead.get("owner_id"), "")
     lead["won_at"] = won_at(lead)
+    from locations_util import branch_names
+    lead["branch_name"] = (await branch_names()).get(lead.get("branch_id"), "")
     activities = await db.lead_activities.find({"lead_id": lead_id}, {"_id": 0}).sort("date", -1).to_list(500)
     for a in activities:
         a["created_by_name"] = umap.get(a.get("created_by"), "")
@@ -126,6 +146,9 @@ async def update_lead(lead_id: str, body: LeadUpdate, user: dict = Depends(requi
     from permissions import check_branch_write
     check_branch_write(user, existing.get("branch_id"), existing.get("owner_id"))
     updates = body.model_dump(exclude_unset=True)
+    if "branch_id" in updates and (updates["branch_id"] or None) != (existing.get("branch_id") or None):
+        updates["branch_id"] = await valid_branch(updates["branch_id"])
+        check_branch_write(user, updates["branch_id"])
     updates["updated_at"] = _now()
     await db.leads.update_one({"id": lead_id}, {"$set": updates})
     await log_activity(user, "lead_updated", "lead", lead_id, updates.get("name", existing["name"]))
@@ -230,6 +253,7 @@ async def convert_lead(lead_id: str, body: ConvertRequest, user: dict = Depends(
                                          "phone": lead.get("contact_phone", ""), "role": "Main contact"}]
             from routes_clients import normalize_client   # the client is the company; the lead's person is its contact
             cdoc = normalize_client(cdoc)
+            cdoc["branch_id"] = await valid_branch(cdoc.get("branch_id")) or lead.get("branch_id") or None   # the client stays with the lead's location
             if len(cdoc["name"]) < 2:
                 raise HTTPException(status_code=400, detail="Add the company name")
             cdoc.update({"id": str(uuid.uuid4()), "created_at": now, "updated_at": now, "created_by": user["id"]})
@@ -376,19 +400,25 @@ async def won_leads_in(start: str, end: str):
     for l in leads:
         w = won_at(l)
         if w and start <= w <= end:
-            rows.append({"owner_id": l.get("owner_id"), "value": l.get("estimated_value", 0), "won_at": w, "name": l["name"]})
+            rows.append({"owner_id": l.get("owner_id"), "branch_id": l.get("branch_id"), "value": l.get("estimated_value", 0), "won_at": w, "name": l["name"]})
     return rows
 
 
 async def targets_with_actuals(q: dict):
     targets = await db.targets.find(q, {"_id": 0}).sort("period", -1).to_list(200)
     umap = await user_map()
+    from locations_util import branch_names
+    bnames = await branch_names()
     for t in targets:
         start, end = period_range(t["period"])
         won = await won_leads_in(start, end)
         if t["scope"] == "team":
             actual = sum(w["value"] for w in won)
             t["user_name"] = "Team"
+        elif t["scope"] == "branch":
+            actual = sum(w["value"] for w in won if w.get("branch_id") == t.get("branch_id"))
+            t["user_name"] = bnames.get(t.get("branch_id"), "Location")
+            t["branch_name"] = t["user_name"]
         else:
             actual = sum(w["value"] for w in won if w["owner_id"] == t.get("user_id"))
             t["user_name"] = umap.get(t.get("user_id"), "Unknown")
@@ -406,9 +436,21 @@ async def list_targets(period: Optional[str] = None, user: dict = Depends(requir
 
 @router.post("/sales/targets")
 async def create_target(body: TargetCreate, user: dict = Depends(require_roles(*WRITE))):
+    if body.scope not in ("user", "team", "branch"):
+        raise HTTPException(status_code=400, detail="A target is for a person, the whole team or one location")
     if body.scope == "user" and not body.user_id:
         raise HTTPException(status_code=400, detail="user_id required for user-scoped targets")
+    if body.scope == "branch":
+        if not body.branch_id:
+            raise HTTPException(status_code=400, detail="Pick the location this target is for")
+        await valid_branch(body.branch_id)
+    if not (body.amount > 0) or body.amount != body.amount or body.amount == float("inf"):
+        raise HTTPException(status_code=400, detail="The target amount must be more than zero")
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2]|Q[1-4])", body.period or ""):
+        raise HTTPException(status_code=400, detail="Period is a month like 2026-11 or a quarter like 2026-Q4")
     doc = body.model_dump()
+    if body.scope != "branch":
+        doc["branch_id"] = None
     doc.update({"id": str(uuid.uuid4()), "created_by": user["id"], "created_at": _now()})
     await db.targets.insert_one(doc)
     await log_activity(user, "target_created", "target", doc["id"], f"{doc['period']} ₹{doc['amount']}")

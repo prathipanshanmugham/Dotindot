@@ -259,7 +259,7 @@ export default function AssetsPage() {
             <TableRow className="bg-gray-50/70">
               {canDelete && <TableHead className="w-8"><Checkbox checked={rows.length > 0 && selectedRows.length === rows.length} onCheckedChange={(v) => setSelected(v ? Object.fromEntries(rows.map((r) => [r.id, true])) : {})} data-testid="asset-select-all" /></TableHead>}
               <TableHead>Code</TableHead><TableHead>Asset</TableHead><TableHead>Type</TableHead>
-              <TableHead>Status</TableHead><TableHead>Assigned to</TableHead><TableHead>Branch</TableHead>
+              <TableHead>Status</TableHead><TableHead>Assigned to</TableHead><TableHead>Location</TableHead>
               <TableHead className="text-right">Value</TableHead><TableHead>Next maintenance</TableHead>
               {canDelete && <TableHead className="w-10" />}
             </TableRow>
@@ -319,7 +319,7 @@ export default function AssetsPage() {
                 <div><div className="text-[10px] text-gray-400 uppercase">Serial</div><span className="font-mono text-xs">{detail.serial_no || "—"}</span></div>
                 <div><div className="text-[10px] text-gray-400 uppercase">Value</div>{formatINR(detail.purchase_value)}</div>
                 <div><div className="text-[10px] text-gray-400 uppercase">Purchased</div>{detail.purchase_date || "—"}</div>
-                <div><div className="text-[10px] text-gray-400 uppercase">Branch</div>{detail.branch_name || "—"}</div>
+                <div><div className="text-[10px] text-gray-400 uppercase">Location</div>{detail.branch_name || "—"}</div>
                 <div><div className="text-[10px] text-gray-400 uppercase">Next maintenance</div>{detail.next_maintenance_date || "—"}</div>
               </div>
 
@@ -433,7 +433,7 @@ export default function AssetsPage() {
               </Select>
             </div>
             <div>
-              <Label>Branch</Label>
+              <Label>Location</Label>
               <Select value={form.branch_id || "none"} onValueChange={(v) => setForm((f) => ({ ...f, branch_id: v === "none" ? "" : v }))}>
                 <SelectTrigger className="mt-1" data-testid="asset-form-branch"><SelectValue placeholder="Branch" /></SelectTrigger>
                 <SelectContent>

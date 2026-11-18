@@ -145,6 +145,7 @@ export default function ClientsPage() {
                   <TableCell className="hidden md:table-cell text-sm text-gray-700 font-medium">{c.active_projects} <span className="text-gray-400 text-xs font-normal">open · {c.project_count} total</span></TableCell>
                   <TableCell className="hidden lg:table-cell text-sm text-gray-600">
                     {c.city || c.state ? <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3 text-gray-400" />{[c.city, c.state].filter(Boolean).join(", ")}</span> : <span className="text-gray-300">—</span>}
+                    {c.branch_name && <div className="text-[11px] text-gray-400 mt-0.5 inline-flex items-center gap-1"><Building2 className="h-3 w-3" />{c.branch_name}</div>}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell"><ClientStatusBadge status={c.status} /></TableCell>
                   <TableCell className="hidden sm:table-cell"><HealthBadge health={c.health} /></TableCell>

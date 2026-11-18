@@ -109,7 +109,7 @@ DEPS = {
                 ("quotes", "client_id", "unset")],
     "projects": [("transactions", "project_id", "unset"), ("expenses", "project_id", "unset"), ("api_credit_txns", "project_id", "unset")],
     "leads": [("quotes", "lead_id", "unset"), ("lead_activities", "lead_id", "delete")],
-    "branches": [("clients", "branch_id", "unset"), ("leads", "branch_id", "unset"), ("users", "branch_id", "unset"),
+    "branches": [("clients", "branch_id", "unset"), ("leads", "branch_id", "unset"), ("users", "branch_id", "unset"), ("projects", "branch_id", "unset"),
                  ("org_nodes", "branch_id", "unset"), ("holidays", "branch_ids", "pull")],
     "users": [("projects", "team_member_ids", "pull"), ("training_assignments", "user_id", "delete"),
               ("leads", "owner_id", "unset"), ("assets", "assigned_to", "unset"), ("password_entries", "owner_id", "unset"),

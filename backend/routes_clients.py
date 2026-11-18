@@ -7,6 +7,7 @@ from database import db
 from models import ClientCreate, ClientUpdate, CredentialIn
 from auth import require_roles, encrypt_secret, decrypt_secret, log_activity
 from permissions import branch_scope, check_branch_write
+from locations_util import valid_branch, branch_names
 from revenue import client_mrr, billing_summary, is_recurring, ist_today, ACTIVE_STATUSES
 
 router = APIRouter()
@@ -166,9 +167,11 @@ async def list_clients(
     for p in projects:
         by_client.setdefault(p["client_id"], []).append(p)
     today = ist_today()
+    bnames = await branch_names()
     out = []
     for c in clients:
         ps = by_client.get(c["id"], [])
+        c["branch_name"] = bnames.get(c.get("branch_id"), "")
         c["project_count"] = len(ps)
         c["active_projects"] = sum(1 for p in ps if p.get("status") in ACTIVE_STATUSES)
         c["health"] = compute_health(c, c["active_projects"])
@@ -214,6 +217,7 @@ async def get_client(client_id: str, user: dict = Depends(require_roles(*READ_RO
     active = sum(1 for p in projects if p["status"] in ACTIVE_STATUSES)
     c["projects"] = projects
     c["health"] = compute_health(c, active)
+    c["branch_name"] = (await branch_names()).get(c.get("branch_id"), "")
     mc = main_contact(c)
     c["contact_name"], c["contact_phone"], c["contact_email"] = mc.get("name", ""), mc.get("phone", ""), mc.get("email", "")
     mrr = client_mrr(projects, today)
@@ -238,6 +242,7 @@ async def create_client(body: ClientCreate, user: dict = Depends(require_roles(*
     doc = normalize_client(body.model_dump())
     if len(doc["name"]) < 2:
         raise HTTPException(status_code=400, detail="Add the company name")
+    doc["branch_id"] = await valid_branch(doc.get("branch_id"))
     if not doc.get("branch_id"):
         scope = branch_scope(user)
         if scope:
@@ -270,8 +275,20 @@ async def update_client(client_id: str, body: ClientUpdate, user: dict = Depends
         if len(norm["name"]) < 2:
             raise HTTPException(status_code=400, detail="Add the company name")
         updates.update(norm)
+    moved = False
+    if "branch_id" in updates:
+        updates["branch_id"] = await valid_branch(updates["branch_id"])
+        moved = (updates["branch_id"] or None) != (existing.get("branch_id") or None)
+        if moved:
+            check_branch_write(user, updates["branch_id"])
+            if updates["branch_id"] is None and branch_scope(user):
+                raise HTTPException(status_code=403, detail="Pick one of your locations for this client")
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.clients.update_one({"id": client_id}, {"$set": updates})
+    if moved:   # projects that followed the client move with it; ones moved to another location stay put
+        await db.projects.update_many({"client_id": client_id, "kind": {"$ne": "internal"},
+                                       "$or": [{"branch_id": existing.get("branch_id")}, {"branch_id": None}, {"branch_id": ""}, {"branch_id": {"$exists": False}}]},
+                                      {"$set": {"branch_id": updates["branch_id"]}})
     if updates.get("name") and updates["name"] != existing.get("name"):
         await propagate_client_name(client_id, updates["name"])
     await log_activity(user, "client_updated", "client", client_id, updates.get("name", existing["name"]))

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Phone, Mail, Users2, StickyNote, Sparkles, ExternalLink, FileText, Plus, Trash2 } from "lucide-react";
 import { useRecordDelete, RecordDeleteDialog } from "@/components/RecordDelete";
+import { LocationSelect } from "@/components/BranchFilter";
 import { toast } from "sonner";
 
 const KIND_ICONS = { call: Phone, email: Mail, meeting: Users2, note: StickyNote };
@@ -56,6 +57,14 @@ export default function LeadDetailPage() {
 
   if (!lead)
     return loadErr ? <Missing error={loadErr} back="/sales/pipeline" backLabel="Back to the pipeline" /> : <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
+
+  const moveLead = async (branch_id) => {
+    try {
+      await api.put(`/sales/leads/${id}`, { branch_id });
+      toast.success("Location updated");
+      load();
+    } catch (e) { toast.error(apiError(e)); }
+  };
 
   const changeStage = async (stage) => {
     try {
@@ -126,6 +135,11 @@ export default function LeadDetailPage() {
             {lead.company} · {labelize(lead.source)} · {lead.city}{lead.region ? `, ${lead.region}` : ""} · Owner: {lead.owner_name}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">{lead.contact_email} · {lead.contact_phone} {lead.follow_up_date ? `· Follow-up: ${lead.follow_up_date}` : ""}</p>
+          {canWrite && !lead.converted_client_id ? (
+            <div className="mt-2 w-full max-w-[260px]">
+              <LocationSelect value={lead.branch_id || null} onChange={moveLead} none="No location yet" fallbackName={lead.branch_name} testid="lead-branch" />
+            </div>
+          ) : lead.branch_name ? <p className="text-xs text-gray-500 mt-1" data-testid="lead-branch-name">Location: {lead.branch_name}</p> : null}
         </div>
         <div className="flex items-start gap-3">
           <div className="sm:text-right">

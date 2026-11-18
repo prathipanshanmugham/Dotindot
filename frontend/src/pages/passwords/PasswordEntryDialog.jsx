@@ -102,7 +102,7 @@ export const PasswordEntryDialog = ({ entry, onClose, onSaved }) => {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Branch</Label>
+            <Label>Location</Label>
             <Select value={form.branch_id || "none"} onValueChange={(v) => set("branch_id", v === "none" ? "" : v)}>
               <SelectTrigger data-testid="pw-form-branch"><SelectValue placeholder="Branch" /></SelectTrigger>
               <SelectContent><SelectItem value="none">— None —</SelectItem>{branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>

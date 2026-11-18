@@ -199,3 +199,18 @@ Internal web app (FARM: FastAPI + React + MongoDB) for Dotindot Creative, an AI-
 - Sales (Rohan): client/project creation, leads (future)
 - PM (Sneha): client/project management, credential reveal
 - Employee (Karan): only assigned projects + dashboard
+
+## v3.6 (18 Nov 2026) — location everywhere, location scores, dropdowns
+- Every project, client and lead has a Dotindot location (branch). Client projects start at the client's location and can run from
+  another one; moving a client moves the projects that followed it. Migration `locations_v36` fills client projects and leads.
+- Scope: a person sees projects of their clients and projects run from their locations. MRR by location, compare, manager and
+  CEO views use the project's location.
+- Location targets (Sales → Targets → "A location"), monthly or quarterly, picked from a dropdown.
+- `GET /dashboard/location-scores` (CEO: all; location managers: theirs): 0–100 per location — sales vs target 25, collections
+  (invoices due in last 90 days) 25, active projects on track 25, client health 15, attendance 10; parts with no data are left
+  out and re-weighted; under half the card = "early read". Shown on the CEO and manager dashboards.
+- `GET /lookups` pick-lists (departments, designations, contact roles, course/partnership categories, education, subscription
+  owners) — defaults plus values already in use; never built from HR personal data.
+- Dropdowns: project/client/lead location, contact role, lead service, target period, HR department/designation/work location/
+  blood group/gender/marital status/education/relation, hiring team/experience/location shown, course & partnership category,
+  subscription owner, billing country & city, investor city. Leads export now respects location scope.

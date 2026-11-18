@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BranchFilter } from "@/components/BranchFilter";
 import { DashboardSwitcher } from "@/components/DashboardSwitcher";
 import { CeoExtras } from "@/components/CeoExtras";
+import LocationScores from "@/components/LocationScores";
 import { ArrowUpRight, ArrowDownRight, Info, ArrowRight, Globe2, Building2 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -100,6 +101,8 @@ export default function CeoDashboard() {
           <div className="text-[11px] text-gray-400 mt-1">{d.pipeline.open_count} open leads</div>
         </Metric>
       </div>
+
+      <LocationScores testid="ceo-location-scores" />
 
       {/* Row 2: trends */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -211,7 +214,7 @@ export default function CeoDashboard() {
       {/* Performance by branch */}
       <Card className="border-gray-200/80" data-testid="ceo-branch-panel">
         <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base font-semibold flex items-center gap-2"><Building2 className="h-4 w-4 text-[#F26B21]" /> Performance by branch</CardTitle>
+          <CardTitle className="text-base font-semibold flex items-center gap-2"><Building2 className="h-4 w-4 text-[#F26B21]" /> Performance by location</CardTitle>
           <Link to="/locations" className="text-[11px] font-semibold text-[#F26B21] hover:underline inline-flex items-center gap-0.5">Locations <ArrowRight className="h-3 w-3" /></Link>
         </CardHeader>
         <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -226,8 +229,8 @@ export default function CeoDashboard() {
             </ResponsiveContainer>
           </div>
           <div className="space-y-2">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Branch roll-up</div>
-            {branches.length === 0 && <p className="text-sm text-gray-400">No branches configured yet.</p>}
+            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Location roll-up</div>
+            {branches.length === 0 && <p className="text-sm text-gray-400">No locations set up yet.</p>}
             {branches.map((b) => (
               <div key={b.id} className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3" data-testid={`ceo-branch-row-${b.id}`}>
                 <div>

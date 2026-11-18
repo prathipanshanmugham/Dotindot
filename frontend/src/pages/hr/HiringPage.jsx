@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, ExternalLink, Briefcase, Users, Search, FileText, Mail, Phone, MapPin, Link2, Star, MessageCircle, CalendarClock } from "lucide-react";
 import HRLayout from "./HRLayout";
+import { Combo, useLookups } from "@/components/Combo";
+
+const EXPERIENCE = ["Fresher", "0–1 years", "1–2 years", "2–4 years", "3–5 years", "5+ years"];
 import { siteUrl } from "@/pages/website/websiteKit";
 
 const ORANGE = "bg-[#F26B21] hover:bg-[#E05A10] text-white";
@@ -39,6 +42,8 @@ const JobDialog = ({ job, meta, onClose, onSaved }) => {
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e?.target ? e.target.value : e }));
   const branchValue = f.branch_id || (meta.branch_limited ? branches?.[0]?.id || "" : WHOLE);
+  const lookups = useLookups();
+  const shownPlaces = [...new Set([...(branches || []).map((b) => [b.city, b.state].filter(Boolean).join(", ")).filter(Boolean), "Remote, India"])];
   const save = async (e) => {
     e.preventDefault();
     for (const [k, l] of [["title", "a job title"], ["summary", "a one-line summary"], ["description", "a description"]]) if (!f[k].trim()) return toast.error(`Add ${l}`);
@@ -66,10 +71,10 @@ const JobDialog = ({ job, meta, onClose, onSaved }) => {
         <form onSubmit={save} className="space-y-4">
           <Field label="Job title"><Input value={f.title} onChange={set("title")} maxLength={120} placeholder="e.g. Performance marketer" data-testid="job-title" /></Field>
           <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Team"><Input value={f.department} onChange={set("department")} maxLength={60} placeholder="e.g. Marketing, Content, Engineering" /></Field>
-            <Field label="Branch">
+            <Field label="Team"><Combo value={f.department || ""} onChange={set("department")} options={lookups.departments || []} allowCustom clearable placeholder="Pick a team" testid="job-team" /></Field>
+            <Field label="Location">
               <Select value={branchValue} onValueChange={(v) => setF((s) => ({ ...s, branch_id: v }))}>
-                <SelectTrigger data-testid="job-branch"><SelectValue placeholder="Pick a branch" /></SelectTrigger>
+                <SelectTrigger data-testid="job-branch"><SelectValue placeholder="Pick a location" /></SelectTrigger>
                 <SelectContent>
                   {!meta.branch_limited && <SelectItem value={WHOLE}>Whole company</SelectItem>}
                   {(branches || []).map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
@@ -90,11 +95,11 @@ const JobDialog = ({ job, meta, onClose, onSaved }) => {
                 <SelectContent>{Object.entries(meta.types).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
-            <Field label="Experience"><Input value={f.experience} onChange={set("experience")} maxLength={40} placeholder="e.g. 2–4 years" /></Field>
+            <Field label="Experience"><Combo value={f.experience || ""} onChange={set("experience")} options={EXPERIENCE} allowCustom clearable placeholder="Pick one" testid="job-experience" /></Field>
             <Field label="Openings"><Input type="number" min={1} max={100} value={f.openings} onChange={set("openings")} /></Field>
           </div>
-          <Field label="Location shown" hint={f.work_mode === "remote" ? "e.g. Remote, India" : "Leave blank to use the branch's city"}>
-            <Input value={f.location} onChange={set("location")} maxLength={100} placeholder={f.work_mode === "remote" ? "Remote, India" : "e.g. Erode, Tamil Nadu"} />
+          <Field label="Location shown" hint={f.work_mode === "remote" ? "e.g. Remote, India" : "Leave blank to use the location's city"}>
+            <Combo value={f.location || ""} onChange={set("location")} options={shownPlaces} allowCustom clearable placeholder={f.work_mode === "remote" ? "Remote, India" : "The location's city"} testid="job-location" />
           </Field>
           <Field label={<span className="flex justify-between gap-2">One-line summary <span className="text-[11px] text-gray-400">{f.summary.length}/300</span></span>} hint="Shown on the careers page under the title.">
             <Textarea value={f.summary} onChange={set("summary")} rows={2} maxLength={300} placeholder="You've run Meta and Google campaigns to a cost per customer and can explain why it moved." data-testid="job-summary" />

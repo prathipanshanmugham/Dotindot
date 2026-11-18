@@ -8,6 +8,7 @@ import ExportMenu from "@/components/ExportMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Combo, useLookups } from "@/components/Combo";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ const StatCard = ({ icon: Icon, label, value, sub, accent, testid }) => (
 export default function PartnershipsPage() {
   const { user } = useAuth();
   const [partners, setPartners] = useState(null);
+  const lookups = useLookups();
   const [stats, setStats] = useState(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -267,7 +269,7 @@ export default function PartnershipsPage() {
             </div>
             <div>
               <Label>Category</Label>
-              <Input className="mt-1" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} placeholder="Advertising, Cloud..." />
+              <div className="mt-1"><Combo value={form.category || ""} onChange={(v) => setForm((f) => ({ ...f, category: v }))} options={lookups.partnership_categories || []} allowCustom clearable placeholder="Pick a category" testid="partnership-form-category" /></div>
             </div>
             <div>
               <Label>Cost (₹)</Label>

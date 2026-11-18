@@ -409,7 +409,7 @@ function PlanDialog({ open, onClose, meta, plan, people, branches, onSaved }) {
               <SelectContent>{meta.plan_kinds.map((k) => <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>)}</SelectContent></Select></Field>
             <Field label="Measured on"><Select value={f.metric} onValueChange={(v) => set("metric", v)}><SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{meta.metrics.map((k) => <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>)}</SelectContent></Select></Field>
-            {f.metric === "branch_revenue" && <Field label="Branch" hint="Blank = each person's own branch"><Select value={f.branch_id || "own"} onValueChange={(v) => set("branch_id", v === "own" ? "" : v)}><SelectTrigger><SelectValue /></SelectTrigger>
+            {f.metric === "branch_revenue" && <Field label="Location" hint="Blank = each person's own location"><Select value={f.branch_id || "own"} onValueChange={(v) => set("branch_id", v === "own" ? "" : v)}><SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="own">Their own branch</SelectItem>{branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent></Select></Field>}
             <Field label="Target (₹)" hint="0 = no target"><Input type="number" value={f.target} onChange={(e) => set("target", e.target.value)} data-testid="ip-target" /></Field>
             <Field label="Payout"><Select value={f.payout_type} onValueChange={(v) => set("payout_type", v)} disabled={f.kind === "increment"}><SelectTrigger><SelectValue /></SelectTrigger>

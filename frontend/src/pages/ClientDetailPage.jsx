@@ -17,7 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, ExternalLink, Pencil, Trash2, Eye, EyeOff, Copy, MapPin, Plus, LayoutDashboard, Phone, Mail, User, Repeat, Receipt, FileText } from "lucide-react";
+import { ArrowLeft, ExternalLink, Pencil, Trash2, Eye, EyeOff, Copy, MapPin, Plus, LayoutDashboard, Phone, Mail, User, Repeat, Receipt, FileText, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
 const CredentialRow = ({ clientId, cred, canReveal, onDeleted, canManage }) => {
@@ -163,6 +163,7 @@ export default function ClientDetailPage() {
             {client.contact_email && <a href={`mailto:${client.contact_email}`} className="inline-flex items-center gap-1 hover:text-[#F26B21] [overflow-wrap:anywhere]"><Mail className="h-3.5 w-3.5" />{client.contact_email}</a>}
             <span>{labelize(client.industry)}</span>
             {(client.city || client.state) && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{[client.city, client.state].filter(Boolean).join(", ")}</span>}
+            {client.branch_name && <span className="inline-flex items-center gap-1" data-testid="client-branch-name"><Building2 className="h-3.5 w-3.5" />{client.branch_name}</span>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

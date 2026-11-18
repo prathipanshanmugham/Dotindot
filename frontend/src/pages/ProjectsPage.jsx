@@ -206,7 +206,7 @@ export default function ProjectsPage() {
                   <TableRow key={p.id} onClick={() => navigate(`/projects/${p.id}`)} className="cursor-pointer hover:bg-orange-50/40" data-testid={`project-row-${p.id}`}>{del.canDelete && <TableCell className="w-20"><RowDeleteControls kit={del} row={p} /></TableCell>}
                     <TableCell>
                       <div className="font-semibold text-gray-900">{p.name}</div>
-                      <div className="text-xs text-gray-400">{[SERVICE_LABEL[p.service], p.location].filter(Boolean).join(" · ")}</div>
+                      <div className="text-xs text-gray-400">{[SERVICE_LABEL[p.service], p.branch_name].filter(Boolean).join(" · ")}</div>
                       <div className="md:hidden mt-1 space-y-0.5"><div className="text-xs text-gray-600">{p.kind === "internal" ? "Internal" : p.client_name}</div><BillingCell p={p} /></div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-sm text-gray-700">{p.kind === "internal" ? <InternalBadge /> : <Link to={`/clients/${p.client_id}`} onClick={(e) => e.stopPropagation()} className="hover:text-[#F26B21]">{p.client_name}</Link>}</TableCell>

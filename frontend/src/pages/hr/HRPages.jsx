@@ -16,6 +16,9 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Combo, ChoiceSelect, useLookups, BLOOD_GROUPS, GENDERS, MARITAL } from "@/components/Combo";
+
+const RELATIONS = ["Father", "Mother", "Spouse", "Brother", "Sister", "Son", "Daughter", "Friend", "Guardian"];
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import {
   Users, UserPlus, UserMinus, CalendarClock, FileWarning, Cake, Award, Search, Eye, ShieldCheck, ExternalLink, Plus, CheckCircle2,
@@ -119,6 +122,7 @@ export function HROverviewPage() {
 const SENS = [["pan", "PAN"], ["uan", "UAN (PF)"], ["pf_number", "PF member ID"], ["esi_number", "ESI number"], ["bank_account", "Bank account no."]];
 
 function PersonSheet({ id, meta, onClose, onSaved }) {
+  const lookups = useLookups();
   const team = useTeam();
   const [p, setP] = useState(null);
   const [tab, setTab] = useState("job");
@@ -153,6 +157,13 @@ function PersonSheet({ id, meta, onClose, onSaved }) {
   const inp = (k, label, type = "text", className = "") => (
     <Field key={k} label={label} className={className}><Input type={type} value={f[k] ?? ""} onChange={(e) => set(k, e.target.value)} disabled={!can} data-testid={`hr-f-${k}`} /></Field>
   );
+  const pick = (k, label, options) => (   // a few known answers, or type another
+    <Field key={k} label={label}><Combo value={f[k] || ""} onChange={(v) => set(k, v)} options={options || []} allowCustom clearable disabled={!can} testid={`hr-f-${k}`} /></Field>
+  );
+  const choose = (k, label, options) => (  // one of a fixed list
+    <Field key={k} label={label}><ChoiceSelect value={f[k] || ""} onChange={(v) => set(k, v)} options={options} none="Not set" disabled={!can} testid={`hr-f-${k}`} /></Field>
+  );
+  const seats = [...branches.map((b) => b.name), "Work from home", "Client site", "Field"];
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col" data-testid="person-sheet">
@@ -179,7 +190,7 @@ function PersonSheet({ id, meta, onClose, onSaved }) {
                   {inp("employee_code", "Employee code")}
                   <Field label="Employment type"><Select value={f.employment_type || "full_time"} onValueChange={(v) => set("employment_type", v)} disabled={!can}>
                     <SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{meta.employment_types.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></Field>
-                  {inp("designation", "Designation")}{inp("department", "Department")}
+                  {pick("designation", "Designation", lookups.designations)}{pick("department", "Department", lookups.departments)}
                   <Field label="Reports to"><PersonPick value={f.manager_id} onChange={(v) => set("manager_id", v)} team={team.filter((u) => u.id !== p.id)} allowNone /></Field>
                   <Field label="Location"><Select value={f.branch_id || "none"} onValueChange={(v) => set("branch_id", v === "none" ? null : v)} disabled={!can}>
                     <SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Not set</SelectItem>{branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent></Select></Field>
@@ -187,7 +198,7 @@ function PersonSheet({ id, meta, onClose, onSaved }) {
                   <Field label="Status"><Select value={f.status || "active"} onValueChange={(v) => set("status", v)} disabled={!can}>
                     <SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{meta.statuses.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></Field>
                   {inp("probation_end", "Probation ends", "date")}{inp("confirmation_date", "Confirmed on", "date")}
-                  {inp("notice_period_days", "Notice period (days)", "number")}{inp("work_location", "Work location / seat")}
+                  {inp("notice_period_days", "Notice period (days)", "number")}{pick("work_location", "Work location / seat", seats)}
                   {inp("phone", "Work phone")}
                   {meta.can_view_sensitive && <Field label="HR notes (private)" className="sm:col-span-2"><Textarea rows={3} value={f.notes || ""} onChange={(e) => set("notes", e.target.value)} disabled={!can} /></Field>}
                 </div>
@@ -195,15 +206,18 @@ function PersonSheet({ id, meta, onClose, onSaved }) {
               {tab === "personal" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {inp("date_of_birth", "Date of birth", "date")}{inp("personal_email", "Personal email")}
-                  {inp("blood_group", "Blood group")}{inp("gender", "Gender")}
-                  {inp("marital_status", "Marital status")}{inp("education", "Highest education")}
+                  {choose("blood_group", "Blood group", BLOOD_GROUPS)}{choose("gender", "Gender", GENDERS)}
+                  {choose("marital_status", "Marital status", MARITAL)}{pick("education", "Highest education", lookups.education)}
                   <Field label="Current address" className="sm:col-span-2"><Textarea rows={2} value={f.address_current || ""} onChange={(e) => set("address_current", e.target.value)} disabled={!can} /></Field>
                   <Field label="Permanent address" className="sm:col-span-2"><Textarea rows={2} value={f.address_permanent || ""} onChange={(e) => set("address_permanent", e.target.value)} disabled={!can} /></Field>
                   {inp("previous_employer", "Previous employer", "text", "sm:col-span-2")}
                   <div className="sm:col-span-2 text-xs font-bold uppercase tracking-widest text-gray-400 pt-2">Emergency contact</div>
                   {["name", "relation", "phone"].map((k) => (
-                    <Field key={k} label={k[0].toUpperCase() + k.slice(1)}><Input value={f.emergency_contact?.[k] || ""} disabled={!can}
-                      onChange={(e) => set("emergency_contact", { ...(f.emergency_contact || {}), [k]: e.target.value })} /></Field>))}
+                    <Field key={k} label={k[0].toUpperCase() + k.slice(1)}>{k === "relation" ? (
+                      <Combo value={f.emergency_contact?.relation || ""} options={RELATIONS} allowCustom clearable disabled={!can} testid="hr-f-relation"
+                        onChange={(v) => set("emergency_contact", { ...(f.emergency_contact || {}), relation: v })} />
+                    ) : <Input value={f.emergency_contact?.[k] || ""} disabled={!can} type={k === "phone" ? "tel" : "text"}
+                      onChange={(e) => set("emergency_contact", { ...(f.emergency_contact || {}), [k]: e.target.value })} />}</Field>))}
                 </div>
               )}
               {tab === "bank" && (
@@ -570,6 +584,7 @@ function PlanDialog({ open, onClose, people, courses, onSaved, preset }) {
 }
 
 function CourseDialog({ open, onClose, course, onSaved }) {
+  const lookups = useLookups();
   const [f, setF] = useState({});
   useEffect(() => { if (open) setF(course ? { ...course } : { title: "", category: "", provider: "", duration_hours: 0, link: "", description: "" }); }, [open, course]);
   const save = async () => {
@@ -581,7 +596,7 @@ function CourseDialog({ open, onClose, course, onSaved }) {
       <DialogContent className="max-w-md"><DialogHeader><DialogTitle>{course ? "Edit course" : "New training course"}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <Field label="Title"><Input value={f.title || ""} onChange={(e) => setF((x) => ({ ...x, title: e.target.value }))} data-testid="course-title" /></Field>
-          <div className="grid grid-cols-2 gap-3"><Field label="Category"><Input value={f.category || ""} onChange={(e) => setF((x) => ({ ...x, category: e.target.value }))} /></Field>
+          <div className="grid grid-cols-2 gap-3"><Field label="Category"><Combo value={f.category || ""} onChange={(v) => setF((x) => ({ ...x, category: v }))} options={lookups.course_categories || []} allowCustom clearable placeholder="Pick one" testid="course-category" /></Field>
             <Field label="Provider"><Input value={f.provider || ""} onChange={(e) => setF((x) => ({ ...x, provider: e.target.value }))} placeholder="Google Skillshop, Udemy…" /></Field></div>
           <div className="grid grid-cols-2 gap-3"><Field label="Hours"><Input type="number" value={f.duration_hours ?? 0} onChange={(e) => setF((x) => ({ ...x, duration_hours: e.target.value }))} /></Field>
             <Field label="Link"><Input value={f.link || ""} onChange={(e) => setF((x) => ({ ...x, link: e.target.value }))} /></Field></div>

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone, timedelta, date
 from fastapi import APIRouter, Depends, Query
 from database import db
+from locations_util import project_location
 from auth import require_roles
 from routes_sales import won_at, OPEN_STAGES
 
@@ -80,7 +81,8 @@ async def ceo_dashboard(period: str = Query("this_month"), branch: str = Query(N
         _cids = {c["id"] for c in clients}
         tx = [x for x in tx if x.get("client_id") in _cids]
         leads = [l for l in leads if l.get("branch_id") == branch]
-        projects = [p for p in projects if p.get("client_id") in _cids or (p.get("kind") == "internal" and p.get("branch_id") == branch)]
+        _cb = {c["id"]: c.get("branch_id") for c in await db.clients.find({}, {"_id": 0, "id": 1, "branch_id": 1}).to_list(5000)}
+        projects = [p for p in projects if project_location(p, _cb) == branch]
 
     income, expense = sums_in(tx, start, end)
     prev_income, prev_expense = sums_in(tx, prev_start, prev_end)

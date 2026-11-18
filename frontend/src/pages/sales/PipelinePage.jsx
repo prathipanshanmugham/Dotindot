@@ -16,17 +16,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, ChevronRight, AlertCircle } from "lucide-react";
 import { LocationFields } from "@/components/LocationFields";
+import { BranchFilter, LocationSelect } from "@/components/BranchFilter";
+import { Combo } from "@/components/Combo";
+import { SERVICES } from "@/lib/revenue";
 import { toast } from "sonner";
 import { TabStrip } from "@/components/kit";
 
-const EMPTY = { name: "", company: "", contact_email: "", contact_phone: "", source: "website", estimated_value: "", service_interest: "", region: "India", state: "", city: "", owner_id: "", follow_up_date: "", notes: "" };
+const EMPTY = { name: "", company: "", contact_email: "", contact_phone: "", source: "website", estimated_value: "", service_interest: "", region: "India", state: "", city: "", owner_id: "", follow_up_date: "", notes: "", branch_id: null };
+const SERVICE_NAMES = SERVICES.filter(([k]) => k !== "other").map(([, l]) => l);
 
 export default function PipelinePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
   const [team, setTeam] = useState([]);
-  const [filters, setFilters] = useState({ source: "all", owner: "all" });
+  const [filters, setFilters] = useState({ source: "all", owner: "all", branch: "all" });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -41,6 +45,7 @@ export default function PipelinePage() {
     const params = {};
     if (filters.source !== "all") params.source = filters.source;
     if (filters.owner !== "all") params.owner = filters.owner;
+    if (filters.branch !== "all") params.branch = filters.branch;
     const { data } = await api.get("/sales/leads", { params });
     setLeads(data);
   }, [filters]);
@@ -64,6 +69,7 @@ export default function PipelinePage() {
         estimated_value: Number(form.estimated_value) || 0,
         owner_id: form.owner_id || null,
         follow_up_date: form.follow_up_date || null,
+        branch_id: form.branch_id || null,
       });
       toast.success("Lead created");
       setDialogOpen(false);
@@ -97,6 +103,7 @@ export default function PipelinePage() {
             params={{
               ...(filters.source !== "all" && { source: filters.source }),
               ...(filters.owner !== "all" && { owner: filters.owner }),
+              ...(filters.branch !== "all" && { branch: filters.branch }),
             }}
           />
           {canWrite && (
@@ -124,6 +131,7 @@ export default function PipelinePage() {
               {team.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <BranchFilter value={filters.branch} onChange={(v) => setFilters((p) => ({ ...p, branch: v }))} testid="pipeline-branch-filter" />
         </CardContent>
       </Card>
 
@@ -225,8 +233,10 @@ export default function PipelinePage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1"><Label>Service interest</Label><Input data-testid="lead-form-service" value={form.service_interest} onChange={(e) => setForm((p) => ({ ...p, service_interest: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Service interest</Label><Combo value={form.service_interest} onChange={(v) => setForm((p) => ({ ...p, service_interest: v }))} options={SERVICE_NAMES} allowCustom clearable placeholder="Pick a service" testid="lead-form-service" /></div>
             <div className="space-y-1"><Label>Follow-up date</Label><Input data-testid="lead-form-followup" type="date" value={form.follow_up_date} onChange={(e) => setForm((p) => ({ ...p, follow_up_date: e.target.value }))} /></div>
+            <div className="space-y-1 col-span-2"><Label>Our location</Label>
+              <LocationSelect value={form.branch_id} onChange={(v) => setForm((p) => ({ ...p, branch_id: v }))} none="The owner's location" testid="lead-form-branch" /></div>
             <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <LocationFields country={form.region} state={form.state} city={form.city} prefix="lead-form" compact
                 onChange={(v) => setForm((p) => ({ ...p, region: v.country, state: v.state, city: v.city }))} />
