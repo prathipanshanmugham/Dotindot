@@ -27,7 +27,9 @@ const Recenter = ({ lat, lng }) => {
  *  - dragging the pin.
  * onChange(lat, lng, source) where source is "exact" | "city".
  */
-export const PinPicker = ({ city, lat, lng, source, onChange }) => {
+// showMap=false (places outside India): no map, but "Use my location" and a pasted map link still set the office pin,
+// which attendance uses to confirm someone is at the office.
+export const PinPicker = ({ city, lat, lng, source, onChange, showMap = true }) => {
   const [coords, setCoords] = useState(coordCache);
   const [paste, setPaste] = useState("");
   const [busy, setBusy] = useState("");
@@ -100,7 +102,7 @@ export const PinPicker = ({ city, lat, lng, source, onChange }) => {
           </Button>
         </div>
       </div>
-      {pos && (
+      {pos && showMap && (
         <div className="h-48 rounded-lg overflow-hidden border border-gray-200">
           <MapContainer center={pos} zoom={13} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
@@ -110,7 +112,10 @@ export const PinPicker = ({ city, lat, lng, source, onChange }) => {
           </MapContainer>
         </div>
       )}
-      <p className="text-[11px] text-gray-400">Tip: stand in the office and tap <span className="font-semibold">Use my location</span>, or drag the pin. Attendance uses this pin to tell if someone checked in at the office.</p>
+      <p className="text-[11px] text-gray-400">
+        {showMap ? <>Tip: stand in the office and tap <span className="font-semibold">Use my location</span>, or drag the pin.</> : <>Outside India there's no map — stand in the office and tap <span className="font-semibold">Use my location</span>, or paste its map link.</>}
+        {" "}Attendance uses this pin to tell if someone checked in at the office.
+      </p>
     </div>
   );
 };

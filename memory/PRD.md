@@ -226,3 +226,12 @@ Internal web app (FARM: FastAPI + React + MongoDB) for Dotindot Creative, an AI-
 - CEO report: location picker, income/expenses by location (ledger entries can carry a location; else project → client →
   company-wide), team cost from payslips, contribution; `GET /ceo/report.pdf?period=&branch=` downloads it.
 - `/locations/compare` now respects the viewer's locations.
+
+## v3.8 (19 Nov 2026) — Locations page rebuilt
+- One call `GET /locations/insights?branch=` feeds the page (scoped like the CEO report; money only with ceo_dashboard /
+  finance.revenue / finance.ledger). `/locations/compare` blanks revenue, pipeline and asset value for others.
+- Tabs: Overview (KPIs, a card per location with score, counts, MRR, 6-month income sparkline; charts: income by location,
+  clients and team, projects by status, MRR, open pipeline — each with a table view), India map (Leaflet locked to India,
+  layers, city list, by-state chart), Outside India (by-country chart and country cards; nothing abroad on the map),
+  Manage (cards on phones, table on wider screens; add/edit with the office pin — map only for India).
+- Country = a real country name only (a region like "South" is ignored); a missing Indian state is worked out from the city.

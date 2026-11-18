@@ -64,6 +64,7 @@ from routes_chat import router as chat_router
 from routes_jobs import router as jobs_router
 from routes_revenue import router as revenue_router
 from routes_scores import router as scores_router
+from routes_location_insights import router as location_insights_router
 
 app = FastAPI(
     title="Dotindot Internal Operations Platform",
@@ -94,7 +95,7 @@ for r in (auth_router, users_router, clients_router, projects_router, misc_route
           passwords_router, dashboard_router, records_router, agents_router, org_router,
           api_credits_router, daily_router, client_dashboard_router, holidays_router, timesheets_router,
           support_router, lead_flow_router, hr_router, payroll_router, loans_router, investors_router, ai_router, growth_router, billing_router, website_router, chat_router, jobs_router,
-          revenue_router, scores_router, ai_connector.router):
+          revenue_router, scores_router, location_insights_router, ai_connector.router):
     app.include_router(r, prefix="/api")
 app.include_router(ai_connector.root_router)   # /.well-known/oauth-* for Claude / ChatGPT connectors
 

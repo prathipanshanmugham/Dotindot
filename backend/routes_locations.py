@@ -314,6 +314,8 @@ async def compare_branches(user: dict = Depends(get_current_user)):
     users = await db.users.find({"is_active": True}, {"_id": 0, "branch_id": 1}).to_list(500)
     assets = await db.assets.find({}, {"_id": 0, "branch_id": 1, "purchase_value": 1}).to_list(2000)
 
+    from routes_location_insights import can_see_money
+    money = can_see_money(user)   # revenue, pipeline and asset value only for people who can see money
     rows = []
     for b in branches:
         bid = b["id"]
@@ -334,6 +336,9 @@ async def compare_branches(user: dict = Depends(get_current_user)):
             "assets": sum(1 for a in assets if a.get("branch_id") == bid),
             "asset_value": round(sum(a.get("purchase_value", 0) for a in assets if a.get("branch_id") == bid), 2),
         })
+        if not money:
+            for k in ("revenue", "pipeline_value", "asset_value"):
+                rows[-1][k] = None
     return rows
 
 

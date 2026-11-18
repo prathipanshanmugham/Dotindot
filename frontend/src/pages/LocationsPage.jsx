@@ -1,404 +1,341 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { Link } from "react-router-dom";
-import { toast } from "sonner";
+// Locations — where Dotindot works: each of our locations side by side, India on a map, everything abroad by country.
+// Backend: GET /locations/insights (routes_location_insights.py) — one call, scoped to the viewer's locations.
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { useRecordDelete, RowDeleteControls, BulkDeleteBar } from "@/components/RecordDelete";
-import api, { apiError } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BranchFilter, useBranchOptions } from "@/components/BranchFilter";
+import { PageHead, PillTabs, Stat, Spinner, Pill, inrShort, monthLabel } from "@/components/kit";
+import { ChartCard, TipBox, LegendRow, SERIES, BRAND, AXIS, GRID } from "@/components/ChartCard";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Building2, UserCheck, Globe2, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { LocationFields } from "@/components/LocationFields";
-import { PinPicker } from "@/components/PinPicker";
-import { BranchFilter } from "@/components/BranchFilter";
+import { Building2, Users, UserCheck, Briefcase, Repeat, TrendingUp, Globe2, MapPin, Crown, Plus, Target } from "lucide-react";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import IndiaMap from "@/pages/locations/IndiaMap";
+import LocationManager from "@/pages/locations/LocationManager";
 
-const LAYERS = [
-  { key: "clients", label: "Clients", color: "#F26B21", icon: Users },
-  { key: "branches", label: "Branches", color: "#1F2937", icon: Building2 },
-  { key: "employees", label: "Team", color: "#2563EB", icon: UserCheck },
-];
+const STATUS = [["kickoff", "Kickoff"], ["in_progress", "In progress"], ["review", "In review"], ["on_hold", "On hold"], ["completed", "Completed"]];
+const BAND = { strong: ["green", "Strong"], steady: ["amber", "Steady"], attention: ["red", "Needs attention"] };
+const shortMonth = (ym) => new Date(`${ym}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short" });
+const cut = (s, n = 14) => (s && s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-// v3.0: branches sit on their own exact pin; clients + team share ONE marker at their city's centre (no offsets).
-const BUILDING_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/></svg>';
-const branchIcon = (exact) =>
-  L.divIcon({
-    className: "",
-    html: `<div style="background:${exact ? "#1F2937" : "#fff"};color:${exact ? "#fff" : "#1F2937"};width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.35);border:${exact ? "2px solid #fff" : "2px dashed #1F2937"};"><span style="transform:rotate(45deg);display:flex">${BUILDING_SVG}</span></div>`,
-    iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28],
-  });
-const cityIcon = (clients, team) => {
-  const seg = (n, bg) => (n ? `<span style="background:${bg};color:#fff;padding:0 7px;line-height:22px;font-weight:700">${n}</span>` : "");
-  const html = `<div style="display:inline-flex;border-radius:11px;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);font:11px Inter,sans-serif;transform:translate(-50%,-50%);white-space:nowrap">${seg(clients, "#F26B21")}${seg(team, "#2563EB")}</div>`;
-  return L.divIcon({ className: "", html, iconSize: [0, 0], iconAnchor: [0, 0], popupAnchor: [0, -12] });
+const useNarrow = () => {
+  const [narrow, setNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 640);
+  useEffect(() => {
+    const on = () => setNarrow(window.innerWidth < 640);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return narrow;
 };
 
-const EMPTY_BRANCH = { name: "", city: "", state: "", country: "India", address: "", head_name: "", manager_id: null, contact_email: "", contact_phone: "", status: "active", lat: null, lng: null, pin_source: null };
-
-const BranchManager = ({ onChanged, onLocate }) => {
-  const { user } = useAuth();
-  const isAdmin = ["super_admin", "admin"].includes(user?.role);
-  const [branches, setBranches] = useState([]);
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(EMPTY_BRANCH);
-  const [people, setPeople] = useState([]);
-  useEffect(() => { if (open) api.get("/users/team").then((r) => setPeople(r.data)).catch(() => {}); }, [open]);
-
-  const del = useRecordDelete({ coll: "branches", permKey: "locations.delete", rows: branches, onDeleted: () => { load(); onChanged && onChanged(); } });
-  const load = useCallback(() => {
-    api.get("/locations/branches").then((r) => setBranches(r.data)).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const openNew = () => { setEditing(null); setForm(EMPTY_BRANCH); setOpen(true); };
-  const pinChange = useCallback((lat, lng, pin_source) => setForm((f) => ({ ...f, lat, lng, pin_source })), []);
-  const openEdit = (b) => {
-    setEditing(b);
-    setForm({
-      name: b.name || "", city: b.city || "", state: b.state || "", country: b.country || "India", address: b.address || "",
-      head_name: b.head_name || "", manager_id: b.manager_id || null, contact_email: b.contact_email || "", contact_phone: b.contact_phone || "",
-      status: b.status || "active", lat: b.lat ?? null, lng: b.lng ?? null, pin_source: b.pin_source || null,
-    });
-    setOpen(true);
-  };
-
-  const save = async () => {
-    if (!form.name || !form.city) return toast.error("Branch name and city are required");
-    try {
-      if (editing) await api.put(`/locations/branches/${editing.id}`, form);
-      else await api.post("/locations/branches", form);
-      toast.success(editing ? "Branch updated" : form.pin_source === "exact" ? "Branch created with its exact pin" : `Branch created — pinned at ${form.city} centre for now`);
-      setOpen(false);
-      load();
-      onChanged && onChanged();
-    } catch (e) {
-      toast.error(apiError(e));
-    }
-  };
-
-  const remove = async (b) => {
-    try {
-      await api.delete(`/locations/branches/${b.id}`);
-      toast.success("Branch deleted");
-      load();
-      onChanged && onChanged();
-    } catch (e) {
-      toast.error(apiError(e));
-    }
-  };
-
+/** Horizontal bars, one row per item; several series sit side by side (same unit, one axis). */
+const HBars = ({ rows, series, money, testid, narrow }) => {
+  const h = Math.max(140, rows.length * (series.length > 1 ? 18 * series.length + 14 : 34) + 36);
+  const fmt = money ? inrShort : (v) => v;
   return (
-    <Card className="border-gray-200/80 shadow-sm" data-testid="branch-manager">
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-[#F26B21]" /> Branches
-        </CardTitle>
-        {isAdmin && (
-          <Button size="sm" onClick={openNew} className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold" data-testid="add-branch-btn">
-            <Plus className="h-3.5 w-3.5 mr-1.5" /> Add branch
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50/70">
-              <TableHead className="w-20">{del.canDelete && <><BulkDeleteBar kit={del} />{del.dialog}</>}</TableHead>
-              <TableHead>Branch</TableHead>
-              <TableHead>City</TableHead>
-              <TableHead>Location CEO</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Status</TableHead>
-              {isAdmin && <TableHead className="text-right">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {branches.length === 0 && (
-              <TableRow><TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-sm text-gray-400">No branches yet.</TableCell></TableRow>
-            )}
-            {branches.map((b) => (
-              <TableRow key={b.id} data-testid={`branch-row-${b.id}`} className="cursor-pointer hover:bg-orange-50/40" onClick={() => onLocate && onLocate(b)}><TableCell className="w-20"><RowDeleteControls kit={del} row={b} /></TableCell>
-                <TableCell>
-                  <div className="font-semibold text-gray-900">{b.name}</div>
-                  {b.address && <div className="text-xs text-gray-400">{b.address}</div>}
-                </TableCell>
-                <TableCell className="text-sm text-gray-600">
-                  {b.city}{b.country ? `, ${b.country}` : ""}
-                  <div className="mt-0.5">{b.pin_source === "exact"
-                    ? <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700" data-testid={`branch-pin-exact-${b.id}`}><CheckCircle2 className="h-3 w-3" /> Exact pin</span>
-                    : <span className="inline-flex items-center gap-1 text-[11px] text-amber-700" data-testid={`branch-pin-approx-${b.id}`}><AlertTriangle className="h-3 w-3" /> {b.lat == null ? "No pin" : "City centre pin"}</span>}</div>
-                </TableCell>
-                <TableCell className="text-sm text-gray-600">{b.manager_name || "—"}</TableCell>
-                <TableCell className="text-xs text-gray-500">{b.contact_email || "—"}{b.contact_phone ? ` · ${b.contact_phone}` : ""}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={b.status === "active" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-500 border-gray-200"}>
-                    {b.status === "active" ? "Active" : "Inactive"}
-                  </Badge>
-                </TableCell>
-                {isAdmin && (
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(b); }} data-testid={`edit-branch-${b.id}`}>
-                      <Pencil className="h-3.5 w-3.5 text-gray-500" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); remove(b); }} data-testid={`delete-branch-${b.id}`}>
-                      <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
-                    </Button>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editing ? "Edit branch" : "New branch"}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 space-y-1">
-              <Label>Branch name</Label>
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} data-testid="branch-form-name" />
-            </div>
-            <div className="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <LocationFields country={form.country} state={form.state} city={form.city} prefix="branch-form" compact
-                onChange={(v) => setForm((f) => ({ ...f, ...v, ...(v.city !== undefined && v.city !== f.city ? { lat: null, lng: null, pin_source: null } : {}) }))} />
-            </div>
-            <div className="col-span-2">
-              <PinPicker city={form.city} lat={form.lat} lng={form.lng} source={form.pin_source} onChange={pinChange} />
-            </div>
-            <div className="col-span-2 space-y-1">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
-                <SelectTrigger data-testid="branch-form-status"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-2 space-y-1">
-              <Label>Address</Label>
-              <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} data-testid="branch-form-address" />
-            </div>
-            <div className="space-y-1">
-              <Label>Location CEO</Label>
-              <Select value={form.manager_id || "__none"} onValueChange={(v) => setForm((f) => ({ ...f, manager_id: v === "__none" ? "" : v }))}>
-                <SelectTrigger data-testid="branch-form-ceo"><SelectValue placeholder="Pick a person" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none">No CEO yet{!form.manager_id && form.head_name ? ` (was “${form.head_name}”)` : ""}</SelectItem>
-                  {form.manager_id && !people.some((p) => p.id === form.manager_id) && <SelectItem value={form.manager_id}>{form.head_name || "Current CEO"}</SelectItem>}
-                  {people.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-400">Gets the CEO report for this location.</p>
-            </div>
-            <div className="space-y-1">
-              <Label>Contact email</Label>
-              <Input type="email" value={form.contact_email} onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))} data-testid="branch-form-email" />
-            </div>
-            <div className="col-span-2 space-y-1">
-              <Label>Contact phone</Label>
-              <Input value={form.contact_phone} onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))} data-testid="branch-form-phone" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={save} className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold" data-testid="branch-form-save">
-              {editing ? "Save changes" : "Create branch"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
+    <div data-testid={testid}>
+      <div style={{ height: h }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 12, bottom: 0, left: 0 }} barCategoryGap={series.length > 1 ? 8 : 10} barGap={2}>
+            <CartesianGrid horizontal={false} stroke={GRID} />
+            <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} tickFormatter={fmt} allowDecimals={false} />
+            <YAxis type="category" dataKey="label" tick={AXIS} axisLine={false} tickLine={false} width={narrow ? 92 : 132} tickFormatter={(v) => cut(v, narrow ? 12 : 18)} />
+            <Tooltip cursor={{ fill: "#F9FAFB" }} content={({ active, payload, label }) => active && payload?.length ? (
+              <TipBox title={label} items={series.map((s) => ({ label: s.label, color: s.color, value: fmt(payload[0].payload[s.key] || 0) }))} />
+            ) : null} />
+            {series.map((s) => <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} radius={[0, 4, 4, 0]} maxBarSize={18} />)}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      {series.length > 1 && <LegendRow items={series} />}
+    </div>
   );
 };
 
-export default function LocationsPage() {
-  const [data, setData] = useState(null);
-  const [enabled, setEnabled] = useState({ clients: true, branches: true, employees: true });
-  const [branchFilter, setBranchFilter] = useState("all");
-  const mapRef = useRef(null);
-  const mapWrapRef = useRef(null);
-
-  const loadMap = useCallback(() => {
-    api.get("/locations/map", { params: branchFilter !== "all" ? { branch: branchFilter } : {} }).then((r) => setData(r.data)).catch(() => {});
-  }, [branchFilter]);
-
-  useEffect(() => { loadMap(); }, [loadMap]);
-
-  // Auto-fit to all visible pins whenever data changes
-  useEffect(() => {
-    const m = mapRef.current;
-    if (!m || !data) return;
-    const pts = [...data.cities.map((c) => [c.lat, c.lng]), ...(data.branches || []).filter((b) => b.lat != null).map((b) => [b.lat, b.lng])];
-    if (!pts.length) return;
-    if (pts.length === 1) m.setView(pts[0], 12);
-    else m.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 13 });
-  }, [data]);
-
-  const flyTo = (c) => mapRef.current?.flyTo([c.lat, c.lng], 12, { duration: 0.8 });
-
-  // Keep Leaflet correctly sized when its container changes (panel toggles, resize, layout shifts)
-  useEffect(() => {
-    const el = mapWrapRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
-      if (mapRef.current) mapRef.current.invalidateSize();
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [data]);
-
-  if (!data)
-    return <div className="h-64 flex items-center justify-center"><div className="h-7 w-7 rounded-full border-2 border-[#F26B21] border-t-transparent animate-spin" /></div>;
-
-  const toggle = (key) => setEnabled((e) => ({ ...e, [key]: !e[key] }));
-  const branchPins = data.branches || [];
-  const needFix = branchPins.filter((b) => b.pin_source !== "exact");
-
+/** Tiny income line for a card (plain SVG so it always stays inside its box). */
+const Spark = ({ values, label }) => {
+  const W = 112, H = 36, P = 3;
+  const max = Math.max(...values, 0);
+  if (!values.length || max <= 0) return <div className="h-9 w-28 flex items-center justify-end text-[10px] text-gray-400 shrink-0">no income yet</div>;
+  const x = (i) => P + (i * (W - 2 * P)) / Math.max(1, values.length - 1);
+  const y = (v) => H - P - (v / max) * (H - 2 * P);
+  const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   return (
-    <div className="space-y-5 max-w-7xl" data-testid="locations-page">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Locations</h1>
-          <p className="text-sm text-gray-500 mt-1">Where our clients, branches and team are — across {data.totals.cities} cities.</p>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <BranchFilter value={branchFilter} onChange={setBranchFilter} testid="map-branch-filter" />
-          <Globe2 className="h-4 w-4" /> OpenStreetMap
-        </div>
-      </div>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0" role="img" aria-label={label}>
+      <title>{label}</title>
+      <polyline points={pts} fill="none" stroke={BRAND} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r="2.5" fill={BRAND} />
+    </svg>
+  );
+};
 
-      {needFix.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex gap-3" data-testid="pins-need-fix">
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-          <div>
-            <span className="font-semibold">{needFix.length === 1 ? "1 branch is" : `${needFix.length} branches are`} pinned at the city centre, not the office: </span>
-            {needFix.map((b) => b.name).join(", ")}.
-            <span className="text-amber-800"> Edit the branch below and tap <b>Use my location</b> at the office, or paste its Google Maps link. Attendance uses this pin.</span>
+/** A location at a glance. */
+const LocationCard = ({ l, money, color }) => (
+  <Card className="border-gray-200/80 shadow-sm min-w-0" data-testid={`loc-card-${l.id}`}>
+    <CardContent className="p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: color }} aria-hidden />
+            <span className="font-semibold text-gray-900 truncate">{l.name}</span></div>
+          <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
+            {l.country === "India" ? <MapPin className="h-3 w-3 shrink-0" /> : <Globe2 className="h-3 w-3 shrink-0" />}
+            {[l.city, l.country !== "India" ? l.country : null].filter(Boolean).join(", ") || "—"}
+            {l.status !== "active" && <span className="text-gray-400"> · inactive</span>}
           </div>
+          <div className="text-xs text-gray-600 mt-0.5 flex items-center gap-1 truncate"><Crown className="h-3 w-3 text-[#F26B21] shrink-0" />{l.ceo || <span className="text-gray-400">No Location CEO yet</span>}</div>
+        </div>
+        {l.score != null ? (
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-semibold text-gray-900 leading-none">{l.score}<span className="text-xs text-gray-400 font-medium">/100</span></div>
+            <Pill tone={BAND[l.band]?.[0]} className="mt-1">{BAND[l.band]?.[1]}</Pill>
+          </div>
+        ) : <span className="text-[11px] text-gray-400 shrink-0">No score yet</span>}
+      </div>
+      <div className="grid grid-cols-4 gap-2 text-center">
+        {[["Clients", l.clients], ["Team", l.team], ["Projects", l.projects_active], ["Leads", l.leads_open]].map(([k, v]) => (
+          <div key={k} className="rounded-lg bg-gray-50 py-2"><div className="text-base font-semibold text-gray-900">{v}</div><div className="text-[10px] text-gray-500">{k}</div></div>
+        ))}
+      </div>
+      {money && (
+        <div className="flex items-end justify-between gap-3">
+          <div className="text-xs text-gray-600 space-y-0.5 min-w-0">
+            <div>MRR <span className="font-mono font-semibold text-gray-900">{inrShort(l.mrr)}</span></div>
+            <div>Income, 6 mo <span className="font-mono font-semibold text-gray-900">{inrShort(l.revenue_6m)}</span></div>
+          </div>
+          <Spark values={(l.trend || []).map((t) => t.income)} label={`Income by month for ${l.name}, last 6 months: ${(l.trend || []).map((t) => `${shortMonth(t.month)} ${inrShort(t.income)}`).join(", ")}`} />
         </div>
       )}
+    </CardContent>
+  </Card>
+);
 
-      {/* Layer toggles */}
-      <div className="flex flex-wrap items-center gap-2">
-        {LAYERS.map((l) => (
-          <button
-            key={l.key}
-            onClick={() => toggle(l.key)}
-            data-testid={`layer-toggle-${l.key}`}
-            className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition-all ${
-              enabled[l.key]
-                ? "border-transparent text-white shadow-sm"
-                : "border-gray-200 bg-white text-gray-400"
-            }`}
-            style={enabled[l.key] ? { backgroundColor: l.color } : {}}
-          >
-            <l.icon className="h-3.5 w-3.5" />
-            {l.label}
-            <span className={`rounded-full px-1.5 text-[10px] font-bold ${enabled[l.key] ? "bg-white/25" : "bg-gray-100"}`}>
-              {data.totals[l.key]}
-            </span>
-          </button>
-        ))}
-        <span className="text-xs text-gray-400 sm:ml-2">Branches show their exact pin · clients and team show at their city's centre</span>
-      </div>
+export default function LocationsPage() {
+  const { user } = useAuth();
+  const narrow = useNarrow();
+  const [search, setSearch] = useSearchParams();
+  const tab = search.get("tab") || "overview";
+  const setTab = (t) => setSearch(t === "overview" ? {} : { tab: t }, { replace: true });
+  const [branch, setBranch] = useState("all");
+  const [d, setD] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const [newSignal, setNewSignal] = useState(0);
+  const isAdmin = ["super_admin", "admin"].includes(user?.role);
+  const all = useBranchOptions();
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
-        {/* Map */}
-        <Card className="border-gray-200/80 shadow-sm overflow-hidden">
-          <CardContent className="p-0">
-            <div style={{ height: "calc(100vh - 320px)", minHeight: 420 }} data-testid="locations-map" className="map-wrapper" ref={mapWrapRef}>
-              <MapContainer ref={mapRef} center={[11.1, 77.6]} zoom={7} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {data.cities.map((c) => {
-                  const nc = enabled.clients ? c.clients.length : 0;
-                  const ne = enabled.employees ? c.employees.length : 0;
-                  if (!nc && !ne) return null;
-                  return (
-                    <Marker key={`city-${c.city}`} position={[c.lat, c.lng]} icon={cityIcon(nc, ne)}>
-                      <Popup>
-                        <div style={{ minWidth: 190, maxHeight: 260, overflowY: "auto" }}>
-                          <div style={{ fontWeight: 700, marginBottom: 4 }}>{c.city}{c.country ? `, ${c.country}` : ""}</div>
-                          {nc > 0 && <div style={{ fontSize: 11, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: ".05em", marginTop: 4 }}>Clients</div>}
-                          {nc > 0 && c.clients.map((it) => (
-                            <div key={it.id} style={{ fontSize: 12, padding: "2px 0" }}>
-                              <Link to={`/clients/${it.id}`} style={{ color: "#F26B21", fontWeight: 600 }}>{it.name}</Link>
-                              <span style={{ color: "#9CA3AF", marginLeft: 6 }}>{it.industry || ""}</span>
-                            </div>
-                          ))}
-                          {ne > 0 && <div style={{ fontSize: 11, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: ".05em", marginTop: 6 }}>Team</div>}
-                          {ne > 0 && c.employees.map((it) => (
-                            <div key={it.id} style={{ fontSize: 12, padding: "2px 0" }}>
-                              <Link to={`/employees/${it.id}`} style={{ color: "#2563EB", fontWeight: 600 }}>{it.name}</Link>
-                              <span style={{ color: "#9CA3AF", marginLeft: 6 }}>{it.designation || ""}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </Popup>
-                    </Marker>
-                  );
-                })}
-                {enabled.branches && branchPins.filter((b) => b.lat != null).map((b) => (
-                  <Marker key={`branch-${b.id}`} position={[b.lat, b.lng]} icon={branchIcon(b.pin_source === "exact")} zIndexOffset={500}>
-                    <Popup>
-                      <div style={{ minWidth: 180 }}>
-                        <div style={{ fontWeight: 700 }}>{b.name}</div>
-                        <div style={{ fontSize: 12, color: "#6B7280" }}>{b.address || b.city}</div>
-                        {b.head_name && <div style={{ fontSize: 12, color: "#6B7280" }}>Head: {b.head_name}</div>}
-                        <div style={{ fontSize: 11, marginTop: 4, color: b.pin_source === "exact" ? "#047857" : "#B45309", fontWeight: 600 }}>
-                          {b.pin_source === "exact" ? "Exact office pin" : "Approximate — city centre"}
-                        </div>
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
-              </MapContainer>
+  const load = useCallback(() => {
+    api.get("/locations/insights", { params: branch !== "all" ? { branch } : {} }).then((r) => { setD(r.data); setFailed(false); }).catch(() => setFailed(true));
+  }, [branch]);
+  useEffect(() => { load(); }, [load]);
+
+  // colour follows the location (its place in the full, name-sorted list), never its rank in a chart
+  const colorOf = useMemo(() => {
+    const ids = [...all].sort((a, b) => a.name.localeCompare(b.name)).map((b) => b.id);
+    return (id) => SERIES[Math.max(0, ids.indexOf(id)) % SERIES.length];
+  }, [all]);
+
+  const charts = useMemo(() => {
+    if (!d) return null;
+    const locs = d.locations;
+    // income trend: up to 7 locations by name plus "Other" so there are never more than 8 lines
+    let shown = locs;
+    let other = null;
+    if (d.money && locs.length > 8) {
+      shown = [...locs].sort((a, b) => b.revenue_6m - a.revenue_6m).slice(0, 7);
+      const rest = locs.filter((l) => !shown.includes(l));
+      other = d.months.map((m, i) => rest.reduce((a, l) => a + (l.trend?.[i]?.income || 0), 0));
+    }
+    const trend = d.money ? d.months.map((m, i) => {
+      const row = { month: m };
+      shown.forEach((l) => { row[l.id] = l.trend?.[i]?.income || 0; });
+      if (other) row.__other = other[i];
+      return row;
+    }) : [];
+    const lines = [...shown.map((l) => ({ key: l.id, label: l.name, color: colorOf(l.id) })), ...(other ? [{ key: "__other", label: "Other locations", color: "#9CA3AF" }] : [])];
+    const byLoc = locs.map((l) => ({ label: l.name, id: l.id, clients: l.clients, team: l.team, leads_open: l.leads_open, mrr: l.mrr || 0,
+      pipeline: l.pipeline_value || 0, ...Object.fromEntries(STATUS.map(([k]) => [k, l.projects_by_status?.[k] || 0])) }));
+    const states = d.india.states.filter((s) => s.clients || s.team || s.leads).slice(0, 12).map((s) => ({ label: s.state, ...s }));
+    const countries = d.abroad.map((c) => ({ label: c.country, clients: c.clients.length, team: c.team, leads: c.leads, locations: c.locations.length }));
+    return { trend, lines, byLoc, states, countries };
+  }, [d, colorOf]);
+
+  if (failed && !d) return <p className="text-sm text-gray-500 py-10 text-center">Couldn't load locations. Check your connection and try again.</p>;
+  if (!d) return <Spinner />;
+  const k = d.kpis;
+  const money = d.money;
+  const tabs = [["overview", "Overview"], ["india", "India map", k.india_cities], ["abroad", "Outside India", k.countries_abroad], ["manage", "Manage", d.locations.length]];
+
+  return (
+    <div className="space-y-5 max-w-7xl min-w-0" data-testid="locations-page">
+      <PageHead title="Locations"
+        sub={`${k.locations} location${k.locations === 1 ? "" : "s"} · ${k.india_cities} ${k.india_cities === 1 ? "city" : "cities"} in India · ${k.countries_abroad} ${k.countries_abroad === 1 ? "country" : "countries"} abroad`}
+        actions={<>
+          {all.length > 1 && <BranchFilter value={branch} onChange={setBranch} testid="map-branch-filter" className="w-[170px] sm:w-[190px]" />}
+          {isAdmin && <Button onClick={() => { setTab("manage"); setNewSignal((n) => n + 1); }} className="bg-[#F26B21] hover:bg-[#E05A10] text-white font-semibold" data-testid="locations-add">
+            <Plus className="h-4 w-4 mr-1.5" /> Add location</Button>}
+        </>} />
+
+      <PillTabs tabs={tabs} value={tab} onChange={setTab} testid="locations-tabs" />
+
+      {tab === "overview" && (
+        <div className="space-y-5" data-testid="locations-overview">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3" data-testid="locations-kpis">
+            <Stat icon={Building2} label="Locations" sub={k.locations_abroad ? `${k.locations_abroad} abroad` : null} value={k.locations} tone="gray" testid="kpi-locations" />
+            <Stat icon={Users} label="Clients" sub={`${k.clients_india} India · ${k.clients_abroad} abroad`} value={k.clients} testid="kpi-clients" />
+            <Stat icon={UserCheck} label="Team" value={k.team} tone="blue" testid="kpi-team" />
+            <Stat icon={Briefcase} label="Active projects" value={k.projects_active} tone="violet" testid="kpi-projects" />
+            {money ? <>
+              <Stat icon={Repeat} label="MRR" sub="all locations" value={inrShort(k.mrr)} tone="green" testid="kpi-mrr" />
+              <Stat icon={TrendingUp} label="Income, 6 months" value={inrShort(k.revenue_6m)} tone="orange" testid="kpi-income" />
+            </> : <>
+              <Stat icon={MapPin} label="States in India" value={k.india_states} tone="green" />
+              <Stat icon={Globe2} label="Countries abroad" value={k.countries_abroad} tone="amber" />
+            </>}
+          </div>
+
+          {d.locations.length === 0 ? (
+            <Card className="border-gray-200/80"><CardContent className="p-6 text-sm text-gray-500">No locations yet.{isAdmin && <> <button type="button" className="font-semibold text-[#F26B21]" onClick={() => { setTab("manage"); setNewSignal((n) => n + 1); }}>Add your first location</button>.</>}</CardContent></Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" data-testid="location-cards">
+              {d.locations.map((l) => <LocationCard key={l.id} l={l} money={money} color={colorOf(l.id)} />)}
             </div>
-          </CardContent>
-        </Card>
+          )}
 
-        {/* City list */}
-        <div className="space-y-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 320px)" }}>
-          {data.cities.map((c) => (
-            <Card key={c.city} className="border-gray-200/80 shadow-sm cursor-pointer hover:border-[#F26B21]/50 transition-colors" onClick={() => flyTo(c.branches?.find((b) => b.lat != null) || c)} data-testid={`city-card-${c.city.replace(/\s+/g, "-").toLowerCase()}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-gray-900 text-sm">{c.city}</div>
-                  <span className="text-[10px] uppercase tracking-widest text-gray-400">{c.country}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {money && (
+              <ChartCard title="Income by location" sub="Last 6 months, from the ledger" testid="chart-income-trend" className="lg:col-span-2"
+                rows={charts.trend} columns={[{ key: "month", label: "Month", format: (v) => monthLabel(v) }, ...charts.lines.map((s) => ({ key: s.key, label: s.label, format: inrShort }))]}>
+                <div className="h-60 sm:h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={charts.trend} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                      <CartesianGrid vertical={false} stroke={GRID} />
+                      <XAxis dataKey="month" tickFormatter={shortMonth} tick={AXIS} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={inrShort} tick={AXIS} axisLine={false} tickLine={false} width={narrow ? 44 : 56} />
+                      <Tooltip cursor={{ stroke: "#D1D5DB" }} content={({ active, payload, label }) => active && payload?.length ? (
+                        <TipBox title={monthLabel(label)} items={charts.lines.map((s) => ({ label: s.label, color: s.color, value: inrShort(payload[0].payload[s.key] || 0) }))} />
+                      ) : null} />
+                      {charts.lines.map((s) => <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={{ r: 3, strokeWidth: 0, fill: s.color }} activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }} />)}
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                  {c.clients.length > 0 && <span className="flex items-center gap-1"><Users className="h-3 w-3 text-[#F26B21]" />{c.clients.length} client{c.clients.length > 1 ? "s" : ""}</span>}
-                  {c.branches.length > 0 && <span className="flex items-center gap-1"><Building2 className="h-3 w-3 text-gray-700" />{c.branches.length} branch{c.branches.length > 1 ? "es" : ""}</span>}
-                  {c.employees.length > 0 && <span className="flex items-center gap-1"><UserCheck className="h-3 w-3 text-blue-600" />{c.employees.length} team</span>}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {(data.unplaced?.clients > 0 || data.unplaced?.employees > 0) && (
-            <p className="text-xs text-gray-400 px-1" data-testid="map-unplaced">
-              Not on the map (no city set): {[data.unplaced.clients && `${data.unplaced.clients} client${data.unplaced.clients > 1 ? "s" : ""}`, data.unplaced.employees && `${data.unplaced.employees} team`].filter(Boolean).join(" · ")}
+                {charts.lines.length > 1 && <LegendRow items={charts.lines} />}
+              </ChartCard>
+            )}
+
+            <ChartCard title="Clients and team" sub="At each location" testid="chart-clients-team" rows={charts.byLoc}
+              columns={[{ key: "label", label: "Location" }, { key: "clients", label: "Clients" }, { key: "team", label: "Team" }]}>
+              <HBars rows={charts.byLoc} narrow={narrow} testid="bars-clients-team"
+                series={[{ key: "clients", label: "Clients", color: SERIES[0] }, { key: "team", label: "Team", color: SERIES[1] }]} />
+            </ChartCard>
+
+            <ChartCard title="Projects by status" sub="Client and internal projects run from each location" testid="chart-project-status" rows={charts.byLoc}
+              columns={[{ key: "label", label: "Location" }, ...STATUS.map(([key, label]) => ({ key, label }))]}>
+              <div style={{ height: Math.max(140, charts.byLoc.length * 34 + 36) }} data-testid="bars-project-status">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={charts.byLoc} layout="vertical" margin={{ top: 4, right: 12, bottom: 0, left: 0 }} barCategoryGap={10}>
+                    <CartesianGrid horizontal={false} stroke={GRID} />
+                    <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <YAxis type="category" dataKey="label" tick={AXIS} axisLine={false} tickLine={false} width={narrow ? 92 : 132} tickFormatter={(v) => cut(v, narrow ? 12 : 18)} />
+                    <Tooltip cursor={{ fill: "#F9FAFB" }} content={({ active, payload, label }) => active && payload?.length ? (
+                      <TipBox title={label} items={STATUS.map(([key, l], i) => ({ label: l, color: SERIES[i], value: payload[0].payload[key] || 0 }))} />
+                    ) : null} />
+                    {STATUS.map(([key, l], i) => <Bar key={key} dataKey={key} name={l} stackId="s" fill={SERIES[i]} stroke="#fff" strokeWidth={2} maxBarSize={18}
+                      radius={i === STATUS.length - 1 ? [0, 4, 4, 0] : 0} />)}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <LegendRow items={STATUS.map(([, l], i) => ({ label: l, color: SERIES[i] }))} />
+            </ChartCard>
+
+            {money ? (
+              <>
+                <ChartCard title="Recurring revenue (MRR)" sub="Per month, from recurring projects" testid="chart-mrr" rows={charts.byLoc.filter((r) => r.mrr > 0)}
+                  empty="No recurring projects yet. Mark a project Recurring to see MRR here." columns={[{ key: "label", label: "Location" }, { key: "mrr", label: "MRR", format: inrShort }]}
+                  actions={<Link to="/finance/revenue" className="text-xs font-semibold text-[#F26B21] whitespace-nowrap">MRR & ARR</Link>}>
+                  <HBars rows={charts.byLoc.filter((r) => r.mrr > 0)} money narrow={narrow} testid="bars-mrr" series={[{ key: "mrr", label: "MRR", color: BRAND }]} />
+                </ChartCard>
+                <ChartCard title="Open sales pipeline" sub="Value of leads not yet won or lost" testid="chart-pipeline" rows={charts.byLoc.filter((r) => r.pipeline > 0)}
+                  empty="No open leads at these locations." columns={[{ key: "label", label: "Location" }, { key: "pipeline", label: "Open pipeline", format: inrShort }, { key: "leads_open", label: "Leads" }]}>
+                  <HBars rows={charts.byLoc.filter((r) => r.pipeline > 0)} money narrow={narrow} testid="bars-pipeline" series={[{ key: "pipeline", label: "Open pipeline", color: BRAND }]} />
+                </ChartCard>
+              </>
+            ) : (
+              <ChartCard title="Open leads" sub="Leads not yet won or lost" testid="chart-leads" rows={charts.byLoc.filter((r) => r.leads_open > 0)}
+                empty="No open leads at these locations." columns={[{ key: "label", label: "Location" }, { key: "leads_open", label: "Open leads" }]}>
+                <HBars rows={charts.byLoc.filter((r) => r.leads_open > 0)} narrow={narrow} testid="bars-leads" series={[{ key: "leads_open", label: "Open leads", color: BRAND }]} />
+              </ChartCard>
+            )}
+          </div>
+
+          {d.unplaced && (d.unplaced.clients > 0 || d.unplaced.team > 0) && (
+            <p className="text-xs text-gray-500" data-testid="map-unplaced">
+              Not placed anywhere yet (no city): {[d.unplaced.clients && `${d.unplaced.clients} client${d.unplaced.clients > 1 ? "s" : ""}`, d.unplaced.team && `${d.unplaced.team} team`].filter(Boolean).join(" · ")}.
             </p>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Branch management */}
-      <BranchManager onChanged={loadMap} onLocate={(b) => b.lat && mapRef.current?.flyTo([b.lat, b.lng], 12, { duration: 0.8 })} />
+      {tab === "india" && (
+        <div className="space-y-5" data-testid="locations-india">
+          <IndiaMap india={d.india} />
+          <ChartCard title="By state" sub="Clients, team and open leads in each Indian state" testid="chart-states" rows={charts.states}
+            empty="No one in India has a state set yet."
+            columns={[{ key: "label", label: "State" }, { key: "clients", label: "Clients" }, { key: "team", label: "Team" }, { key: "leads", label: "Open leads" }, { key: "locations", label: "Locations" }]}>
+            <HBars rows={charts.states} narrow={narrow} testid="bars-states"
+              series={[{ key: "clients", label: "Clients", color: SERIES[0] }, { key: "team", label: "Team", color: SERIES[1] }, { key: "leads", label: "Open leads", color: SERIES[2] }]} />
+          </ChartCard>
+        </div>
+      )}
+
+      {tab === "abroad" && (
+        <div className="space-y-5" data-testid="locations-abroad">
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 flex gap-2.5">
+            <Globe2 className="h-4 w-4 text-[#F26B21] mt-0.5 shrink-0" />
+            <p>Places outside India aren't on the map. They're grouped by country here.</p>
+          </div>
+          {d.abroad.length === 0 ? (
+            <Card className="border-gray-200/80"><CardContent className="p-6 text-sm text-gray-500" data-testid="abroad-empty">No clients, team or locations outside India yet.</CardContent></Card>
+          ) : (
+            <>
+              <ChartCard title="By country" sub="Clients, team and open leads outside India" testid="chart-countries" rows={charts.countries}
+                columns={[{ key: "label", label: "Country" }, { key: "clients", label: "Clients" }, { key: "team", label: "Team" }, { key: "leads", label: "Open leads" }, { key: "locations", label: "Locations" }]}>
+                <HBars rows={charts.countries} narrow={narrow} testid="bars-countries"
+                  series={[{ key: "clients", label: "Clients", color: SERIES[0] }, { key: "team", label: "Team", color: SERIES[1] }, { key: "leads", label: "Open leads", color: SERIES[2] }]} />
+              </ChartCard>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" data-testid="country-cards">
+                {d.abroad.map((c) => (
+                  <Card key={c.country} className="border-gray-200/80 shadow-sm min-w-0" data-testid={`country-${c.country.toLowerCase().replace(/\s+/g, "-")}`}>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold text-gray-900 flex items-center gap-1.5"><Globe2 className="h-4 w-4 text-gray-400" />{c.country}</div>
+                        {c.cities.length > 0 && <span className="text-xs text-gray-500 truncate">{c.cities.join(", ")}</span>}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        {[["Clients", c.clients.length], ["Team", c.team], ["Open leads", c.leads]].map(([kk, v]) => (
+                          <div key={kk} className="rounded-lg bg-gray-50 py-2"><div className="text-base font-semibold text-gray-900">{v}</div><div className="text-[10px] text-gray-500">{kk}</div></div>
+                        ))}
+                      </div>
+                      {c.locations.length > 0 && <div className="text-xs text-gray-600 flex flex-wrap gap-1.5 items-center"><Building2 className="h-3.5 w-3.5 text-gray-500" />{c.locations.map((b) => <Pill key={b.id} tone="gray">{b.name}</Pill>)}</div>}
+                      {c.clients.length > 0 && (
+                        <ul className="text-sm space-y-1">
+                          {c.clients.slice(0, 6).map((cl) => <li key={cl.id} className="truncate"><Link to={`/clients/${cl.id}`} className="text-[#C2410C] font-medium hover:underline">{cl.name}</Link>{cl.city && <span className="text-xs text-gray-500"> · {cl.city}</span>}</li>)}
+                          {c.clients.length > 6 && <li className="text-xs text-gray-500">and {c.clients.length - 6} more</li>}
+                        </ul>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === "manage" && <LocationManager onChanged={load} openNewSignal={newSignal} />}
+
+      {tab === "overview" && money && d.locations.some((l) => l.score == null) && (
+        <p className="text-xs text-gray-500 flex items-center gap-1.5"><Target className="h-3.5 w-3.5" /> A location gets its score once it has a target, invoices, active projects, clients or attendance. See Dashboard → Location scores.</p>
+      )}
     </div>
   );
 }
